@@ -933,11 +933,8 @@ where
     /// Returns the gas limit of a request without a `gas` value, executing in
     /// the block at `block_spec`.
     ///
-    /// The limit is the configured default, or else the block's gas limit. The
-    /// bound on a transaction's gas limit in that block caps it. Before
-    /// Amsterdam, a configured transaction gas cap replaces the hardfork's
-    /// bound. The pending block uses the local hardfork and the gas limit
-    /// it would be mined with.
+    /// See [`ProviderConfig::default_transaction_gas_limit`] for how the limit
+    /// is derived.
     pub fn default_transaction_gas_limit(
         &self,
         block_spec: &BlockSpec,

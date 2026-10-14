@@ -44,7 +44,7 @@ pub struct ScenarioProviderConfig {
     /// The gas limit of RPC call and transaction requests that do not specify
     /// a `gas` value.
     ///
-    /// When set, the transaction gas bound of the request's block caps it.
+    /// The transaction gas bound of the request's block caps it.
     /// When not set, it is derived from the hardfork and gas limit of the
     /// request's block. Before Amsterdam, the transaction gas cap replaces the
     /// hardfork's bound.
