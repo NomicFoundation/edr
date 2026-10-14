@@ -1,5 +1,9 @@
 //! slang-compiler build model, read from the per-source `debugSymbols`
 //! output instead of the solc AST.
+//!
+//! A newer EDR can meet output from an older `hardhat-slang`, whose Hardhat
+//! peer range is open-ended, so a key that a released compiler emits is never
+//! dropped: a renamed key is read through `#[serde(alias)]`.
 
 use std::{collections::HashMap, str::FromStr as _, sync::Arc};
 

@@ -153,10 +153,10 @@ pub enum CompilerType {
     /// Solc compiler
     #[default]
     Solc,
-    /// Slang solx compiler
+    /// solx 0.1.x, the solc-based compiler, from `hardhat-slang-solx`
     #[strum(serialize = "slang-solx")]
     SlangSolx,
-    /// Slang compiler
+    /// The Slang-based compiler, from `hardhat-slang`
     Slang,
 }
 
