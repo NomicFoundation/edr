@@ -298,8 +298,9 @@ struct AbstractOriginMeta {
     decl_line: Option<u64>,
 }
 
-/// Sweep over the `low_pc`-sorted inlined ranges yielding, for monotonically
-/// increasing PCs, the ranges containing each PC.
+/// Sweep over the `low_pc`-sorted inlined ranges yielding the ranges
+/// containing each PC, for PCs visited in bytecode order (a linear walk over
+/// the code, not execution order, so jumps never move it backwards).
 struct RangeSweep<'a> {
     /// Must be sorted by `low_pc`, as `ParsedDwarf::from_elf_bytes` produces.
     ranges: &'a [InlinedRange],
@@ -331,7 +332,7 @@ impl<'a> RangeSweep<'a> {
     fn containing(&mut self, pc: u64) -> Vec<InlinedRange> {
         debug_assert!(
             pc >= self.prev_pc,
-            "RangeSweep requires monotonically increasing PCs"
+            "RangeSweep requires PCs in bytecode order"
         );
         self.prev_pc = pc;
         while let Some(range) = self.ranges.get(self.next) {
