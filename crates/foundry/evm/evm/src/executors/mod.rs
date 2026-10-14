@@ -33,10 +33,13 @@ use foundry_evm_coverage::HitMaps;
 use foundry_evm_traces::{SparsedTraceArena, TracingMode};
 use revm::{
     bytecode::Bytecode,
-    context::result::{ExecutionResult, HaltReason, HaltReasonTr, ResultAndState},
-    context_interface::result::Output,
+    context::{
+        result::{ExecutionResult, HaltReason, HaltReasonTr, ResultAndState},
+        CfgEnv,
+    },
+    context_interface::{result::Output, Cfg as _},
     database::{DatabaseCommit, DatabaseRef},
-    interpreter::{return_ok, InstructionResult},
+    interpreter::{gas::InitialAndFloorGas, return_ok, InstructionResult},
 };
 
 use crate::inspectors::{Cheatcodes, InspectorData, InspectorStack};
@@ -1735,14 +1738,7 @@ fn convert_executed_result<
             (reason.into(), 0_u64, gas.tx_gas_used(), None, logs)
         }
     };
-    let gas = revm::interpreter::gas::calculate_initial_tx_gas(
-        env.cfg.spec.into(),
-        env.tx.input(),
-        env.tx.kind().is_create(),
-        env.tx.access_list().map_or(0, Iterator::count).try_into()?,
-        0,
-        0,
-    );
+    let stipend = calculate_stipend(&env.tx, &env.cfg);
 
     let result = match &out {
         Some(Output::Call(data)) => data.clone(),
@@ -1770,7 +1766,7 @@ fn convert_executed_result<
         result,
         gas_used,
         gas_refunded,
-        stipend: gas.initial_total_gas(),
+        stipend,
         logs,
         labels,
         call_trace_arena,
@@ -1803,4 +1799,26 @@ impl FuzzTestTimer {
         self.inner
             .is_some_and(|(start, duration)| start.elapsed() > duration)
     }
+}
+
+/// The intrinsic gas of `tx` under `cfg`, i.e. the gas spent before the first
+/// opcode executes.
+///
+/// Shared with the isolated-execution path so that both charge the same
+/// stipend.
+pub(crate) fn calculate_stipend<HardforkT: HardforkTr>(
+    tx: &impl TransactionEnvTr,
+    cfg: &CfgEnv<HardforkT>,
+) -> u64 {
+    calculate_initial_gas(tx, cfg).initial_total_gas()
+}
+
+/// The intrinsic gas of `tx` under `cfg`, split into regular gas, EIP-8037
+/// state gas and the EIP-7623 calldata floor.
+// TODO(revm 42): pass the EIP-2780 transaction info once revm exposes it.
+pub(crate) fn calculate_initial_gas<HardforkT: HardforkTr>(
+    tx: &impl TransactionEnvTr,
+    cfg: &CfgEnv<HardforkT>,
+) -> InitialAndFloorGas {
+    cfg.gas_params().initial_tx_gas_for_tx(tx)
 }

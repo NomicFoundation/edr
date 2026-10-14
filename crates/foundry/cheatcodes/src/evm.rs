@@ -2107,10 +2107,11 @@ impl Cheatcode for snapshotGasLastCall_0Call {
         >,
     ) -> Result {
         let Self { name } = self;
-        let Some(last_call_gas) = &ccx.state.gas_metering.last_call_gas else {
+        if ccx.state.gas_metering.last_call_gas.is_none() {
             bail!("no external call was made yet");
-        };
-        inner_last_gas_snapshot(ccx, None, Some(name.clone()), last_call_gas.gasTotalUsed)
+        }
+        let gas_used = ccx.state.gas_metering.last_call_snapshot_gas_used;
+        inner_last_gas_snapshot(ccx, None, Some(name.clone()), gas_used)
     }
 }
 
@@ -2147,15 +2148,11 @@ impl Cheatcode for snapshotGasLastCall_1Call {
         >,
     ) -> Result {
         let Self { name, group } = self;
-        let Some(last_call_gas) = &ccx.state.gas_metering.last_call_gas else {
+        if ccx.state.gas_metering.last_call_gas.is_none() {
             bail!("no external call was made yet");
-        };
-        inner_last_gas_snapshot(
-            ccx,
-            Some(group.clone()),
-            Some(name.clone()),
-            last_call_gas.gasTotalUsed,
-        )
+        }
+        let gas_used = ccx.state.gas_metering.last_call_snapshot_gas_used;
+        inner_last_gas_snapshot(ccx, Some(group.clone()), Some(name.clone()), gas_used)
     }
 }
 
@@ -2192,10 +2189,11 @@ impl Cheatcode for snapshotGasLastFrame_0Call {
         >,
     ) -> Result {
         let Self { name } = self;
-        let Some(last_frame_gas) = &ccx.state.gas_metering.last_frame_gas else {
+        if ccx.state.gas_metering.last_frame_gas.is_none() {
             bail!("no external call or create was made yet");
-        };
-        inner_last_gas_snapshot(ccx, None, Some(name.clone()), last_frame_gas.gasTotalUsed)
+        }
+        let gas_used = ccx.state.gas_metering.last_frame_snapshot_gas_used;
+        inner_last_gas_snapshot(ccx, None, Some(name.clone()), gas_used)
     }
 }
 
@@ -2232,15 +2230,11 @@ impl Cheatcode for snapshotGasLastFrame_1Call {
         >,
     ) -> Result {
         let Self { name, group } = self;
-        let Some(last_frame_gas) = &ccx.state.gas_metering.last_frame_gas else {
+        if ccx.state.gas_metering.last_frame_gas.is_none() {
             bail!("no external call or create was made yet");
-        };
-        inner_last_gas_snapshot(
-            ccx,
-            Some(group.clone()),
-            Some(name.clone()),
-            last_frame_gas.gasTotalUsed,
-        )
+        }
+        let gas_used = ccx.state.gas_metering.last_frame_snapshot_gas_used;
+        inner_last_gas_snapshot(ccx, Some(group.clone()), Some(name.clone()), gas_used)
     }
 }
 

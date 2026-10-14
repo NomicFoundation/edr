@@ -507,7 +507,7 @@
         {
           "name": "gasTotalUsed",
           "ty": "uint64",
-          "description": "Regular gas spent by the frame, before refunds. Excludes EIP-8037 state gas paid from the\n reservoir; see `gasStateUsed`.\n With isolation, the receipt's gas used instead: net of refunds, including intrinsic gas and the\n calldata floor."
+          "description": "Regular gas spent by the frame, before refunds. Excludes EIP-8037 state gas paid from the\n reservoir; see `gasStateUsed`.\n With isolation, includes intrinsic gas and the regular-gas calldata floor."
         },
         {
           "name": "gasMemoryUsed",
@@ -517,7 +517,7 @@
         {
           "name": "gasRefunded",
           "ty": "int64",
-          "description": "Ordinary refund counter before transaction settlement. With isolation, the finalized refund,\n already deducted from `gasTotalUsed`. Can be negative in nested frames. State gas refills are\n netted into `gasStateUsed` instead."
+          "description": "Ordinary refund counter before transaction settlement; finalized for an isolated transaction.\n Can be negative in nested frames. State gas refills are already netted into `gasStateUsed`."
         },
         {
           "name": "gasRemaining",
@@ -10051,7 +10051,7 @@
     {
       "func": {
         "id": "snapshotGasLastCall_0",
-        "description": "DEPRECATED: use `snapshotGasLastFrame` instead.\nSnapshot capture the gas usage of the last call by name from the callee perspective.",
+        "description": "DEPRECATED: use `snapshotGasLastFrame` instead.\nSnapshot capture the gas usage of the last call by name from the callee perspective.\nWithout isolation, measures regular counter consumption, including spillover but excluding reservoir-funded state gas.\nIsolated frames use the receipt gas of their synthetic transaction.",
         "declaration": "function snapshotGasLastCall(string calldata name) external returns (uint256 gasUsed);",
         "visibility": "external",
         "mutability": "",
@@ -10073,7 +10073,7 @@
     {
       "func": {
         "id": "snapshotGasLastCall_1",
-        "description": "DEPRECATED: use `snapshotGasLastFrame` instead.\nSnapshot capture the gas usage of the last call by name in a group from the callee perspective.",
+        "description": "DEPRECATED: use `snapshotGasLastFrame` instead.\nSnapshot capture the gas usage of the last call by name in a group from the callee perspective.\nWithout isolation, measures regular counter consumption, including spillover but excluding reservoir-funded state gas.\nIsolated frames use the receipt gas of their synthetic transaction.",
         "declaration": "function snapshotGasLastCall(string calldata group, string calldata name) external returns (uint256 gasUsed);",
         "visibility": "external",
         "mutability": "",
@@ -10095,7 +10095,7 @@
     {
       "func": {
         "id": "snapshotGasLastFrame_0",
-        "description": "Snapshot capture the gas usage of the last call or create by name from the callee perspective.",
+        "description": "Snapshot capture the gas usage of the last call or create by name from the callee perspective.\nWithout isolation, measures regular counter consumption, including spillover but excluding reservoir-funded state gas.\nIsolated frames use the receipt gas of their synthetic transaction.",
         "declaration": "function snapshotGasLastFrame(string calldata name) external returns (uint256 gasUsed);",
         "visibility": "external",
         "mutability": "",
@@ -10115,7 +10115,7 @@
     {
       "func": {
         "id": "snapshotGasLastFrame_1",
-        "description": "Snapshot capture the gas usage of the last call or create by name in a group from the callee perspective.",
+        "description": "Snapshot capture the gas usage of the last call or create by name in a group from the callee perspective.\nWithout isolation, measures regular counter consumption, including spillover but excluding reservoir-funded state gas.\nIsolated frames use the receipt gas of their synthetic transaction.",
         "declaration": "function snapshotGasLastFrame(string calldata group, string calldata name) external returns (uint256 gasUsed);",
         "visibility": "external",
         "mutability": "",

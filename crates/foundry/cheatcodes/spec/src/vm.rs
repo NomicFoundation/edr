@@ -118,15 +118,13 @@ interface Vm {
         uint64 gasLimit;
         /// Regular gas spent by the frame, before refunds. Excludes EIP-8037 state gas paid from the
         /// reservoir; see `gasStateUsed`.
-        /// With isolation, the receipt's gas used instead: net of refunds, including intrinsic gas and the
-        /// calldata floor.
+        /// With isolation, includes intrinsic gas and the regular-gas calldata floor.
         uint64 gasTotalUsed;
         /// DEPRECATED: always zero. Memory expansion costs are included in `gasTotalUsed`.
         /// Ref: <https://github.com/foundry-rs/foundry/pull/7934#pullrequestreview-2069236939>.
         uint64 gasMemoryUsed;
-        /// Ordinary refund counter before transaction settlement. With isolation, the finalized refund,
-        /// already deducted from `gasTotalUsed`. Can be negative in nested frames. State gas refills are
-        /// netted into `gasStateUsed` instead.
+        /// Ordinary refund counter before transaction settlement; finalized for an isolated transaction.
+        /// Can be negative in nested frames. State gas refills are already netted into `gasStateUsed`.
         int64 gasRefunded;
         /// Regular gas left at frame end. Excludes the EIP-8037 state gas reservoir.
         /// State charges can draw from this allowance, so `gasLimit - gasRemaining` can include state gas.
@@ -693,19 +691,27 @@ interface Vm {
 
     /// DEPRECATED: use `snapshotGasLastFrame` instead.
     /// Snapshot capture the gas usage of the last call by name from the callee perspective.
+    /// Without isolation, measures regular counter consumption, including spillover but excluding reservoir-funded state gas.
+    /// Isolated frames use the receipt gas of their synthetic transaction.
     #[cheatcode(group = Evm, safety = Unsafe, status = Deprecated(Some("replaced by `snapshotGasLastFrame`")))]
     function snapshotGasLastCall(string calldata name) external returns (uint256 gasUsed);
 
     /// DEPRECATED: use `snapshotGasLastFrame` instead.
     /// Snapshot capture the gas usage of the last call by name in a group from the callee perspective.
+    /// Without isolation, measures regular counter consumption, including spillover but excluding reservoir-funded state gas.
+    /// Isolated frames use the receipt gas of their synthetic transaction.
     #[cheatcode(group = Evm, safety = Unsafe, status = Deprecated(Some("replaced by `snapshotGasLastFrame`")))]
     function snapshotGasLastCall(string calldata group, string calldata name) external returns (uint256 gasUsed);
 
     /// Snapshot capture the gas usage of the last call or create by name from the callee perspective.
+    /// Without isolation, measures regular counter consumption, including spillover but excluding reservoir-funded state gas.
+    /// Isolated frames use the receipt gas of their synthetic transaction.
     #[cheatcode(group = Evm, safety = Unsafe)]
     function snapshotGasLastFrame(string calldata name) external returns (uint256 gasUsed);
 
     /// Snapshot capture the gas usage of the last call or create by name in a group from the callee perspective.
+    /// Without isolation, measures regular counter consumption, including spillover but excluding reservoir-funded state gas.
+    /// Isolated frames use the receipt gas of their synthetic transaction.
     #[cheatcode(group = Evm, safety = Unsafe)]
     function snapshotGasLastFrame(string calldata group, string calldata name) external returns (uint256 gasUsed);
 
