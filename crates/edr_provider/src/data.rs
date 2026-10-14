@@ -947,11 +947,7 @@ where
             } else if let Some(block) = self.block_by_block_spec(block_spec)? {
                 block.block_header().gas_limit
             } else {
-                match self.mem_pool.block_gas_limit() {
-                    Some(block_gas_limit) => block_gas_limit.get(),
-                    // The miner falls back to the parent's gas limit.
-                    None => self.blockchain.last_block()?.block_header().gas_limit,
-                }
+                self.next_block_gas_limit()?
             };
 
         Ok(transaction_gas_limit_within_bound(
