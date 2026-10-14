@@ -92,8 +92,8 @@ pub trait TraceStrategy: std::fmt::Debug + Send + Sync + 'static {
     /// body: the slang compiler gives a function's dispatch code its
     /// declaration line, where solc's source map gives that code no function
     /// at all.
-    // TODO: remove once the slang compiler gives dispatch code line 0 in its
-    // DWARF instead of the declaration line.
+    // TODO: remove once the slang compiler gives entry-check reverts the
+    // contract's line in its DWARF instead of the function's.
     fn may_revert_in_entry_checks(
         &self,
         contract_meta: &ContractMetadata,
