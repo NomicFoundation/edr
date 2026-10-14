@@ -18,7 +18,8 @@ use std::{fs, hint::black_box, path::PathBuf, time::Duration};
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
 use edr_solidity::{
     artifacts::{
-        solx::SolxBuildModel, CompilerArtifact as _, CompilerInput, CompilerOutput, SolxBytecode,
+        dwarf_model::DwarfBuildModel, solx::solx_build_model, CompilerArtifact as _, CompilerInput,
+        CompilerOutput, SolxBytecode,
     },
     build_model::BuildModel as _,
     library_utils::{get_library_address_positions, normalize_compiler_output_bytecode},
@@ -45,7 +46,7 @@ impl Blob {
 
 struct Corpus {
     name: String,
-    model: SolxBuildModel,
+    model: DwarfBuildModel,
     /// Sorted by `(source, contract, is_deployment)`: `output.contracts` is a
     /// `HashMap`, so without this both sides of an A/B would traverse the
     /// blobs in different orders.
@@ -55,7 +56,7 @@ struct Corpus {
 
 impl Corpus {
     fn new(name: String, input: CompilerInput, output: CompilerOutput<SolxBytecode>) -> Self {
-        let model = SolxBuildModel::new(input, &output)
+        let model = solx_build_model(input, &output)
             .unwrap_or_else(|error| panic!("corpus '{name}' must build a model: {error}"));
 
         let mut blobs = Vec::new();
