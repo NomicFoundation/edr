@@ -497,7 +497,7 @@
     },
     {
       "name": "Gas",
-      "description": "Gas used. Returned by `lastCallGas` and `lastFrameGas`.",
+      "description": "Gas measured for the last completed call or create frame, from the callee's perspective,\n including nested execution. Isolated transactions include intrinsic gas.\n Regular gas (the EIP's execution gas) and EIP-8037 state gas are reported separately.\n Without EIP-8037, state creation uses the ordinary gas schedule and `gasStateUsed` is zero.\n See <https://eips.ethereum.org/EIPS/eip-8037>.",
       "fields": [
         {
           "name": "gasLimit",
@@ -527,7 +527,7 @@
         {
           "name": "gasStateUsed",
           "ty": "int64",
-          "description": "Net EIP-8037 state gas: state creation charges minus refills, including nested execution.\n Zero before Amsterdam or if the frame reverted or halted. Can be negative when the frame undoes\n state created earlier in the same transaction, so use signed arithmetic with `gasTotalUsed`.\n Their sum measures net consumption, not the gas limit needed to execute."
+          "description": "Net EIP-8037 state gas: state creation charges minus refills, including nested execution.\n Zero without EIP-8037 or if the frame reverted or halted. Can be negative when the frame\n undoes state created earlier in the same transaction; use signed arithmetic with `gasTotalUsed`.\n Their sum measures net consumption, not the gas limit needed to execute."
         }
       ]
     },
@@ -10415,7 +10415,7 @@
     {
       "func": {
         "id": "startSnapshotGas_0",
-        "description": "Start a snapshot capture of the current gas usage by name.\nThe group name is derived from the contract name.",
+        "description": "Start a snapshot capture of the current gas usage by name.\nThe group name is derived from the contract name.\nMeasures gas consumed from the regular counter, including state spillover but excluding reservoir-funded state gas.",
         "declaration": "function startSnapshotGas(string calldata name) external;",
         "visibility": "external",
         "mutability": "",
@@ -10435,7 +10435,7 @@
     {
       "func": {
         "id": "startSnapshotGas_1",
-        "description": "Start a snapshot capture of the current gas usage by name in a group.",
+        "description": "Start a snapshot capture of the current gas usage by name in a group.\nMeasures gas consumed from the regular counter, including state spillover but excluding reservoir-funded state gas.",
         "declaration": "function startSnapshotGas(string calldata group, string calldata name) external;",
         "visibility": "external",
         "mutability": "",
@@ -10615,7 +10615,7 @@
     {
       "func": {
         "id": "stopSnapshotGas_0",
-        "description": "Stop the snapshot capture of the current gas by latest snapshot name, capturing the gas used since the start.",
+        "description": "Stop the snapshot capture of the current gas by latest snapshot name, capturing the gas used since the start.\nMeasures gas consumed from the regular counter, including state spillover but excluding reservoir-funded state gas.",
         "declaration": "function stopSnapshotGas() external returns (uint256 gasUsed);",
         "visibility": "external",
         "mutability": "",
@@ -10635,7 +10635,7 @@
     {
       "func": {
         "id": "stopSnapshotGas_1",
-        "description": "Stop the snapshot capture of the current gas usage by name, capturing the gas used since the start.\nThe group name is derived from the contract name.",
+        "description": "Stop the snapshot capture of the current gas usage by name, capturing the gas used since the start.\nThe group name is derived from the contract name.\nMeasures gas consumed from the regular counter, including state spillover but excluding reservoir-funded state gas.",
         "declaration": "function stopSnapshotGas(string calldata name) external returns (uint256 gasUsed);",
         "visibility": "external",
         "mutability": "",
@@ -10655,7 +10655,7 @@
     {
       "func": {
         "id": "stopSnapshotGas_2",
-        "description": "Stop the snapshot capture of the current gas usage by name in a group, capturing the gas used since the start.",
+        "description": "Stop the snapshot capture of the current gas usage by name in a group, capturing the gas used since the start.\nMeasures gas consumed from the regular counter, including state spillover but excluding reservoir-funded state gas.",
         "declaration": "function stopSnapshotGas(string calldata group, string calldata name) external returns (uint256 gasUsed);",
         "visibility": "external",
         "mutability": "",

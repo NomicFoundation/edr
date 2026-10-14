@@ -1452,13 +1452,11 @@ impl<
                 CallScheme::Call => {
                     let input = call.input.bytes(ecx);
                     // The CALL opcode already charged the new-account state gas on
-                    // the parent, and the synthetic transaction does not charge it
-                    // again, so there is nothing to offset.
-                    // TODO(revm 42): once the transaction charges the EIP-2780
-                    // new-account state gas itself, offset it with
-                    // `call.charged_new_account_state_gas
-                    //   .then_some(ecx.cfg.gas_params().new_account_state_gas())`.
-                    let precharged_state = None;
+                    // the parent, and the synthetic transaction charges it again
+                    // for its recipient (EIP-2780).
+                    let precharged_state = call
+                        .charged_new_account_state_gas
+                        .then_some(ecx.cfg.gas_params().new_account_state_gas());
                     let (result, _) = self.transact_inner(
                         ecx,
                         TxKind::Call(call.target_address),
@@ -1581,14 +1579,12 @@ impl<
                 IsolatedGas {
                     regular_limit: create.gas_limit(),
                     reservoir: create.reservoir(),
-                    // The CREATE opcode charges the account-creation state gas on
-                    // the parent whenever EIP-8037 is enabled, and the synthetic
-                    // transaction charges it again as intrinsic state gas.
-                    // TODO(revm 42): use `create.charged_create_state_gas()`.
-                    precharged_state: ecx
-                        .cfg
-                        .is_amsterdam_eip8037_enabled()
-                        .then(|| ecx.cfg.gas_params().create_state_gas()),
+                    // The CREATE opcode already charged the account-creation state
+                    // gas on the parent, and the synthetic transaction charges it
+                    // again as intrinsic state gas.
+                    precharged_state: create
+                        .charged_create_state_gas()
+                        .then_some(ecx.cfg.gas_params().create_state_gas()),
                 },
                 create.value(),
             );

@@ -37,7 +37,7 @@ use revm::{
         result::{ExecutionResult, HaltReason, HaltReasonTr, ResultAndState},
         CfgEnv,
     },
-    context_interface::{result::Output, Cfg as _},
+    context_interface::{cfg::gas_params::Eip2780TxInfo, result::Output, Cfg as _},
     database::{DatabaseCommit, DatabaseRef},
     interpreter::{gas::InitialAndFloorGas, return_ok, InstructionResult},
 };
@@ -1815,10 +1815,13 @@ pub(crate) fn calculate_stipend<HardforkT: HardforkTr>(
 
 /// The intrinsic gas of `tx` under `cfg`, split into regular gas, EIP-8037
 /// state gas and the EIP-7623 calldata floor.
-// TODO(revm 42): pass the EIP-2780 transaction info once revm exposes it.
 pub(crate) fn calculate_initial_gas<HardforkT: HardforkTr>(
     tx: &impl TransactionEnvTr,
     cfg: &CfgEnv<HardforkT>,
 ) -> InitialAndFloorGas {
-    cfg.gas_params().initial_tx_gas_for_tx(tx)
+    let eip2780 = cfg.is_amsterdam_eip2780_enabled().then(|| Eip2780TxInfo {
+        value: tx.value(),
+        is_self_transfer: matches!(tx.kind(), TxKind::Call(to) if to == tx.caller()),
+    });
+    cfg.gas_params().initial_tx_gas_for_tx(tx, eip2780)
 }

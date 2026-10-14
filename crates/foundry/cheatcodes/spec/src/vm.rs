@@ -112,7 +112,11 @@ interface Vm {
         address emitter;
     }
 
-    /// Gas used. Returned by `lastCallGas` and `lastFrameGas`.
+    /// Gas measured for the last completed call or create frame, from the callee's perspective,
+    /// including nested execution. Isolated transactions include intrinsic gas.
+    /// Regular gas (the EIP's execution gas) and EIP-8037 state gas are reported separately.
+    /// Without EIP-8037, state creation uses the ordinary gas schedule and `gasStateUsed` is zero.
+    /// See <https://eips.ethereum.org/EIPS/eip-8037>.
     struct Gas {
         /// Regular gas available to the frame at entry. Excludes the EIP-8037 state gas reservoir.
         uint64 gasLimit;
@@ -129,8 +133,8 @@ interface Vm {
         /// State charges can draw from this allowance, so `gasLimit - gasRemaining` can include state gas.
         uint64 gasRemaining;
         /// Net EIP-8037 state gas: state creation charges minus refills, including nested execution.
-        /// Zero before Amsterdam or if the frame reverted or halted. Can be negative when the frame undoes
-        /// state created earlier in the same transaction, so use signed arithmetic with `gasTotalUsed`.
+        /// Zero without EIP-8037 or if the frame reverted or halted. Can be negative when the frame
+        /// undoes state created earlier in the same transaction; use signed arithmetic with `gasTotalUsed`.
         /// Their sum measures net consumption, not the gas limit needed to execute.
         int64 gasStateUsed;
     }
@@ -714,23 +718,28 @@ interface Vm {
 
     /// Start a snapshot capture of the current gas usage by name.
     /// The group name is derived from the contract name.
+    /// Measures gas consumed from the regular counter, including state spillover but excluding reservoir-funded state gas.
     #[cheatcode(group = Evm, safety = Unsafe)]
     function startSnapshotGas(string calldata name) external;
 
     /// Start a snapshot capture of the current gas usage by name in a group.
+    /// Measures gas consumed from the regular counter, including state spillover but excluding reservoir-funded state gas.
     #[cheatcode(group = Evm, safety = Unsafe)]
     function startSnapshotGas(string calldata group, string calldata name) external;
 
     /// Stop the snapshot capture of the current gas by latest snapshot name, capturing the gas used since the start.
+    /// Measures gas consumed from the regular counter, including state spillover but excluding reservoir-funded state gas.
     #[cheatcode(group = Evm, safety = Unsafe)]
     function stopSnapshotGas() external returns (uint256 gasUsed);
 
     /// Stop the snapshot capture of the current gas usage by name, capturing the gas used since the start.
     /// The group name is derived from the contract name.
+    /// Measures gas consumed from the regular counter, including state spillover but excluding reservoir-funded state gas.
     #[cheatcode(group = Evm, safety = Unsafe)]
     function stopSnapshotGas(string calldata name) external returns (uint256 gasUsed);
 
     /// Stop the snapshot capture of the current gas usage by name in a group, capturing the gas used since the start.
+    /// Measures gas consumed from the regular counter, including state spillover but excluding reservoir-funded state gas.
     #[cheatcode(group = Evm, safety = Unsafe)]
     function stopSnapshotGas(string calldata group, string calldata name) external returns (uint256 gasUsed);
 

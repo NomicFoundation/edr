@@ -50,9 +50,9 @@ contract StateGasTest is DSTest {
     // EIP-8037: creating an account costs 120 state bytes.
     uint256 constant CREATE_STATE_GAS = 120 * 1530;
     uint256 constant CALLDATA_SIZE = 20_000;
-    // EIP-7976 calldata floor (Amsterdam): the base transaction gas plus 64 gas per calldata byte.
-    // TODO(revm 42): 15_000 once EIP-2780 lowers the base transaction gas.
-    uint256 constant CALL_FLOOR_BASE_GAS = 21_000;
+    // EIP-7976 calldata floor (Amsterdam): the EIP-2780 base transaction gas (12_000) plus the
+    // recipient's cold account access (3_000), plus 64 gas per calldata byte.
+    uint256 constant CALL_FLOOR_BASE_GAS = 15_000;
     uint256 constant CALLDATA_FLOOR_GAS_PER_BYTE = 64;
 
     function testReportsStateGas() public {
@@ -122,6 +122,8 @@ contract StateGasTest is DSTest {
     /// forge-config: default.isolate = true
     function testValueTransferWithLowGas() public {
         uint256 section = snapshotValueTransfer(address(0xBEEF1), 1_000_000);
+        // The CALL opcode charged the recipient's account creation outside the frame.
+        assertEq(vm.lastCallGas().gasStateUsed, 0, "account creation counted in the frame");
         uint256 snapshot = vm.snapshotGasLastCall("valueTransfer");
 
         // Creating the recipient charges state gas, which must not turn a low gas limit or the
