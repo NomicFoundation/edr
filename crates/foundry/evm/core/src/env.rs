@@ -15,7 +15,9 @@ pub fn set_cfg_spec_id<HardforkT: Into<SpecId> + Clone>(
     spec_id: HardforkT,
 ) {
     cfg.set_spec_and_mainnet_gas_params(spec_id.clone());
-    cfg.enable_amsterdam_eip8037 = spec_id.into().is_enabled_in(SpecId::AMSTERDAM);
+    let is_amsterdam = spec_id.into().is_enabled_in(SpecId::AMSTERDAM);
+    cfg.enable_amsterdam_eip8037 = is_amsterdam;
+    cfg.enable_amsterdam_eip2780 = is_amsterdam;
 }
 
 /// Helper container type for `block`, `cfg`, and `tx`.
@@ -193,5 +195,26 @@ where
                 tx: &mut self.tx,
             },
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn set_cfg_spec_id_toggles_amsterdam_flags() {
+        let mut cfg = CfgEnv::<SpecId>::new_with_spec(SpecId::AMSTERDAM);
+        assert!(cfg.enable_amsterdam_eip8037);
+        assert!(cfg.enable_amsterdam_eip2780);
+
+        // An inline `evm_version` override can lower the hardfork below Amsterdam.
+        set_cfg_spec_id(&mut cfg, SpecId::CANCUN);
+        assert!(!cfg.enable_amsterdam_eip8037);
+        assert!(!cfg.enable_amsterdam_eip2780);
+
+        set_cfg_spec_id(&mut cfg, SpecId::AMSTERDAM);
+        assert!(cfg.enable_amsterdam_eip8037);
+        assert!(cfg.enable_amsterdam_eip2780);
     }
 }
