@@ -2,8 +2,11 @@
 
 use std::{collections::HashMap, sync::Arc};
 
-use super::{SourceLookup, match_dwarf_to_build_model};
-use crate::build_model::{ContractFunction, SourceLocation};
+use super::match_dwarf_to_build_model;
+use crate::{
+    artifacts::dwarf_model::DwarfBuildModel,
+    build_model::{BuildModel as _, ContractFunction, SourceLocation},
+};
 
 /// Per-decode memos; thousands of PCs resolve to few distinct keys.
 #[derive(Default)]
@@ -41,7 +44,7 @@ impl DecodeCaches {
     #[inline]
     pub(super) fn line_start(
         &mut self,
-        build_model: &impl SourceLookup,
+        build_model: &DwarfBuildModel,
         file_id: u32,
         line_idx: usize,
     ) -> Option<usize> {
@@ -55,7 +58,7 @@ impl DecodeCaches {
     #[inline]
     pub(super) fn enclosing_span(
         &mut self,
-        build_model: &impl SourceLookup,
+        build_model: &DwarfBuildModel,
         file_id: u32,
         offset: u32,
     ) -> Option<(u32, u32)> {
@@ -68,7 +71,7 @@ impl DecodeCaches {
     #[inline]
     pub(super) fn function_by_decl_line(
         &mut self,
-        build_model: &impl SourceLookup,
+        build_model: &DwarfBuildModel,
         file_id: u32,
         decl_line: u32,
         dwarf_name: &str,
@@ -91,7 +94,7 @@ impl DecodeCaches {
     #[inline]
     pub(super) fn containing_function(
         &mut self,
-        build_model: &impl SourceLookup,
+        build_model: &DwarfBuildModel,
         file_id: u32,
         offset: u32,
         row_file: &str,
@@ -113,7 +116,7 @@ impl DecodeCaches {
     }
 }
 
-fn compute_line_starts(build_model: &impl SourceLookup, file_id: u32) -> Vec<usize> {
+fn compute_line_starts(build_model: &DwarfBuildModel, file_id: u32) -> Vec<usize> {
     let Some(file) = build_model.source_model_by_file_id(file_id) else {
         return Vec::new();
     };

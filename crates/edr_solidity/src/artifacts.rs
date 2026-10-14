@@ -18,6 +18,7 @@ use self::{
 };
 use crate::contracts_identifier::IdentifiedContract;
 
+pub mod dwarf_model;
 pub mod slang;
 pub mod solc;
 pub mod solx;
@@ -474,7 +475,7 @@ pub fn collect_ast_spans<'a>(
     for ast in sources.filter_map(|source| source.ast.as_ref()) {
         collect_node_spans(ast, &mut spans);
     }
-    // Sorted so `BuildModel::smallest_enclosing_span` can scan in order
+    // Sorted so `DwarfBuildModel::smallest_enclosing_span` can scan in order
     // and break early.
     for file_spans in spans.values_mut() {
         file_spans.sort_unstable();
