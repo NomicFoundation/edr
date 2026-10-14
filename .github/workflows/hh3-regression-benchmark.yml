@@ -212,13 +212,6 @@ jobs:
 
       - name: Build EDR
         working-directory: crates/edr_napi
-        env:
-          # Experiment: mimalloc 3.5.2 compiles in per-operation statistics
-          # and profiling hooks (MI_STATS=1, MI_PROFILE=1) that main's 3.3.2
-          # did not. The cmake crate forwards CFLAGS after CMake's own
-          # defines, so these override them. Checks whether they explain the
-          # openzeppelin mocha regression.
-          CFLAGS: "-DMI_STATS=0 -DMI_PROFILE=0"
         run: pnpm build
 
       - name: Install Hardhat dependencies
@@ -315,6 +308,11 @@ jobs:
           # them against scenario directory / benchmark (command or step) names.
           SCENARIO_FILTER: ${{ needs.setup.outputs.scenario_filter }}
           BENCHMARK_FILTER: ${{ needs.setup.outputs.benchmark_filter }}
+          # Experiment: mimalloc 3.5 raised the arena purge delay multiplier
+          # from 1 to 4, the only runtime default that changed from 3.3.2.
+          # Pin main's value to see whether it explains the openzeppelin
+          # mocha regression.
+          MIMALLOC_ARENA_PURGE_MULT: "1"
         # --force-publish: reuse our already-running Verdaccio (instead of
         #   erroring) and run the global sinceReleasePublish once up front.
         # --use-local: republish the (repointed) hardhat workspace packages and
