@@ -2958,12 +2958,16 @@ fn find_upstream_cheatcode_signature(selector: alloy_primitives::FixedBytes<4>) 
 /// Builds the `Vm.Gas` report for a finished call or create frame.
 const fn frame_gas(result: &InterpreterResult) -> crate::Vm::Gas {
     let gas = &result.gas;
-    // TODO(revm 42): subtract `gas.state_gas_spilled()` from `total_gas_spent()`
-    // unless `result.is_halt()`, so that `gasTotalUsed` excludes state gas that
-    // spilled into the regular counter under EIP-8037.
+    // A halt consumes the regular gas restored while rolling back state gas.
+    let regular_gas_spent = if result.is_halt() {
+        gas.total_gas_spent()
+    } else {
+        gas.total_gas_spent()
+            .saturating_sub(gas.state_gas_spilled())
+    };
     crate::Vm::Gas {
         gasLimit: gas.limit(),
-        gasTotalUsed: gas.total_gas_spent(),
+        gasTotalUsed: regular_gas_spent,
         gasMemoryUsed: 0,
         gasRefunded: gas.refunded(),
         gasRemaining: gas.remaining(),
@@ -2981,21 +2985,18 @@ mod tests {
 
     #[test]
     fn frame_gas_reports_settled_components() {
-        // TODO(revm 42): once `frame_gas` subtracts `state_gas_spilled()`, the
-        // no-reservoir case reports `gasTotalUsed == 1_000` as well.
-        for (mut gas, expected_total_used) in [
-            (Gas::new(100_000), 21_000),
-            (
-                Gas::new_with_regular_gas_and_reservoir(100_000, 50_000),
-                1_000,
-            ),
+        // State gas that spills past the reservoir is reported as state gas
+        // only, so both cases report the same regular gas.
+        for mut gas in [
+            Gas::new(100_000),
+            Gas::new_with_regular_gas_and_reservoir(100_000, 50_000),
         ] {
             assert!(gas.record_regular_cost(1_000));
             assert!(gas.record_state_cost(20_000));
 
             let mut result = InterpreterResult::new(InstructionResult::Stop, Bytes::new(), gas);
             let reported = frame_gas(&result);
-            assert_eq!(reported.gasTotalUsed, expected_total_used);
+            assert_eq!(reported.gasTotalUsed, 1_000);
             assert_eq!(reported.gasStateUsed, 20_000);
 
             result.result = InstructionResult::Revert;

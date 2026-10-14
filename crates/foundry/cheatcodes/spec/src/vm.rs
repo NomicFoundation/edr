@@ -116,8 +116,7 @@ interface Vm {
     struct Gas {
         /// Regular gas available to the frame at entry. Excludes the EIP-8037 state gas reservoir.
         uint64 gasLimit;
-        /// Regular gas spent by the frame, before refunds. Excludes EIP-8037 state gas paid from the
-        /// reservoir; see `gasStateUsed`.
+        /// Regular gas spent by the frame, before refunds. Excludes EIP-8037 state gas; see `gasStateUsed`.
         /// With isolation, the receipt's gas used instead: net of refunds, including intrinsic gas and the
         /// calldata floor.
         uint64 gasTotalUsed;
@@ -134,9 +133,7 @@ interface Vm {
         /// Net EIP-8037 state gas: state creation charges minus refills, including nested execution.
         /// Zero before Amsterdam or if the frame reverted or halted. Can be negative when the frame undoes
         /// state created earlier in the same transaction, so use signed arithmetic with `gasTotalUsed`.
-        /// Their sum measures net consumption, not the gas limit needed to execute. State gas that spills
-        /// past the reservoir into regular gas is currently counted in both fields, so the sum overstates
-        /// it by the spilled amount.
+        /// Their sum measures net consumption, not the gas limit needed to execute.
         int64 gasStateUsed;
     }
 
