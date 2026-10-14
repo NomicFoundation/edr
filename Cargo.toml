@@ -479,3 +479,9 @@ useless_transmute = "warn"
 verbose_file_reads = "warn"
 wildcard-imports = "warn"
 zero_sized_map_values = "warn"
+
+[patch.crates-io]
+# Experiment: compile mimalloc 3.5.2 as a single translation unit, like the
+# old libmimalloc-sys did, to see whether the cmake multi-file build explains
+# the openzeppelin mocha regression.
+libmimalloc-sys2 = { path = "vendor/libmimalloc-sys2" }
