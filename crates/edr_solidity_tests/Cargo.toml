@@ -11,6 +11,7 @@ edr_common.workspace = true
 edr_coverage.workspace = true
 edr_decoder_revert.workspace = true
 edr_defaults.workspace = true
+edr_eip8037.workspace = true
 edr_gas_report.workspace = true
 edr_primitives.workspace = true
 edr_solidity.workspace = true

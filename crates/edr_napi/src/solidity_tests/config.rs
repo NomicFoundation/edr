@@ -78,7 +78,10 @@ pub struct SolidityTestRunnerConfigArgs<'env> {
     /// The hardfork to use for EVM execution.
     pub hardfork: String,
     /// The gas limit for each test case.
-    /// Defaults to `9_223_372_036_854_775_807` (`i64::MAX`).
+    /// Defaults to the most gas a transaction may carry on the configured
+    /// hardfork, or `9_223_372_036_854_775_807` (`i64::MAX`) when the hardfork
+    /// imposes no bound. A configured `blockGasLimit` takes precedence over
+    /// both.
     #[serde(serialize_with = "serialize_optional_bigint_as_struct")]
     pub gas_limit: Option<BigInt>,
     /// The price of gas (in wei) in tests.
@@ -109,11 +112,13 @@ pub struct SolidityTestRunnerConfigArgs<'env> {
     /// Whether to disable the block gas limit.
     /// Defaults to false.
     pub disable_block_gas_limit: Option<bool>,
-    /// Transaction gas cap, introduced in [EIP-7825].
+    /// Transaction gas cap, introduced in [EIP-7825]. From Amsterdam
+    /// ([EIP-8037]) it bounds execution gas only.
     ///
     /// When not set, defaults to the value defined by the used hardfork.
     ///
     /// [EIP-7825]: https://eips.ethereum.org/EIPS/eip-7825
+    /// [EIP-8037]: https://eips.ethereum.org/EIPS/eip-8037
     #[serde(serialize_with = "serialize_optional_bigint_as_struct")]
     pub transaction_gas_cap: Option<BigInt>,
     /// Whether to disable the [EIP-7825] transaction gas cap.
