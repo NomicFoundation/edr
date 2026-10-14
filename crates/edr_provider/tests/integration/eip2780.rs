@@ -12,6 +12,11 @@ use edr_provider::{
     ProviderRequest, ResponseWithCallTraces, TransactionFailureReason,
 };
 use edr_runtime::transaction::CreationError;
+use revm_primitives::{
+    eip2780::{TRANSFER_LOG_COST, TX_BASE_COST, TX_VALUE_COST},
+    eip8037::{CPSB_GLAMSTERDAM, NEW_ACCOUNT_BYTES},
+    eip8038::{COLD_ACCOUNT_ACCESS, CREATE_ACCESS},
+};
 
 use crate::common::{
     bytecode::{opcode, BytecodeBuilder},
@@ -31,19 +36,11 @@ const CONTRACT_ADDRESS: Address = address!("0x0000000000000000000000000000000000
 /// Flat intrinsic gas of a transaction before Amsterdam.
 const PRE_AMSTERDAM_INTRINSIC_GAS: u64 = 21_000;
 
-/// EIP-2780: intrinsic cost charged to the sender.
-const TX_BASE_COST: u64 = 12_000;
-/// EIP-2780: charge for a nonzero value sent to another account.
-const TX_VALUE_COST: u64 = 6_000;
-/// EIP-8038: cold access of the recipient, charged unconditionally.
-const COLD_ACCOUNT_ACCESS: u64 = 3_000;
-/// EIP-8038: recipient charge of a contract creation.
-// TODO: re-baseline to the EIP's `12_000` once revm is upgraded past v116.
-const CREATE_ACCESS: u64 = 8_000 + 3_000;
-/// EIP-8037: state gas of a new account, `STATE_BYTES_PER_NEW_ACCOUNT * CPSB`.
-const STATE_BYTES_PER_NEW_ACCOUNT: u64 = 120;
-const CPSB: u64 = 1_530;
-const NEW_ACCOUNT_STATE_GAS: u64 = STATE_BYTES_PER_NEW_ACCOUNT * CPSB;
+/// EIP-2780: charge for a nonzero value sent to another account. revm still
+/// splits the EIP's single charge into two constants.
+const VALUE_CHARGE: u64 = TX_VALUE_COST + TRANSFER_LOG_COST;
+/// EIP-8037: state gas of a new account.
+const NEW_ACCOUNT_STATE_GAS: u64 = NEW_ACCOUNT_BYTES * CPSB_GLAMSTERDAM;
 
 /// A transfer of `value` from [`SENDER`] to `to`.
 fn transfer(to: Address, value: U256) -> TransactionRequest {
@@ -67,16 +64,18 @@ fn gas_used_by_sending(
 
 #[tokio::test(flavor = "multi_thread")]
 async fn self_transfer_pays_only_the_base_cost_from_amsterdam() -> anyhow::Result<()> {
+    let request = transfer(SENDER, U256::from(1));
+
     let osaka_provider = new_provider(edr_chain_l1::Hardfork::Osaka)?;
     assert_eq!(
-        gas_used_by_sending(&osaka_provider, transfer(SENDER, U256::from(1)))?,
+        gas_used_by_sending(&osaka_provider, request.clone())?,
         PRE_AMSTERDAM_INTRINSIC_GAS
     );
 
     // A self-transfer pays neither the recipient nor the value charge.
     let amsterdam_provider = new_provider(edr_chain_l1::Hardfork::Amsterdam)?;
     assert_eq!(
-        gas_used_by_sending(&amsterdam_provider, transfer(SENDER, U256::from(1)))?,
+        gas_used_by_sending(&amsterdam_provider, request)?,
         TX_BASE_COST
     );
 
@@ -86,15 +85,17 @@ async fn self_transfer_pays_only_the_base_cost_from_amsterdam() -> anyhow::Resul
 #[tokio::test(flavor = "multi_thread")]
 async fn zero_value_call_pays_base_cost_and_recipient_access_from_amsterdam() -> anyhow::Result<()>
 {
+    let request = transfer(RECIPIENT, U256::ZERO);
+
     let osaka_provider = new_provider(edr_chain_l1::Hardfork::Osaka)?;
     assert_eq!(
-        gas_used_by_sending(&osaka_provider, transfer(RECIPIENT, U256::ZERO))?,
+        gas_used_by_sending(&osaka_provider, request.clone())?,
         PRE_AMSTERDAM_INTRINSIC_GAS
     );
 
     let amsterdam_provider = new_provider(edr_chain_l1::Hardfork::Amsterdam)?;
     assert_eq!(
-        gas_used_by_sending(&amsterdam_provider, transfer(RECIPIENT, U256::ZERO))?,
+        gas_used_by_sending(&amsterdam_provider, request)?,
         TX_BASE_COST + COLD_ACCOUNT_ACCESS
     );
 
@@ -104,15 +105,17 @@ async fn zero_value_call_pays_base_cost_and_recipient_access_from_amsterdam() ->
 #[tokio::test(flavor = "multi_thread")]
 async fn value_transfer_pays_base_cost_recipient_access_and_value_charge_from_amsterdam(
 ) -> anyhow::Result<()> {
+    let request = transfer(RECIPIENT, U256::from(1));
+
     let osaka_provider = new_provider(edr_chain_l1::Hardfork::Osaka)?;
     // The first transfer creates the recipient; pre-Amsterdam that costs nothing
     // extra.
     assert_eq!(
-        gas_used_by_sending(&osaka_provider, transfer(RECIPIENT, U256::from(1)))?,
+        gas_used_by_sending(&osaka_provider, request.clone())?,
         PRE_AMSTERDAM_INTRINSIC_GAS
     );
     assert_eq!(
-        gas_used_by_sending(&osaka_provider, transfer(RECIPIENT, U256::from(1)))?,
+        gas_used_by_sending(&osaka_provider, request.clone())?,
         PRE_AMSTERDAM_INTRINSIC_GAS
     );
 
@@ -120,14 +123,14 @@ async fn value_transfer_pays_base_cost_recipient_access_and_value_charge_from_am
     // Creating the recipient is charged as EIP-8037 state gas on top of the
     // intrinsic cost.
     assert_eq!(
-        gas_used_by_sending(&amsterdam_provider, transfer(RECIPIENT, U256::from(1)))?,
-        TX_BASE_COST + COLD_ACCOUNT_ACCESS + TX_VALUE_COST + NEW_ACCOUNT_STATE_GAS
+        gas_used_by_sending(&amsterdam_provider, request.clone())?,
+        TX_BASE_COST + COLD_ACCOUNT_ACCESS + VALUE_CHARGE + NEW_ACCOUNT_STATE_GAS
     );
     // To an existing account, the decomposed charges add up to the flat
     // pre-Amsterdam cost.
     assert_eq!(
-        gas_used_by_sending(&amsterdam_provider, transfer(RECIPIENT, U256::from(1)))?,
-        TX_BASE_COST + COLD_ACCOUNT_ACCESS + TX_VALUE_COST
+        gas_used_by_sending(&amsterdam_provider, request)?,
+        TX_BASE_COST + COLD_ACCOUNT_ACCESS + VALUE_CHARGE
     );
 
     Ok(())
@@ -180,17 +183,20 @@ async fn transaction_funding_only_the_intrinsic_gas_is_included_and_halts_from_a
         }
     }
 
-    fn send_call_with_intrinsic_gas(
+    fn send(
         provider: &Provider<L1ChainSpec>,
+        request: TransactionRequest,
     ) -> Result<ResponseWithCallTraces, ProviderErrorForChainSpec<L1ChainSpec>> {
         provider.handle_request(ProviderRequest::with_single(
-            MethodInvocation::SendTransaction(call_contract_with_intrinsic_gas()),
+            MethodInvocation::SendTransaction(request),
         ))
     }
 
+    let request = call_contract_with_intrinsic_gas();
+
     let osaka_provider = new_provider_with_contract(edr_chain_l1::Hardfork::Osaka)?;
     // Below the flat intrinsic cost, the transaction is not even valid.
-    let result = send_call_with_intrinsic_gas(&osaka_provider);
+    let result = send(&osaka_provider, request.clone());
     assert!(
         matches!(
             result,
@@ -205,7 +211,7 @@ async fn transaction_funding_only_the_intrinsic_gas_is_included_and_halts_from_a
     );
 
     let amsterdam_provider = new_provider_with_contract(edr_chain_l1::Hardfork::Amsterdam)?;
-    let result = send_call_with_intrinsic_gas(&amsterdam_provider);
+    let result = send(&amsterdam_provider, request);
     let Err(ProviderError::TransactionFailed(failure)) = result else {
         panic!("the call should be mined and reported as failed: {result:?}");
     };

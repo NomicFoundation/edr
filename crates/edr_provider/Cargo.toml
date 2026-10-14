@@ -97,6 +97,7 @@ edr_eip7825.workspace = true
 edr_eip7997.workspace = true
 edr_test_block_replay.workspace = true
 hex = "0.4"
+revm-primitives.workspace = true
 edr_test_utils.workspace = true
 pastey.workspace = true
 serial_test = "4.0.0"
