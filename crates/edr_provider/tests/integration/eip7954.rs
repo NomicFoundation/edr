@@ -158,6 +158,20 @@ async fn amsterdam_rejects_initcode_above_limit() -> anyhow::Result<()> {
 }
 
 #[tokio::test(flavor = "multi_thread")]
+async fn amsterdam_rejects_code_above_limit() -> anyhow::Result<()> {
+    let provider = new_provider(edr_chain_l1::Hardfork::Amsterdam)?;
+
+    let result = send_deployment(
+        &provider,
+        init_code(eip7954::MAX_CODE_SIZE + 1, eip7954::MAX_INITCODE_SIZE),
+    );
+
+    assert_code_size_limit_hit(&result);
+
+    Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread")]
 async fn osaka_rejects_amsterdam_initcode_size() -> anyhow::Result<()> {
     let provider = new_provider(edr_chain_l1::Hardfork::Osaka)?;
 
