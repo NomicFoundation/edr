@@ -295,7 +295,9 @@ pub struct ProviderConfig<'env> {
     /// The gas limit of RPC call and transaction requests that do not specify
     /// a `gas` value.
     ///
-    /// The transaction gas bound of the request's block caps it.
+    /// Creating the provider fails when it exceeds the transaction gas bound of
+    /// the configured hardfork. A request at a block with a smaller bound is
+    /// rejected like a request with an explicit `gas` above it.
     /// When not set, it is derived from the hardfork of the request's block.
     /// It is `2^32 - 1` from Amsterdam ([EIP-8037]), `2^24` from Osaka
     /// ([EIP-7825]), and the block gas limit before. The block gas limit caps

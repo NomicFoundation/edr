@@ -72,7 +72,6 @@ describe("Multi-chain", () => {
     coinbase: new Uint8Array(
       Buffer.from("0000000000000000000000000000000000000000", "hex")
     ),
-    defaultTransactionGasLimit: 300_000_000n,
     genesisState,
     hardfork: opHardforkToString(opLatestHardfork()),
     initialParentBeaconBlockRoot: new Uint8Array(

@@ -8,6 +8,7 @@ use edr_chain_l1::{
 use edr_eth::BlockSpec;
 use edr_primitives::{address, bytes, Address, Bytes, U256};
 use edr_provider::{MethodInvocation, Provider, ProviderRequest};
+use edr_rpc_eth::{AccountOverrideOptions, StateOverrideOptions};
 
 use crate::common::provider::{quantity_field, send_transaction};
 
@@ -31,6 +32,9 @@ pub fn deploy_gas_reporter(provider: &Provider<L1ChainSpec>) -> anyhow::Result<(
 }
 
 /// Calls the gas reporter without a `gas` value and returns its gas limit.
+///
+/// The call overrides the reporter's code, so it works at blocks before the
+/// reporter was deployed.
 pub fn call_without_gas(
     provider: &Provider<L1ChainSpec>,
     block_spec: Option<BlockSpec>,
@@ -40,9 +44,19 @@ pub fn call_without_gas(
         to: Some(GAS_REPORTER_ADDRESS),
         ..L1CallRequest::default()
     };
+    let state_overrides = StateOverrideOptions::from_iter([(
+        GAS_REPORTER_ADDRESS,
+        AccountOverrideOptions {
+            balance: None,
+            nonce: None,
+            code: Some(GAS_REPORTER_CODE),
+            storage: None,
+            storage_diff: None,
+        },
+    )]);
 
     let response = provider.handle_request(ProviderRequest::with_single(
-        MethodInvocation::Call(request, block_spec, None),
+        MethodInvocation::Call(request, block_spec, Some(state_overrides)),
     ))?;
 
     let output: Bytes = response.deserialize_result()?;
