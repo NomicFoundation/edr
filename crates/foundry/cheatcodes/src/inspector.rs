@@ -207,11 +207,13 @@ pub struct GasMetering {
     /// Gas used by `snapshotGasLastFrame`.
     pub(crate) last_frame_snapshot_gas_used: u64,
 
-    /// Receipt gas of the isolated transaction wrapping the current frame, and
-    /// the state gas the outer opcode already charged for it.
+    /// Post-refund gas used by the isolated transaction wrapping the current
+    /// frame, and the account-creation state gas in it that the outer opcode
+    /// charged before entering the frame.
     isolated_snapshot_gas_used: Option<(u64, u64)>,
-    /// Gas to swap into the next region sample at the caller's depth: the gas
-    /// charged to the isolated frame and the receipt gas it counts as.
+    /// Caller depth, gas charged to the last isolated frame, and the
+    /// transaction gas that replaces it in the next region sample at that
+    /// depth.
     pending_isolated_region_gas: Option<(usize, u64, u64)>,
 
     /// True if gas recording is enabled.
@@ -224,7 +226,7 @@ pub struct GasMetering {
 
 impl GasMetering {
     /// Start the gas recording.
-    pub fn start(&mut self) {
+    pub const fn start(&mut self) {
         self.recording = true;
         self.last_gas_used = 0;
         self.pending_isolated_region_gas = None;
@@ -252,18 +254,23 @@ impl GasMetering {
         self.paused_frames.clear();
     }
 
-    /// Records the receipt gas of the isolated transaction wrapping the frame
-    /// that is about to end, and the state gas the outer opcode already charged
-    /// for it.
-    pub fn set_isolated_snapshot_gas_used(&mut self, gas_used: u64, precharged_state: u64) {
+    /// `precharged_state` is the account-creation state gas in `gas_used` that
+    /// the outer opcode already charged before entering the isolated frame.
+    pub const fn set_isolated_snapshot_gas_used(&mut self, gas_used: u64, precharged_state: u64) {
         self.isolated_snapshot_gas_used = Some((gas_used, precharged_state));
     }
 
-    /// Takes the receipt gas recorded for the isolated frame that just ended.
-    /// While a region snapshot is active, the next sample at `depth` replaces
-    /// the gas charged to the frame with that receipt gas.
-    fn take_isolated_snapshot_gas_used(&mut self, depth: usize, gas: &Gas) -> Option<u64> {
-        let (gas_used, precharged_state) = self.isolated_snapshot_gas_used.take()?;
+    /// Takes the receipt gas of the isolated transaction that wrapped the
+    /// ending frame.
+    ///
+    /// Region snapshots replace the gas charged to the frame with the
+    /// transaction gas, without changing the interpreter's gas. The
+    /// transaction gas can be lower because of refunds, or higher because of
+    /// intrinsic gas that did not fit in the frame's budget.
+    const fn take_isolated_snapshot_gas_used(&mut self, depth: usize, gas: &Gas) -> Option<u64> {
+        let Some((gas_used, precharged_state)) = self.isolated_snapshot_gas_used.take() else {
+            return None;
+        };
         if self.recording {
             // The caller's sample already includes the precharged state gas.
             self.pending_isolated_region_gas = Some((
