@@ -17,7 +17,7 @@ use crate::{
     data::ProviderData,
     error::{ProviderErrorForChainSpec, TransactionFailureWithCallTraces},
     requests::validation::{
-        validate_eip3860_max_initcode_size, validate_post_merge_block_tags,
+        validate_max_initcode_size, validate_post_merge_block_tags,
         validate_transaction_and_call_request,
     },
     spec::{FromRpcType, Sender as _, SyncProviderSpec, TransactionContext},
@@ -345,7 +345,7 @@ fn validate_send_raw_transaction_request<
         }
     }
 
-    validate_eip3860_max_initcode_size::<ChainSpecT, TimerT>(
+    validate_max_initcode_size::<ChainSpecT, TimerT>(
         data.hardfork(),
         data.allow_unlimited_initcode_size(),
         transaction.kind().to(),
