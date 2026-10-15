@@ -89,6 +89,19 @@ pub enum CreationError<GenesisBlockCreationErrorT, HardforkT> {
     /// A contract decoder error
     #[error(transparent)]
     ContractDecoder(#[from] ContractDecoderError),
+    /// The configured default transaction gas limit exceeds the transaction
+    /// gas bound of the configured hardfork.
+    #[error(
+        "The default transaction gas limit {default_transaction_gas_limit} exceeds the transaction gas bound {bound} of the {hardfork:?} hardfork"
+    )]
+    DefaultTransactionGasLimitExceedsBound {
+        /// The configured default transaction gas limit
+        default_transaction_gas_limit: u64,
+        /// The transaction gas bound of the hardfork
+        bound: u64,
+        /// The configured hardfork
+        hardfork: HardforkT,
+    },
     /// An error that occurred while constructing a forked blockchain.
     #[error(transparent)]
     ForkedBlockchainCreation(#[from] ForkedCreationError<HardforkT>),

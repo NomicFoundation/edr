@@ -805,6 +805,17 @@ where
 
         let transaction_gas_bounds =
             transaction_gas_bounds_for_hardfork(&transaction_gas_cap, blockchain.hardfork());
+        if let (Some(default_transaction_gas_limit), Some(bound)) = (
+            default_transaction_gas_limit,
+            transaction_gas_bounds.total_transaction_gas,
+        ) && default_transaction_gas_limit.get() > bound
+        {
+            return Err(CreationError::DefaultTransactionGasLimitExceedsBound {
+                default_transaction_gas_limit: default_transaction_gas_limit.get(),
+                bound,
+                hardfork: blockchain.hardfork(),
+            });
+        }
 
         let local_accounts = owned_accounts
             .iter()
@@ -939,21 +950,19 @@ where
         &self,
         block_spec: &BlockSpec,
     ) -> Result<u64, ProviderErrorForChainSpec<ChainSpecT>> {
-        let (gas_limit, hardfork) =
-            if let Some(default_transaction_gas_limit) = self.default_transaction_gas_limit {
-                (
-                    default_transaction_gas_limit.get(),
-                    self.hardfork_at_block_spec(block_spec)?,
-                )
-            } else if let Some(block) = self.block_by_block_spec(block_spec)? {
-                let header = block.block_header();
-                (
-                    header.gas_limit,
-                    self.blockchain.spec_at_block_number(header.number)?,
-                )
-            } else {
-                (self.next_block_gas_limit()?, self.blockchain.hardfork())
-            };
+        if let Some(default_transaction_gas_limit) = self.default_transaction_gas_limit {
+            return Ok(default_transaction_gas_limit.get());
+        }
+
+        let (gas_limit, hardfork) = if let Some(block) = self.block_by_block_spec(block_spec)? {
+            let header = block.block_header();
+            (
+                header.gas_limit,
+                self.blockchain.spec_at_block_number(header.number)?,
+            )
+        } else {
+            (self.next_block_gas_limit()?, self.blockchain.hardfork())
+        };
 
         Ok(transaction_gas_limit_within_bound(
             gas_limit,

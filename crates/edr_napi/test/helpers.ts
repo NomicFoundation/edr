@@ -290,7 +290,6 @@ export function l1ProviderConfig(
     bailOnTransactionFailure: false,
     chainId: 123n,
     coinbase: new Uint8Array(20),
-    defaultTransactionGasLimit: 300_000_000n,
     genesisState:
       genesisState ?? l1GenesisState(l1HardforkFromString(hardfork)),
     hardfork,
