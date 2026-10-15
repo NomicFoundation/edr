@@ -892,13 +892,11 @@ impl<
             .saturating_add(reservoir)
             .saturating_add(precharged_state.unwrap_or(0));
         ecx.tx.set_gas_limit(tx_gas_limit);
-
-        // If we haven't disabled gas limit checks, ensure that transaction gas limit
-        // will not exceed block gas limit.
-        if !ecx.cfg.disable_block_gas_limit {
-            ecx.tx
-                .set_gas_limit(std::cmp::min(ecx.tx.gas_limit(), ecx.block.gas_limit()));
-        }
+        // The block gas limit was already enforced on the test transaction this
+        // frame belongs to. The synthetic transaction only exceeds it by its
+        // intrinsic gas and precharged state gas, and clamping it would take
+        // that out of the reservoir the frame had.
+        ecx.cfg.disable_block_gas_limit = true;
         ecx.tx.set_gas_price(0);
 
         self.inner_context_data = Some(InnerContextData {
@@ -948,6 +946,7 @@ impl<
             *context.cfg = evm_context.cfg.clone();
             context.cfg.tx_gas_limit_cap = cached_env.cfg.tx_gas_limit_cap;
             context.cfg.disable_eip7623 = cached_env.cfg.disable_eip7623;
+            context.cfg.disable_block_gas_limit = cached_env.cfg.disable_block_gas_limit;
             *context.block = evm_context.block.clone();
 
             *context.tx = cached_env.tx;
