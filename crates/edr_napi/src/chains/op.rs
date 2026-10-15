@@ -9,7 +9,7 @@ use edr_op::{
     },
     OpChainSpec,
 };
-use edr_primitives::hex;
+use edr_primitives::{hex, U256};
 use edr_provider::time::CurrentTime;
 use edr_solidity::contract_decoder::ContractDecoder;
 use napi::{
@@ -23,6 +23,7 @@ use crate::{
     account::{AccountOverride, StorageSlot},
     provider::{factory::SyncProviderFactory, ProviderFactory},
     subscription::{subscriber_callback_for_chain_spec, SubscriptionTsfn},
+    trace::u256_to_bigint,
 };
 
 pub struct OpProviderFactory;
@@ -297,6 +298,61 @@ pub fn op_provider_factory() -> ProviderFactory {
     factory.into()
 }
 
+/// The value of a storage slot, built from the contract's storage layout.
+struct StorageSlotValue(U256);
+
+impl StorageSlotValue {
+    /// Packs fields the way Solidity does: each one at `value << (8 * offset)`.
+    /// Fields must be in ascending offset order, not overlap and fit in the
+    /// slot.
+    fn packed(fields: &[SlotField]) -> Self {
+        let mut next_free = 0;
+        let mut slot = U256::ZERO;
+        for field in fields {
+            assert!(
+                field.offset >= next_free,
+                "field at offset {} overlaps the previous field ending at {next_free}",
+                field.offset
+            );
+            next_free = field.offset + field.width;
+            assert!(
+                next_free <= 32,
+                "field at offset {} with {} bytes exceeds the slot",
+                field.offset,
+                field.width
+            );
+            slot |= field.value << (8 * field.offset);
+        }
+        Self(slot)
+    }
+}
+
+impl From<StorageSlotValue> for BigInt {
+    fn from(value: StorageSlotValue) -> Self {
+        u256_to_bigint(&value.0)
+    }
+}
+
+/// A field of a storage slot at its byte offset, as listed in the contract's
+/// storage layout. The width is that of the Rust type.
+struct SlotField {
+    offset: usize,
+    width: usize,
+    value: U256,
+}
+
+impl SlotField {
+    fn new<T: Into<u64>>(offset: usize, value: T) -> Self {
+        Self {
+            offset,
+            width: size_of::<T>(),
+            value: U256::from(value.into()),
+        }
+    }
+}
+
+/// Slot offsets follow the `GasPriceOracle` storage layout:
+/// <https://github.com/ethereum-optimism/optimism/blob/e7a1f703310e494d8cdd1e9e239b7a9b1e13a305/packages/contracts-bedrock/snapshots/storageLayout/GasPriceOracle.json>
 fn gas_price_oracle_override(hardfork: edr_op::Hardfork) -> AccountOverride {
     if hardfork >= edr_op::Hardfork::Isthmus {
         gas_price_oracle_isthmus()
@@ -315,10 +371,10 @@ fn gas_price_oracle_ecotone() -> AccountOverride {
         code: Some(gas_price_oracle_code_ecotone().into()),
         storage: Some(vec![StorageSlot {
             index: BigInt::from(0u64),
-            // bool isEcotone = true
-            value: BigInt::from(
-                0x0000000000000000000000000000000000000000000000000000000000000001u64,
-            ),
+            value: StorageSlotValue::packed(&[
+                SlotField::new(0, true), // bool isEcotone
+            ])
+            .into(),
         }]),
     }
 }
@@ -331,11 +387,11 @@ fn gas_price_oracle_fjord() -> AccountOverride {
         code: Some(gas_price_oracle_code_fjord().into()),
         storage: Some(vec![StorageSlot {
             index: BigInt::from(0u64),
-            // bool isEcotone = true
-            // bool isFjord = true
-            value: BigInt::from(
-                0x0000000000000000000000000000000000000000000000000000000000000101u64,
-            ),
+            value: StorageSlotValue::packed(&[
+                SlotField::new(0, true), // bool isEcotone
+                SlotField::new(1, true), // bool isFjord
+            ])
+            .into(),
         }]),
     }
 }
@@ -348,28 +404,27 @@ fn gas_price_oracle_isthmus() -> AccountOverride {
         code: Some(gas_price_oracle_code_isthmus().into()),
         storage: Some(vec![StorageSlot {
             index: BigInt::from(0u64),
-            // bool isEcotone = true
-            // bool isFjord = true
-            // bool isIsthmus = true
-            value: BigInt::from(
-                0x0000000000000000000000000000000000000000000000000000000000010101u64,
-            ),
+            value: StorageSlotValue::packed(&[
+                SlotField::new(0, true), // bool isEcotone
+                SlotField::new(1, true), // bool isFjord
+                SlotField::new(2, true), // bool isIsthmus
+            ])
+            .into(),
         }]),
     }
 }
+
+/// Slot offsets follow the `L1Block` storage layout:
+/// <https://github.com/ethereum-optimism/optimism/blob/e7a1f703310e494d8cdd1e9e239b7a9b1e13a305/packages/contracts-bedrock/snapshots/storageLayout/L1Block.json>
 fn l1_block_storage(hardfork: edr_op::Hardfork) -> Vec<StorageSlot> {
     let mut base_storage = vec![
         StorageSlot {
             index: BigInt::from(0u64),
-            // uint64 public number = 1
-            // uint64 public timestamp = 1
-            value: BigInt {
-                words: vec![
-                    0x0000000000000001_u64, // least significative
-                    0x0000000000000001_u64,
-                ],
-                sign_bit: false,
-            },
+            value: StorageSlotValue::packed(&[
+                SlotField::new(0, 1u64), // uint64 number
+                SlotField::new(8, 1u64), // uint64 timestamp
+            ])
+            .into(),
         },
         StorageSlot {
             index: BigInt::from(1u64),
@@ -383,18 +438,13 @@ fn l1_block_storage(hardfork: edr_op::Hardfork) -> Vec<StorageSlot> {
         },
         StorageSlot {
             index: BigInt::from(3u64),
-            // uint64 sequenceNumber = 0
-            // uint32 blobBaseFeeScalar = 1014213
-            // uint32 baseFeeScalar = 5227
-            value: BigInt {
-                words: vec![
-                    0x0000000000000000_u64, // least significative
-                    0x0000000000000000_u64,
-                    0x00000000000f79c5_u64,
-                    0x000000000000146b_u64,
-                ],
-                sign_bit: false,
-            },
+            // The fee scalars are OP Mainnet's.
+            value: StorageSlotValue::packed(&[
+                SlotField::new(0, 0u64),         // uint64 sequenceNumber
+                SlotField::new(8, 1_014_213u32), // uint32 blobBaseFeeScalar
+                SlotField::new(12, 5227u32),     // uint32 baseFeeScalar
+            ])
+            .into(),
         },
         StorageSlot {
             index: BigInt::from(4u64),
@@ -462,5 +512,44 @@ mod tests {
             assert_eq!(edr_op::Hardfork::from(napi_hardfork), hardfork);
             assert_eq!(OpHardfork::from_str(name).unwrap(), napi_hardfork);
         }
+    }
+
+    #[test]
+    fn packed_value_places_fields_at_their_offsets() {
+        let value: BigInt = StorageSlotValue::packed(&[
+            SlotField::new(0, 0u64),
+            SlotField::new(8, 0xf79c5u32),
+            SlotField::new(12, 0x146bu32),
+        ])
+        .into();
+
+        assert_eq!(value.words, [0, 0x0000146b000f79c5, 0, 0]);
+    }
+
+    #[test]
+    #[should_panic(expected = "overlaps")]
+    fn packed_value_rejects_overlapping_fields() {
+        StorageSlotValue::packed(&[SlotField::new(0, 1u64), SlotField::new(4, 1u64)]);
+    }
+
+    #[test]
+    #[should_panic(expected = "exceeds the slot")]
+    fn packed_value_rejects_fields_past_the_slot() {
+        StorageSlotValue::packed(&[SlotField::new(28, 1u64)]);
+    }
+
+    /// Slots 0 and 3 of `L1Block`. The expected limbs are what
+    /// `eth_getStorageAt` returns on OP Mainnet (slot 3 at block
+    /// 158,246,644, sequence number aside), in the order `TryCast<U256>`
+    /// reads them.
+    #[test]
+    fn l1_block_packed_slots_follow_the_storage_layout() {
+        let storage = l1_block_storage(edr_op::Hardfork::Isthmus);
+
+        assert_eq!(storage[0].index.words, [0]);
+        assert_eq!(storage[0].value.words, [1, 1, 0, 0]);
+
+        assert_eq!(storage[3].index.words, [3]);
+        assert_eq!(storage[3].value.words, [0, 0x0000146b000f79c5, 0, 0]);
     }
 }

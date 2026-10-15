@@ -42,9 +42,19 @@ import {
 
 const L1_BLOCK_ADDRESS = "0x4200000000000000000000000000000000000015";
 const L1_BLOCK_INTERFACE = new Interface([
+  "function number() view returns (uint64)",
+  "function timestamp() view returns (uint64)",
+  "function basefee() view returns (uint256)",
+  "function blobBaseFee() view returns (uint256)",
   "function sequenceNumber() view returns (uint64)",
   "function blobBaseFeeScalar() view returns (uint32)",
   "function baseFeeScalar() view returns (uint32)",
+]);
+const GAS_PRICE_ORACLE_ADDRESS = "0x420000000000000000000000000000000000000F";
+const GAS_PRICE_ORACLE_INTERFACE = new Interface([
+  "function isEcotone() view returns (bool)",
+  "function isFjord() view returns (bool)",
+  "function isIsthmus() view returns (bool)",
 ]);
 // The scalars written to L1Block's slot 3 by the OP genesis state.
 const L1_BLOCK_BASE_FEE_SCALAR = 5227n;
@@ -219,87 +229,43 @@ describe("Multi-chain", () => {
     });
 
     describe("Predeploys", () => {
-      it("should have the GasPriceOracle predeploy", async function () {
-        const provider = await context.createProvider(
-          OP_CHAIN_TYPE,
-          {
-            ...providerConfig,
-            genesisState: providerConfig.genesisState.concat(
-              opGenesisState(opHardforkFromString(providerConfig.hardfork))
-            ),
-          },
-          loggerConfig,
-          {
-            subscriptionCallback: (_event: SubscriptionEvent) => {},
-          },
-          new ContractDecoder()
-        );
+      // Slot 0 of GasPriceOracle packs the `isEcotone`, `isFjord` and
+      // `isIsthmus` bools; each hardfork's bytecode only has the getters up to
+      // its own flag.
+      it("should set the GasPriceOracle hardfork flags", async function () {
+        const flagsByHardfork: Array<[string, string[]]> = [
+          ["ecotone", ["isEcotone"]],
+          ["fjord", ["isEcotone", "isFjord"]],
+          ["isthmus", ["isEcotone", "isFjord", "isIsthmus"]],
+        ];
 
-        const response = await provider.handleRequest(
-          JSON.stringify({
-            id: 1,
-            jsonrpc: "2.0",
-            method: "eth_call",
-            params: [
+        for (const [hardfork, flags] of flagsByHardfork) {
+          const provider = await createOpProvider(hardfork);
+
+          for (const flag of flags) {
+            const result = await request(provider, "eth_call", [
               {
-                to: "0x420000000000000000000000000000000000000F",
-                data: "0x960e3a23", // isFjord()
+                to: GAS_PRICE_ORACLE_ADDRESS,
+                data: GAS_PRICE_ORACLE_INTERFACE.encodeFunctionData(flag),
               },
-            ],
-          })
-        );
-        const responseData = JSON.parse(response.data);
-
-        assert.equal(
-          responseData.result,
-          "0x0000000000000000000000000000000000000000000000000000000000000001"
-        );
+            ]);
+            const [value] = GAS_PRICE_ORACLE_INTERFACE.decodeFunctionResult(
+              flag,
+              result
+            );
+            assert.isTrue(value, `${flag}() at ${hardfork}`);
+          }
+        }
       });
 
-      it("should have the L1Block predeploy", async function () {
-        const provider = await context.createProvider(
-          OP_CHAIN_TYPE,
-          {
-            ...providerConfig,
-            genesisState: providerConfig.genesisState.concat(
-              opGenesisState(opHardforkFromString(providerConfig.hardfork))
-            ),
-          },
-          loggerConfig,
-          {
-            subscriptionCallback: (_event: SubscriptionEvent) => {},
-          },
-          new ContractDecoder()
-        );
-
-        const response = await provider.handleRequest(
-          JSON.stringify({
-            id: 1,
-            jsonrpc: "2.0",
-            method: "eth_call",
-            params: [
-              {
-                to: "0x4200000000000000000000000000000000000015",
-                data: "0x5cf24969", // basefee()
-              },
-            ],
-          })
-        );
-        const responseData = JSON.parse(response.data);
-
-        assert.equal(
-          responseData.result,
-          "0x00000000000000000000000000000000000000000000000000000002540be400"
-        ); // 10 gwei
-      });
-
-      function createOpProvider() {
+      function createOpProvider(hardfork = providerConfig.hardfork) {
         return context.createProvider(
           OP_CHAIN_TYPE,
           {
             ...providerConfig,
+            hardfork,
             genesisState: providerConfig.genesisState.concat(
-              opGenesisState(opHardforkFromString(providerConfig.hardfork))
+              opGenesisState(opHardforkFromString(hardfork))
             ),
           },
           loggerConfig,
@@ -321,11 +287,11 @@ describe("Multi-chain", () => {
         return JSON.parse(response.data).result;
       }
 
-      // Slot 3 of L1Block packs `sequenceNumber` (uint64), `blobBaseFeeScalar`
-      // (uint32) and `baseFeeScalar` (uint32). Reading them through the
-      // getters checks the genesis storage against the layout the bytecode
-      // expects.
-      it("should initialize the L1Block fee scalars in the contract's storage layout", async function () {
+      // Reading every initialized slot of L1Block through its getters checks
+      // the genesis storage against the layout the bytecode expects. Slot 0
+      // packs `number` and `timestamp` (uint64); slot 3 packs `sequenceNumber`
+      // (uint64), `blobBaseFeeScalar` (uint32) and `baseFeeScalar` (uint32).
+      it("should initialize the L1Block storage in the contract's layout", async function () {
         const provider = await createOpProvider();
 
         const callGetter = async (name: string): Promise<bigint> => {
@@ -339,6 +305,10 @@ describe("Multi-chain", () => {
           return value;
         };
 
+        assert.equal(await callGetter("number"), 1n);
+        assert.equal(await callGetter("timestamp"), 1n);
+        assert.equal(await callGetter("basefee"), 10_000_000_000n); // 10 gwei
+        assert.equal(await callGetter("blobBaseFee"), 10_000_000_000n); // 10 gwei
         assert.equal(await callGetter("sequenceNumber"), 0n);
         assert.equal(
           await callGetter("blobBaseFeeScalar"),
