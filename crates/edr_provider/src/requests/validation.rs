@@ -760,15 +760,15 @@ mod tests {
         assert_eq!(max_initcode_size_for_hardfork(EvmSpecId::MERGE), None);
         assert_eq!(
             max_initcode_size_for_hardfork(EvmSpecId::SHANGHAI),
-            Some(0xC000)
+            Some(eip3860::MAX_INITCODE_SIZE)
         );
         assert_eq!(
             max_initcode_size_for_hardfork(EvmSpecId::OSAKA),
-            Some(0xC000)
+            Some(eip3860::MAX_INITCODE_SIZE)
         );
         assert_eq!(
             max_initcode_size_for_hardfork(EvmSpecId::AMSTERDAM),
-            Some(0x20000)
+            Some(eip7954::MAX_INITCODE_SIZE)
         );
     }
 }
