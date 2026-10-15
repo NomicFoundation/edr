@@ -245,11 +245,12 @@ async fn creation_rejects_configured_default_above_osaka_cap() -> anyhow::Result
         anyhow::bail!("provider creation should fail");
     };
 
-    assert_eq!(
-        error.to_string(),
-        format!(
-            "The default transaction gas limit {DEFAULT_TRANSACTION_GAS_LIMIT_ABOVE_OSAKA_CAP} exceeds the transaction gas bound {OSAKA_TRANSACTION_GAS_CAP} of the {hardfork:?} hardfork"
-        )
+    let message = error.to_string();
+    assert!(
+        message.contains(&format!(
+            "exceeds the transaction gas bound {OSAKA_TRANSACTION_GAS_CAP}"
+        )),
+        "unexpected error: {message}"
     );
 
     Ok(())

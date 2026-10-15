@@ -1445,9 +1445,11 @@ export interface ProviderConfig {
    * The gas limit of RPC call and transaction requests that do not specify
    * a `gas` value.
    *
-   * Creating the provider fails when it exceeds the transaction gas bound of
-   * the configured hardfork. A request at a block with a smaller bound is
-   * rejected like a request with an explicit `gas` above it.
+   * When set, it is used as is. Creating the provider fails when it exceeds
+   * the transaction gas bound of the configured hardfork and transaction gas
+   * cap. A request at a block whose bound is lower fails like a request with
+   * an explicit `gas` above that bound.
+   *
    * When not set, it is derived from the hardfork of the request's block.
    * It is `2^32 - 1` from Amsterdam ([EIP-8037]), `2^24` from Osaka
    * ([EIP-7825]), and the block gas limit before. The block gas limit caps
