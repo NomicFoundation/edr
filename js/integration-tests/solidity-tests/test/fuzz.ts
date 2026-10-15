@@ -499,7 +499,7 @@ describe("Fuzz and invariant testing", function () {
 
     const fuzzConfig = {
       runs: GLOBAL_RUNS,
-      maxTestRejects: 0,
+      maxTestRejects: 1,
     };
 
     // Per-function overrides come from inline `forge-config:` directives in
@@ -516,7 +516,7 @@ describe("Fuzz and invariant testing", function () {
 
     assert.equal(
       result.stackTraces.get("testFuzz_NoOverrideRejects(uint256)")?.reason,
-      "`vm.assume` rejected too many inputs (0 allowed)"
+      "`vm.assume` rejected too many inputs (1 allowed)"
     );
 
     assert.equal(
@@ -633,7 +633,7 @@ describe("Fuzz and invariant testing", function () {
       const result = await testContext.runTestsWithStats(
         "InlineConfigProfilesTest",
         {
-          fuzz: { runs: GLOBAL_RUNS, maxTestRejects: 0 },
+          fuzz: { runs: GLOBAL_RUNS },
           testProfile,
           declaredTestProfiles: ["default", "ci"],
         }

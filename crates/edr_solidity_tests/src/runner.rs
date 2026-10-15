@@ -10,11 +10,12 @@ use std::{
 };
 
 use alloy_dyn_abi::{DynSolValue, JsonAbiExt};
-use alloy_json_abi::Function;
-use alloy_primitives::{Address, Bytes, U256};
+use alloy_json_abi::{Function, JsonAbi};
+use alloy_primitives::{hex, Address, Bytes, U256};
 use derive_where::derive_where;
 use edr_artifact::ArtifactId;
 use edr_chain_spec::{EvmHaltReason, HaltReasonTrait};
+use edr_common::errors::FsPathError;
 use edr_decoder_revert::RevertDecoder;
 use edr_solidity::{
     config::IncludeTraces,
@@ -50,7 +51,7 @@ use foundry_evm::{
     },
 };
 use itertools::Itertools;
-use proptest::test_runner::{FailurePersistence, RngAlgorithm, TestError, TestRng, TestRunner};
+use proptest::test_runner::{RngAlgorithm, TestError, TestRng, TestRunner};
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use tracing::Span;
@@ -740,7 +741,7 @@ impl<
                 )
                 .entered();
 
-                let mut outcome = FunctionRunner::new(&self, &executor, &setup).run(
+                let mut outcome = FunctionRunner::new(&self, &executor, &setup, tokio_handle).run(
                     func,
                     kind,
                     call_after_invariant,
@@ -814,6 +815,9 @@ struct FunctionRunner<
     >,
     /// The test setup result.
     setup: &'a TestSetup<HaltReasonT>,
+    /// The tokio runtime handle, entered by fuzz workers so that fork-mode
+    /// RPC calls made from their threads find a reactor.
+    tokio_handle: &'a tokio::runtime::Handle,
     /// The test result. Returned after running the test.
     result: TestResult<HaltReasonT>,
     /// The trace arenas the test sampled for the gas report; `None` when no
@@ -824,7 +828,7 @@ struct FunctionRunner<
 impl<
         'a,
         BlockT: BlockEnvTr,
-        ChainContextT: 'static + ChainContextTr,
+        ChainContextT: 'static + ChainContextTr + Send + Sync,
         EvmBuilderT: 'static
             + EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: 'static + HaltReasonTrait + TryInto<HaltReason>,
@@ -867,11 +871,13 @@ impl<
             ChainContextT,
         >,
         setup: &'a TestSetup<HaltReasonT>,
+        tokio_handle: &'a tokio::runtime::Handle,
     ) -> Self {
         Self {
             executor: Cow::Borrowed(executor),
             cr,
             setup,
+            tokio_handle,
             result: TestResult::new(setup),
             gas_report_samples: None,
         }
@@ -1225,7 +1231,6 @@ impl<
             self.cr.fuzz_config.seed,
             invariant_config.runs,
             invariant_config.max_assume_rejects,
-            None,
         );
 
         let mut executor = self.clone_executor();
@@ -1545,12 +1550,45 @@ impl<
             }
         }
 
+        // Without a reject limit only the timeout can end a test whose
+        // `vm.assume` never passes.
+        if fuzz_config.max_test_rejects == 0 && fuzz_config.timeout.is_none() {
+            self.result.single_fail(
+                Some("`maxTestRejects` = 0 requires a fuzz `timeout`".to_string()),
+                start.elapsed(),
+            );
+            return self.outcome();
+        }
+
         let runner = fuzzer_with_cases(
             fuzz_config.seed,
             fuzz_config.runs,
             fuzz_config.max_test_rejects,
-            fuzz_config.file_failure_persistence(),
         );
+
+        let test_name =
+            fuzz_test_path_name(&self.cr.contract.abi, func, &fuzz_config, self.cr.name);
+        let failure_paths = fuzz_config.failure_paths(self.cr.name, &test_name);
+        // Load persisted counterexample, if any.
+        let persisted_failure = failure_paths
+            .as_ref()
+            .and_then(|(failure_dir, failure_file)| {
+                read_persisted_fuzz_failure(failure_file).or_else(|| {
+                    // Fall back to a failure persisted under the bare function
+                    // name by Forge before v1.8.2 qualified overloads, if it
+                    // targets this overload.
+                    if test_name == func.name {
+                        return None;
+                    }
+                    let legacy_file = failure_dir.join(&func.name);
+                    let failure = read_persisted_fuzz_failure(&legacy_file)?;
+                    failure
+                        .calldata
+                        .get(..4)
+                        .is_some_and(|selector| func.selector() == selector)
+                        .then_some(failure)
+                })
+            });
 
         // Run fuzz test.
         let fuzzed_executor = FuzzedExecutor::new(
@@ -1558,6 +1596,7 @@ impl<
             runner,
             self.cr.sender,
             fuzz_config,
+            persisted_failure,
         );
         let mut result = fuzzed_executor.fuzz(
             func,
@@ -1565,7 +1604,21 @@ impl<
             &self.setup.deployed_libs,
             self.setup.address,
             self.cr.revert_decoder,
+            self.tokio_handle,
         );
+
+        // Record counterexample.
+        if let Some((failure_dir, failure_file)) = failure_paths
+            && let Some(CounterExample::Single(counterexample)) = &result.counterexample
+        {
+            if let Err(err) = edr_common::fs::create_dir_all(&failure_dir) {
+                error!(%err, "Failed to create fuzz failure dir");
+            } else if let Err(err) =
+                edr_common::fs::write_json_file(failure_file.as_path(), counterexample)
+            {
+                error!(%err, "Failed to record fuzz counterexample");
+            }
+        }
         self.gas_report_samples = self
             .cr
             .trace_retention
@@ -1857,14 +1910,54 @@ fn re_run_fuzz_counterexample_for_stack_traces<
     .map_err(SolidityTestStackTraceError::Creation)
 }
 
-fn fuzzer_with_cases(
-    seed: Option<U256>,
-    cases: u32,
-    max_global_rejects: u32,
-    file_failure_persistence: Option<Box<dyn FailurePersistence>>,
-) -> TestRunner {
+/// Returns the path component under which the fuzz failures of `func` are
+/// persisted.
+///
+/// Overloaded test functions are qualified with their selector,
+/// `<name>-<selector hex>`, so that they do not share one failure file. A
+/// function that is not overloaded keeps its bare name, unless a qualified
+/// failure file already exists for it because it used to be overloaded.
+fn fuzz_test_path_name<'a>(
+    abi: &JsonAbi,
+    func: &'a Function,
+    config: &FuzzConfig,
+    contract_name: &str,
+) -> Cow<'a, str> {
+    let qualified_name = format!("{}-{}", func.name, hex::encode(func.selector()));
+    let overloaded = abi
+        .functions
+        .get(&func.name)
+        .is_some_and(|functions| functions.len() > 1);
+    let has_qualified_failure = config
+        .failure_paths(contract_name, &qualified_name)
+        .is_some_and(|(_, failure_file)| failure_file.exists());
+
+    if overloaded || has_qualified_failure {
+        Cow::Owned(qualified_name)
+    } else {
+        Cow::Borrowed(&func.name)
+    }
+}
+
+/// Loads a persisted fuzz counterexample. A missing file is the normal case;
+/// any other failure is logged so that a corrupt file is not mistaken for a
+/// clean slate.
+fn read_persisted_fuzz_failure(path: &Path) -> Option<BaseCounterExample> {
+    edr_common::fs::read_json_file::<BaseCounterExample>(path)
+        .inspect_err(|err| {
+            let not_found = matches!(
+                err,
+                FsPathError::Read { source, .. } if source.kind() == std::io::ErrorKind::NotFound
+            );
+            if !not_found {
+                tracing::warn!("Ignoring persisted fuzz failure: {err}");
+            }
+        })
+        .ok()
+}
+
+fn fuzzer_with_cases(seed: Option<U256>, cases: u32, max_global_rejects: u32) -> TestRunner {
     let config = proptest::test_runner::Config {
-        failure_persistence: file_failure_persistence,
         cases,
         max_global_rejects,
         // Disable proptest shrink: for fuzz tests we provide single counterexample,
