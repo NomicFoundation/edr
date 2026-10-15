@@ -746,6 +746,23 @@ where
         contract_decoder: Arc<RwLock<ContractDecoder>>,
         timer: TimerT,
     ) -> Result<Self, CreationErrorForChainSpec<ChainSpecT>> {
+        let transaction_gas_bounds = transaction_gas_bounds_for_hardfork(
+            &config.transaction_gas_cap,
+            config.hardfork.clone(),
+        );
+        if let (Some(default_transaction_gas_limit), Some(bound)) = (
+            config.default_transaction_gas_limit,
+            transaction_gas_bounds.total_transaction_gas,
+        ) && default_transaction_gas_limit.get() > bound
+        {
+            return Err(CreationError::DefaultTransactionGasLimitExceedsBound {
+                default_transaction_gas_limit: default_transaction_gas_limit.get(),
+                bound,
+                hardfork: config.hardfork,
+                transaction_gas_cap: config.transaction_gas_cap,
+            });
+        }
+
         let BlockchainAndState {
             blockchain,
             block_config,
@@ -802,20 +819,6 @@ where
             precompile_overrides,
             transaction_gas_cap,
         } = config;
-
-        let transaction_gas_bounds =
-            transaction_gas_bounds_for_hardfork(&transaction_gas_cap, blockchain.hardfork());
-        if let (Some(default_transaction_gas_limit), Some(bound)) = (
-            default_transaction_gas_limit,
-            transaction_gas_bounds.total_transaction_gas,
-        ) && default_transaction_gas_limit.get() > bound
-        {
-            return Err(CreationError::DefaultTransactionGasLimitExceedsBound {
-                default_transaction_gas_limit: default_transaction_gas_limit.get(),
-                bound,
-                hardfork: blockchain.hardfork(),
-            });
-        }
 
         let local_accounts = owned_accounts
             .iter()

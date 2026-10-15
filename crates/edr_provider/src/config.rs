@@ -308,9 +308,11 @@ pub struct ProviderConfig<HardforkT> {
     /// The gas limit of RPC call and transaction requests that do not specify
     /// a `gas` value.
     ///
-    /// Creating the provider fails when it exceeds the transaction gas bound of
-    /// the configured hardfork. A request at a block with a smaller bound is
-    /// rejected like a request with an explicit `gas` above it.
+    /// When set, it is used as is. Creating the provider fails when it exceeds
+    /// the transaction gas bound of the configured hardfork and transaction gas
+    /// cap. A request at a block whose bound is lower fails like a request with
+    /// an explicit `gas` above that bound.
+    ///
     /// When not set, it is derived from the hardfork and gas limit of the
     /// request's block. Before Amsterdam, the transaction gas cap replaces the
     /// hardfork's bound.

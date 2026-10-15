@@ -33,8 +33,11 @@ use parking_lot::RwLock;
 use serde::Serialize;
 
 use crate::{
-    config::IntervalConfigConversionError, debug_trace::DebugTraceError,
-    observability::EvmObserverCollectionError, time::TimeSinceEpoch, ProviderSpec,
+    config::{ConfigOption, IntervalConfigConversionError},
+    debug_trace::DebugTraceError,
+    observability::EvmObserverCollectionError,
+    time::TimeSinceEpoch,
+    ProviderSpec,
 };
 
 pub(crate) const INVALID_INPUT: i16 = -32000;
@@ -90,17 +93,19 @@ pub enum CreationError<GenesisBlockCreationErrorT, HardforkT> {
     #[error(transparent)]
     ContractDecoder(#[from] ContractDecoderError),
     /// The configured default transaction gas limit exceeds the transaction
-    /// gas bound of the configured hardfork.
+    /// gas bound of the configured hardfork and transaction gas cap.
     #[error(
-        "The default transaction gas limit {default_transaction_gas_limit} exceeds the transaction gas bound {bound} of the {hardfork:?} hardfork"
+        "The default transaction gas limit {default_transaction_gas_limit} exceeds the transaction gas bound {bound} of the {hardfork:?} hardfork with transaction gas cap {transaction_gas_cap:?}"
     )]
     DefaultTransactionGasLimitExceedsBound {
         /// The configured default transaction gas limit
         default_transaction_gas_limit: u64,
-        /// The transaction gas bound of the hardfork
+        /// The transaction gas bound
         bound: u64,
         /// The configured hardfork
         hardfork: HardforkT,
+        /// The configured transaction gas cap
+        transaction_gas_cap: ConfigOption<u64>,
     },
     /// An error that occurred while constructing a forked blockchain.
     #[error(transparent)]
