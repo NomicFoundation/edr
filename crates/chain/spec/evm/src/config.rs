@@ -26,7 +26,7 @@ pub struct EvmConfig {
     /// Contract code size limit override.
     ///
     /// If None, the limit will be determined by the hardfork (EIP-170 or
-    /// EIP-7907) at runtime. If Some, this specific limit will be used
+    /// EIP-7954) at runtime. If Some, this specific limit will be used
     /// regardless of hardfork.
     pub limit_contract_code_size: Option<usize>,
     /// Configures the maximum gas a transaction may spend on execution.

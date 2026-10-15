@@ -12,8 +12,12 @@ use object::{Endianness, Object, ObjectSection};
 
 use crate::{
     artifacts::solx::SolxBuildModel,
-    build_model::{BuildModel as _, Instruction, JumpType, SourceLocation},
+    build_model::{BuildModel as _, ContractFunction, Instruction, JumpType, SourceLocation},
 };
+
+mod decode_caches;
+
+use decode_caches::DecodeCaches;
 
 type DwarfReader = EndianRcSlice<RunTimeEndian>;
 
@@ -161,28 +165,32 @@ pub fn decode_instructions(
     // 3. Reuse BuildModel's lazy reverse index (built at most once per BuildModel).
     let name_to_file_id = build_model.name_to_file_id();
 
-    // 4. Per-file line-start caches, populated on demand.
-    let mut line_starts_by_file_id: HashMap<u32, Vec<usize>> = HashMap::new();
+    // 4. Per-decode memo caches, populated on demand.
+    let mut caches = DecodeCaches::default();
 
     // 5. Walk PCs, mirroring `source_map::decode_instructions` so PUSH operands are
     //    skipped consistently. PcOpcodes ends iteration as soon as it hits an
     //    invalid byte (CBOR metadata region), matching the previous `break`
     //    semantics.
+    let mut sweep = RangeSweep::new(&parsed.inlined_ranges);
     let mut instructions: Vec<Instruction> = PcOpcodes::new(normalized_code)
         .map(|step| {
+            let pc = step.pc as u64;
+            let containing = sweep.containing(pc);
             let location = parsed.user_visible_location_for_pc(
-                step.pc as u64,
+                pc,
+                &containing,
                 &parsed.file_names,
                 name_to_file_id,
                 build_model,
-                &mut line_starts_by_file_id,
+                &mut caches,
             );
-            let inline_call_sites = parsed.inline_call_sites_for_pc(
-                step.pc as u64,
+            let inline_call_sites = inline_call_sites_for_ranges(
+                &containing,
                 &parsed.file_names,
                 name_to_file_id,
                 build_model,
-                &mut line_starts_by_file_id,
+                &mut caches,
             );
             Instruction {
                 pc: step.pc as u32,
@@ -292,6 +300,57 @@ struct AbstractOriginMeta {
     is_artificial: bool,
     decl_file: Option<u64>,
     decl_line: Option<u64>,
+}
+
+/// Sweep over the `low_pc`-sorted inlined ranges yielding the ranges
+/// containing each PC, for PCs visited in bytecode order (a linear walk over
+/// the code, not execution order, so jumps never move it backwards).
+struct RangeSweep<'a> {
+    /// Must be sorted by `low_pc`, as `ParsedDwarf::from_elf_bytes` produces.
+    ranges: &'a [InlinedRange],
+    /// Index of the first range not yet moved into `active`.
+    next: usize,
+    /// Entered but not yet expired ranges, in `low_pc` order, so depth ties
+    /// keep input order.
+    active: Vec<InlinedRange>,
+    prev_pc: u64,
+}
+
+impl<'a> RangeSweep<'a> {
+    fn new(ranges: &'a [InlinedRange]) -> Self {
+        debug_assert!(
+            ranges.is_sorted_by_key(|r| r.low_pc),
+            "RangeSweep requires ranges sorted by low_pc"
+        );
+        Self {
+            ranges,
+            next: 0,
+            active: Vec::new(),
+            prev_pc: 0,
+        }
+    }
+
+    /// Ranges containing `pc`, sorted innermost-first by DIE depth. (Width is
+    /// unreliable: a parent's `DW_AT_ranges` union can be wider than a
+    /// child's contiguous range.)
+    fn containing(&mut self, pc: u64) -> Vec<InlinedRange> {
+        debug_assert!(
+            pc >= self.prev_pc,
+            "RangeSweep requires PCs in bytecode order"
+        );
+        self.prev_pc = pc;
+        while let Some(range) = self.ranges.get(self.next) {
+            if range.low_pc > pc {
+                break;
+            }
+            self.active.push(*range);
+            self.next += 1;
+        }
+        self.active.retain(|r| pc < r.high_pc);
+        let mut containing = self.active.clone();
+        containing.sort_by_key(|r| std::cmp::Reverse(r.depth));
+        containing
+    }
 }
 
 /// Per-CU view of a single solx DWARF blob.
@@ -534,20 +593,6 @@ impl ParsedDwarf {
         })
     }
 
-    /// Inlined-subroutine ranges containing `pc`, sorted innermost-first by
-    /// DIE depth. (Width is unreliable: a parent's `DW_AT_ranges` union can
-    /// be wider than a child's contiguous range.)
-    fn containing_ranges(&self, pc: u64) -> Vec<InlinedRange> {
-        let mut out: Vec<InlinedRange> = self
-            .inlined_ranges
-            .iter()
-            .filter(|r| r.low_pc <= pc && pc < r.high_pc)
-            .copied()
-            .collect();
-        out.sort_by_key(|r| std::cmp::Reverse(r.depth));
-        out
-    }
-
     /// Best-effort bottom-frame source location for `pc`, in order:
     /// 1. innermost artificial helper's `call_site` (if inside the user fn);
     /// 2. line-program row at `pc`;
@@ -555,12 +600,13 @@ impl ParsedDwarf {
     fn user_visible_location_for_pc(
         &self,
         pc: u64,
+        containing: &[InlinedRange],
         dwarf_file_names: &[String],
         name_to_file_id: &HashMap<String, u32>,
         build_model: &SolxBuildModel,
-        line_starts_cache: &mut HashMap<u32, Vec<usize>>,
+        caches: &mut DecodeCaches,
     ) -> Option<SourceLocation> {
-        let containing = self.containing_ranges(pc);
+        let row_at_pc = self.location_for_pc(pc);
 
         // Innermost non-artificial range = the user fn body executing at this
         // PC. Innermost (not outermost) because under user-into-user inlining
@@ -570,30 +616,20 @@ impl ParsedDwarf {
 
         // Trusted anchor: AST function whose decl_line matches the inlined
         // subroutine's abstract origin.
-        let abstract_origin_func: Option<Arc<crate::build_model::ContractFunction>> =
+        let abstract_origin_func: Option<Arc<ContractFunction>> =
             innermost_user_range.and_then(|r| {
                 let (file_idx, decl_line) = (r.decl_file?, r.decl_line?);
                 let dwarf_name = dwarf_file_names.get(file_idx as usize)?.as_str();
-                let file_id = match_dwarf_to_build_model(dwarf_name, name_to_file_id)?;
-
-                let Some(file) = build_model.source_model_by_file_id(file_id) else {
-                    log::debug!(
-                        "DWARF decoder: no source file for file_id {file_id} (dwarf_name={dwarf_name})"
-                    );
-                    return None;
-                };
-
-                let file = file.read();
-                file.get_function_by_decl_line(u32::try_from(decl_line).ok()?)
-                    .cloned()
+                let file_id = caches.resolve_file_id(dwarf_name, name_to_file_id)?;
+                let decl_line = u32::try_from(decl_line).ok()?;
+                caches.function_by_decl_line(build_model, file_id, decl_line, dwarf_name)
             });
 
         // Modifiers fold into the enclosing function. Accept the line-program
         // row only when it's in the same contract as the abstract-origin
         // function (filters dispatcher PCs mapped to unrelated files).
-        let _ = dwarf_file_names; // unused on this path
-        let line_program_func: Option<Arc<crate::build_model::ContractFunction>> = self
-            .location_for_pc(pc)
+        let line_program_func: Option<Arc<ContractFunction>> = row_at_pc
+            .as_ref()
             .and_then(|row| {
                 let line = row.line?;
                 let (file_id, offset) = resolve_location_by_name(
@@ -602,19 +638,10 @@ impl ParsedDwarf {
                     row.column,
                     name_to_file_id,
                     build_model,
-                    line_starts_cache,
+                    caches,
                 )?;
 
-                let Some(source_file) = build_model.source_model_by_file_id(file_id) else {
-                    log::debug!(
-                        "DWARF decoder: no source file for file_id {file_id} (row.file={})",
-                        row.file
-                    );
-                    return None;
-                };
-
-                let probe = SourceLocation::new(source_file, offset as u32, 0);
-                probe.get_containing_function().ok().flatten()
+                caches.containing_function(build_model, file_id, offset as u32, &row.file)
             })
             .filter(|lp_func| match abstract_origin_func.as_ref() {
                 None => true,
@@ -640,7 +667,7 @@ impl ParsedDwarf {
         };
 
         // Pass 1: innermost artificial entry whose call_site is inside the user fn.
-        for r in &containing {
+        for r in containing {
             if !r.is_artificial {
                 continue;
             }
@@ -650,7 +677,7 @@ impl ParsedDwarf {
                 dwarf_file_names,
                 name_to_file_id,
                 build_model,
-                line_starts_cache,
+                caches,
             ) else {
                 continue;
             };
@@ -661,7 +688,7 @@ impl ParsedDwarf {
         }
 
         // Pass 2: line-program row, only when it lands inside the user fn.
-        if let Some(row) = self.location_for_pc(pc)
+        if let Some(row) = &row_at_pc
             && let Some(line) = row.line
             && let Some((file_id, offset)) = resolve_location_by_name(
                 &row.file,
@@ -669,12 +696,12 @@ impl ParsedDwarf {
                 row.column,
                 name_to_file_id,
                 build_model,
-                line_starts_cache,
+                caches,
             )
             && inside_user_func(offset as u32)
         {
-            let length = build_model
-                .smallest_enclosing_span(file_id, offset as u32)
+            let length = caches
+                .enclosing_span(build_model, file_id, offset as u32)
                 .map_or(0, |(_, len)| len);
 
             let Some(source_file) = build_model.source_model_by_file_id(file_id) else {
@@ -691,36 +718,6 @@ impl ParsedDwarf {
         // Pass 3: fall back to the user fn's own AST location — coarser, but
         // at least `get_containing_function` will name the right function.
         user_source_location.cloned()
-    }
-
-    /// Inlined call-site chain for `pc`, innermost-first. Non-artificial only;
-    /// artificial entries (Yul helpers) fold into the bottom-frame location.
-    /// Caller dedups consecutive same-function entries.
-    fn inline_call_sites_for_pc(
-        &self,
-        pc: u64,
-        dwarf_file_names: &[String],
-        name_to_file_id: &HashMap<String, u32>,
-        build_model: &SolxBuildModel,
-        line_starts_cache: &mut HashMap<u32, Vec<usize>>,
-    ) -> Box<[SourceLocation]> {
-        let containing = self.containing_ranges(pc);
-        let mut out: Vec<SourceLocation> = Vec::with_capacity(containing.len());
-        for r in containing {
-            if r.is_artificial {
-                continue;
-            }
-            if let Some(loc) = range_call_site_to_location(
-                &r,
-                dwarf_file_names,
-                name_to_file_id,
-                build_model,
-                line_starts_cache,
-            ) {
-                out.push(loc);
-            }
-        }
-        out.into_boxed_slice()
     }
 
     /// Smallest inlined-subroutine PC range that contains `pc`. Returns the
@@ -825,6 +822,30 @@ impl ParsedDwarf {
     }
 }
 
+/// Inlined call-site chain for a PC's containing ranges, innermost-first.
+/// Non-artificial only; artificial entries (Yul helpers) fold into the
+/// bottom-frame location. Caller dedups consecutive same-function entries.
+fn inline_call_sites_for_ranges(
+    containing: &[InlinedRange],
+    dwarf_file_names: &[String],
+    name_to_file_id: &HashMap<String, u32>,
+    build_model: &SolxBuildModel,
+    caches: &mut DecodeCaches,
+) -> Box<[SourceLocation]> {
+    let mut out: Vec<SourceLocation> = Vec::with_capacity(containing.len());
+    for r in containing {
+        if r.is_artificial {
+            continue;
+        }
+        if let Some(loc) =
+            range_call_site_to_location(r, dwarf_file_names, name_to_file_id, build_model, caches)
+        {
+            out.push(loc);
+        }
+    }
+    out.into_boxed_slice()
+}
+
 /// Resolve an [`InlinedRange`]'s `call_*` attributes to a `SourceLocation`,
 /// or `None` if any required field is missing.
 ///
@@ -836,7 +857,7 @@ fn range_call_site_to_location(
     dwarf_file_names: &[String],
     name_to_file_id: &HashMap<String, u32>,
     build_model: &SolxBuildModel,
-    line_starts_cache: &mut HashMap<u32, Vec<usize>>,
+    caches: &mut DecodeCaches,
 ) -> Option<SourceLocation> {
     // DWARF writes "no line" as 0, so both flavours of missing collapse to
     // `None`.
@@ -866,7 +887,7 @@ fn range_call_site_to_location(
         dwarf_file_names,
         name_to_file_id,
         build_model,
-        line_starts_cache,
+        caches,
     )?;
 
     let Some(source_file) = build_model.source_model_by_file_id(file_id) else {
@@ -884,8 +905,8 @@ fn range_call_site_to_location(
         }
     }
 
-    let length = build_model
-        .smallest_enclosing_span(file_id, offset as u32)
+    let length = caches
+        .enclosing_span(build_model, file_id, offset as u32)
         .map_or(0, |(_, len)| len);
 
     Some(SourceLocation::new(source_file, offset as u32, length))
@@ -900,7 +921,7 @@ fn resolve_location(
     dwarf_file_names: &[String],
     name_to_file_id: &HashMap<String, u32>,
     build_model: &SolxBuildModel,
-    line_starts_cache: &mut HashMap<u32, Vec<usize>>,
+    caches: &mut DecodeCaches,
 ) -> Option<(u32, usize)> {
     let dwarf_name = dwarf_file_names.get(dwarf_file_index as usize)?.as_str();
     resolve_location_by_name(
@@ -909,7 +930,7 @@ fn resolve_location(
         column,
         name_to_file_id,
         build_model,
-        line_starts_cache,
+        caches,
     )
 }
 
@@ -921,14 +942,11 @@ fn resolve_location_by_name(
     column: u64,
     name_to_file_id: &HashMap<String, u32>,
     build_model: &SolxBuildModel,
-    line_starts_cache: &mut HashMap<u32, Vec<usize>>,
+    caches: &mut DecodeCaches,
 ) -> Option<(u32, usize)> {
-    let file_id = match_dwarf_to_build_model(dwarf_name, name_to_file_id)?;
-    let starts = line_starts_cache
-        .entry(file_id)
-        .or_insert_with(|| compute_line_starts(build_model, file_id));
+    let file_id = caches.resolve_file_id(dwarf_name, name_to_file_id)?;
     let line_idx = (line.get() - 1) as usize;
-    let line_start = starts.get(line_idx).copied()?;
+    let line_start = caches.line_start(build_model, file_id, line_idx)?;
     let column_offset = if column == 0 { 0 } else { column as usize - 1 };
     Some((file_id, line_start + column_offset))
 }
@@ -986,20 +1004,6 @@ fn pick_unambiguous(candidates: &[(&String, u32)], dwarf_name: &str) -> Option<u
         return None;
     }
     longest.first().map(|(_, id)| *id)
-}
-
-fn compute_line_starts(build_model: &SolxBuildModel, file_id: u32) -> Vec<usize> {
-    let Some(file) = build_model.source_model_by_file_id(file_id) else {
-        return Vec::new();
-    };
-    let content = file.read().content.clone();
-    let mut starts = vec![0usize];
-    for (i, b) in content.bytes().enumerate() {
-        if b == b'\n' {
-            starts.push(i + 1);
-        }
-    }
-    starts
 }
 
 #[cfg(test)]
@@ -1710,32 +1714,60 @@ mod tests {
     mod edge_cases {
         use super::*;
 
+        fn r(depth: u32, low_pc: u64, high_pc: u64) -> InlinedRange {
+            InlinedRange {
+                low_pc,
+                high_pc,
+                call_file: None,
+                call_line: None,
+                call_column: None,
+                depth,
+                is_artificial: false,
+                decl_file: None,
+                decl_line: None,
+            }
+        }
+
+        /// The sweep is stateful (ranges enter at `low_pc`, expire at
+        /// `high_pc`), so pin its per-PC results against the naive filter
+        /// over a walk that enters, nests, and expires ranges.
+        #[test]
+        fn range_sweep_matches_filter_scan_across_increasing_pcs() {
+            let mut inlined = vec![r(1, 0, 100), r(2, 10, 30), r(2, 40, 60), r(3, 45, 50)];
+            inlined.sort_by_key(|r| r.low_pc);
+
+            let mut sweep = RangeSweep::new(&inlined);
+            for pc in [0, 5, 10, 29, 30, 44, 45, 49, 50, 99, 100, 150] {
+                let mut expected: Vec<InlinedRange> = inlined
+                    .iter()
+                    .filter(|r| r.low_pc <= pc && pc < r.high_pc)
+                    .copied()
+                    .collect();
+                expected.sort_by_key(|r| std::cmp::Reverse(r.depth));
+
+                let actual = sweep.containing(pc);
+                let key = |rs: &[InlinedRange]| -> Vec<(u32, u64, u64)> {
+                    rs.iter().map(|r| (r.depth, r.low_pc, r.high_pc)).collect()
+                };
+                assert_eq!(
+                    key(&actual),
+                    key(&expected),
+                    "sweep diverged from filter scan at pc={pc}"
+                );
+            }
+        }
+
         /// G1 — innermost-first by DIE depth, not range width.
         /// A parent's `DW_AT_ranges` union can be wider than a child's
         /// contiguous range; width-based sorting would invert or tie
         /// the chain.
         #[test]
-        fn containing_ranges_orders_by_die_depth_not_width() {
-            fn r(depth: u32, low_pc: u64, high_pc: u64) -> InlinedRange {
-                InlinedRange {
-                    low_pc,
-                    high_pc,
-                    call_file: None,
-                    call_line: None,
-                    call_column: None,
-                    depth,
-                    is_artificial: false,
-                    decl_file: None,
-                    decl_line: None,
-                }
-            }
-
+        fn range_sweep_orders_by_die_depth_not_width() {
             // Two ranges with **identical** PC span [10, 50). Width-based
             // sorting is unstable here. Depth-based must put depth=3 first.
             let mut inlined = vec![r(2, 10, 50), r(3, 10, 50)];
             inlined.sort_by_key(|r| r.low_pc);
-            let parsed = make_parsed_dwarf_with_ranges(inlined);
-            let chain = parsed.containing_ranges(20);
+            let chain = RangeSweep::new(&inlined).containing(20);
             assert_eq!(chain.len(), 2);
             assert_eq!(
                 chain[0].depth,
@@ -1755,10 +1787,9 @@ mod tests {
                 r(3, 0, 100), // child (width 100, broader than either parent segment)
             ];
             inlined.sort_by_key(|r| r.low_pc);
-            let parsed = make_parsed_dwarf_with_ranges(inlined);
             // PC 15 sits in parent's first segment AND inside the child's
             // contiguous range. Depth-3 (child) must still come first.
-            let chain = parsed.containing_ranges(15);
+            let chain = RangeSweep::new(&inlined).containing(15);
             assert!(chain
                 .iter()
                 .any(|r| r.depth == 3 && r.low_pc == 0 && r.high_pc == 100));
