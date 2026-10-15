@@ -7,21 +7,12 @@ use edr_chain_l1::{
     rpc::{call::L1CallRequest, receipt::L1RpcTransactionReceipt, TransactionRequest},
     L1ChainSpec,
 };
-#[cfg(feature = "test-remote")]
-use edr_primitives::HashMap;
 use edr_primitives::{Address, Bytes, B256, U256, U64};
-#[cfg(feature = "test-remote")]
-use edr_provider::{
-    config::ForkConfig,
-    test_utils::{create_test_config_with, MinimalProviderConfig},
-};
 use edr_provider::{
     config::ProviderConfig, test_utils::create_test_config, time::CurrentTime, MethodInvocation,
     NoopLogger, Provider, ProviderRequest,
 };
 use edr_solidity::contract_decoder::ContractDecoder;
-#[cfg(feature = "test-remote")]
-use edr_test_utils::env::json_rpc_url_provider;
 use parking_lot::RwLock;
 use tokio::runtime;
 
@@ -173,6 +164,13 @@ pub const OSAKA_MAINNET_BLOCK_NUMBER: u64 = 24_000_000;
 /// `block_number`.
 #[cfg(feature = "test-remote")]
 pub fn mainnet_fork_config(block_number: u64) -> ProviderConfig<edr_chain_l1::Hardfork> {
+    use edr_primitives::HashMap;
+    use edr_provider::{
+        config::ForkConfig,
+        test_utils::{create_test_config_with, MinimalProviderConfig},
+    };
+    use edr_test_utils::env::json_rpc_url_provider;
+
     create_test_config_with(MinimalProviderConfig::fork_with_accounts(ForkConfig {
         block_number: Some(block_number),
         cache_dir: edr_defaults::CACHE_DIR.into(),
