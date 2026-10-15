@@ -180,6 +180,44 @@ pub struct RecordDebugStepInfo {
     pub original_tracer_config: TracingInspectorConfig,
 }
 
+/// Gas of a finished call or create frame.
+#[derive(Clone, Debug)]
+pub struct LastFrameGas {
+    /// The frame's view: gross regular gas, refund and state gas, as
+    /// `lastCallGas`/`lastFrameGas` report it.
+    pub gas: crate::Vm::Gas,
+    /// What `snapshotGasLastCall`/`snapshotGasLastFrame` report: the receipt
+    /// gas of the synthetic transaction for an isolated frame, otherwise the
+    /// frame's regular gas.
+    pub snapshot_gas_used: u64,
+}
+
+/// Receipt of the synthetic transaction that ran an isolated frame.
+#[derive(Clone, Copy, Debug)]
+struct IsolatedReceipt {
+    /// Post-refund gas used by the transaction.
+    gas_used: u64,
+    /// Account-creation state gas in `gas_used` that the outer opcode already
+    /// charged before entering the frame.
+    precharged_state: u64,
+}
+
+/// One-shot correction applied to the next region sample at `depth`: the gas
+/// charged to the isolated frame is replaced by the gas its transaction used.
+/// The transaction gas can be lower because of refunds, or higher because of
+/// intrinsic gas that did not fit in the frame's budget.
+#[derive(Clone, Copy, Debug)]
+struct IsolatedRegionGas {
+    /// Depth of the frame that made the isolated call.
+    depth: usize,
+    /// Regular gas the isolated frame was charged, as the caller's counter
+    /// saw it.
+    charged: u64,
+    /// Transaction gas that replaces it, net of the state gas the caller's
+    /// sample already includes.
+    used: u64,
+}
+
 /// Holds gas metering state.
 #[derive(Clone, Debug, Default)]
 pub struct GasMetering {
@@ -196,25 +234,19 @@ pub struct GasMetering {
     /// The group and name of the active snapshot.
     pub active_gas_snapshot: Option<(String, String)>,
 
-    /// Cache of the amount of gas used in previous call.
-    /// This is used by the `lastCallGas` cheatcode.
-    pub last_call_gas: Option<crate::Vm::Gas>,
-    /// Gas used by `snapshotGasLastCall`.
-    pub(crate) last_call_snapshot_gas_used: u64,
-    /// Cache of the amount of gas used in the previous call or create frame.
-    /// This is used by the `lastFrameGas` cheatcode.
-    pub last_frame_gas: Option<crate::Vm::Gas>,
-    /// Gas used by `snapshotGasLastFrame`.
-    pub(crate) last_frame_snapshot_gas_used: u64,
+    /// Gas of the previous call. Read by `lastCallGas` and
+    /// `snapshotGasLastCall`.
+    pub last_call_gas: Option<LastFrameGas>,
+    /// Gas of the previous call or create frame. Read by `lastFrameGas` and
+    /// `snapshotGasLastFrame`.
+    pub last_frame_gas: Option<LastFrameGas>,
 
-    /// Post-refund gas used by the isolated transaction wrapping the current
-    /// frame, and the account-creation state gas in it that the outer opcode
-    /// charged before entering the frame.
-    isolated_snapshot_gas_used: Option<(u64, u64)>,
-    /// Caller depth, gas charged to the last isolated frame, and the
-    /// transaction gas that replaces it in the next region sample at that
-    /// depth.
-    pending_isolated_region_gas: Option<(usize, u64, u64)>,
+    /// Receipt of the isolated transaction wrapping the frame that is about
+    /// to end. Set by the inspector stack, taken by `call_end`/`create_end`.
+    isolated_receipt: Option<IsolatedReceipt>,
+    /// Correction for the next region sample at the caller's depth after an
+    /// isolated frame ended.
+    pending_isolated_region_gas: Option<IsolatedRegionGas>,
 
     /// True if gas recording is enabled.
     pub recording: bool,
@@ -254,32 +286,33 @@ impl GasMetering {
         self.paused_frames.clear();
     }
 
-    /// `precharged_state` is the account-creation state gas in `gas_used` that
-    /// the outer opcode already charged before entering the isolated frame.
-    pub const fn set_isolated_snapshot_gas_used(&mut self, gas_used: u64, precharged_state: u64) {
-        self.isolated_snapshot_gas_used = Some((gas_used, precharged_state));
+    /// Records the receipt of the isolated transaction wrapping the frame that
+    /// is about to end. `precharged_state` is the account-creation state gas
+    /// in `gas_used` that the outer opcode already charged before entering the
+    /// frame.
+    pub const fn set_isolated_receipt(&mut self, gas_used: u64, precharged_state: u64) {
+        self.isolated_receipt = Some(IsolatedReceipt {
+            gas_used,
+            precharged_state,
+        });
     }
 
     /// Takes the receipt gas of the isolated transaction that wrapped the
-    /// ending frame.
-    ///
-    /// Region snapshots replace the gas charged to the frame with the
-    /// transaction gas, without changing the interpreter's gas. The
-    /// transaction gas can be lower because of refunds, or higher because of
-    /// intrinsic gas that did not fit in the frame's budget.
-    const fn take_isolated_snapshot_gas_used(&mut self, depth: usize, gas: &Gas) -> Option<u64> {
-        let Some((gas_used, precharged_state)) = self.isolated_snapshot_gas_used.take() else {
+    /// ending frame, queueing the region correction while a region snapshot is
+    /// recording.
+    const fn take_isolated_receipt(&mut self, depth: usize, gas: &Gas) -> Option<u64> {
+        let Some(receipt) = self.isolated_receipt.take() else {
             return None;
         };
         if self.recording {
-            // The caller's sample already includes the precharged state gas.
-            self.pending_isolated_region_gas = Some((
+            self.pending_isolated_region_gas = Some(IsolatedRegionGas {
                 depth,
-                gas.total_gas_spent(),
-                gas_used.saturating_sub(precharged_state),
-            ));
+                charged: gas.total_gas_spent(),
+                // The caller's sample already includes the precharged state gas.
+                used: receipt.gas_used.saturating_sub(receipt.precharged_state),
+            });
         }
-        Some(gas_used)
+        Some(receipt.gas_used)
     }
 }
 
@@ -1495,9 +1528,9 @@ impl<
         call: &CallInputs,
         outcome: &mut CallOutcome,
     ) {
-        let isolated_snapshot_gas_used = self
+        let isolated_receipt_gas_used = self
             .gas_metering
-            .take_isolated_snapshot_gas_used(ecx.journaled_state.depth(), &outcome.result.gas);
+            .take_isolated_receipt(ecx.journaled_state.depth(), &outcome.result.gas);
 
         // System addresses that are transparent to cheatcode state.
         // Treating `COVERAGE_ADDRESS` as a system address prevents the prank cleanup
@@ -1655,13 +1688,13 @@ impl<
 
         // Record the gas usage of the call, this allows the `lastCallGas` and
         // `lastFrameGas` cheatcodes to retrieve the gas usage of the last call.
-        let frame_gas = frame_gas(&outcome.result);
-        let snapshot_gas_used =
-            isolated_snapshot_gas_used.unwrap_or_else(|| outcome.result.gas.total_gas_spent());
-        self.gas_metering.last_call_gas = Some(frame_gas.clone());
-        self.gas_metering.last_frame_gas = Some(frame_gas);
-        self.gas_metering.last_call_snapshot_gas_used = snapshot_gas_used;
-        self.gas_metering.last_frame_snapshot_gas_used = snapshot_gas_used;
+        let last_frame_gas = LastFrameGas {
+            gas: frame_gas(&outcome.result),
+            snapshot_gas_used: isolated_receipt_gas_used
+                .unwrap_or_else(|| outcome.result.gas.total_gas_spent()),
+        };
+        self.gas_metering.last_call_gas = Some(last_frame_gas.clone());
+        self.gas_metering.last_frame_gas = Some(last_frame_gas);
 
         // If `startStateDiffRecording` has been called, update the `reverted` status of
         // the previous call depth's recorded accesses, if any
@@ -2030,9 +2063,9 @@ impl<
         call: &CreateInputs,
         outcome: &mut CreateOutcome,
     ) {
-        let isolated_snapshot_gas_used = self
+        let isolated_receipt_gas_used = self
             .gas_metering
-            .take_isolated_snapshot_gas_used(ecx.journaled_state.depth(), &outcome.result.gas);
+            .take_isolated_receipt(ecx.journaled_state.depth(), &outcome.result.gas);
         let call = Some(call);
         let curr_depth = ecx.journaled_state.depth();
 
@@ -2082,9 +2115,11 @@ impl<
         }
 
         if curr_depth > 0 {
-            self.gas_metering.last_frame_gas = Some(frame_gas(&outcome.result));
-            self.gas_metering.last_frame_snapshot_gas_used =
-                isolated_snapshot_gas_used.unwrap_or_else(|| outcome.result.gas.total_gas_spent());
+            self.gas_metering.last_frame_gas = Some(LastFrameGas {
+                gas: frame_gas(&outcome.result),
+                snapshot_gas_used: isolated_receipt_gas_used
+                    .unwrap_or_else(|| outcome.result.gas.total_gas_spent()),
+            });
         }
 
         // If `startStateDiffRecording` has been called, update the `reverted` status of
@@ -2228,9 +2263,8 @@ impl<
         {
             let curr_depth = ecx.journaled_state.depth();
             let isolated_region_gas = match self.gas_metering.pending_isolated_region_gas {
-                Some((depth, charged, used)) if depth == curr_depth => {
-                    self.gas_metering.pending_isolated_region_gas = None;
-                    Some((charged, used))
+                Some(region_gas) if region_gas.depth == curr_depth => {
+                    self.gas_metering.pending_isolated_region_gas.take()
                 }
                 _ => None,
             };
@@ -2243,7 +2277,7 @@ impl<
                             .gas
                             .total_gas_spent()
                             .saturating_sub(self.gas_metering.last_gas_used);
-                        if let Some((charged, used)) = isolated_region_gas {
+                        if let Some(IsolatedRegionGas { charged, used, .. }) = isolated_region_gas {
                             gas_diff = gas_diff.saturating_sub(charged).saturating_add(used);
                         }
                         record.gas_used = record.gas_used.saturating_add(gas_diff);

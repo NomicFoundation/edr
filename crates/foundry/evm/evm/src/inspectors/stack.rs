@@ -1008,7 +1008,7 @@ impl<
         if let Some(cheatcodes) = self.cheatcodes.as_deref_mut() {
             cheatcodes
                 .gas_metering
-                .set_isolated_snapshot_gas_used(transaction_gas.tx_gas_used(), precharged_state);
+                .set_isolated_receipt(transaction_gas.tx_gas_used(), precharged_state);
         }
         // The transaction also pays its intrinsic gas and calldata floor, which
         // can exceed the gas forwarded to the frame. The frame then consumes its
