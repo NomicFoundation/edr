@@ -14,6 +14,7 @@ import {
   l1HardforkToString,
   LoggerConfig,
   MineOrdering,
+  MiningConfig,
   Provider,
   ProviderConfig,
   SolidityTestResult,
@@ -41,6 +42,9 @@ export const ALCHEMY_URL = getEnv("ALCHEMY_URL");
 export function isCI(): boolean {
   return getEnv("CI") === "true";
 }
+
+/** Block gas limit shared by the test mining configs. */
+const DEFAULT_BLOCK_GAS_LIMIT = 300_000_000n;
 
 let globalContext: EdrContext | undefined;
 
@@ -271,7 +275,7 @@ export function l1ProviderConfig(
     minGasPrice: 0n,
     mining: {
       autoMine: true,
-      blockGasLimit: 300_000_000n,
+      blockGasLimit: DEFAULT_BLOCK_GAS_LIMIT,
       memPool: {
         order: MineOrdering.Priority,
       },
@@ -289,6 +293,46 @@ export function l1ProviderConfig(
     precompileOverrides: [],
     ...rest,
   };
+}
+
+/**
+ * A [`MiningConfig`] that mines a block every `intervalMs` instead of on
+ * demand, so the provider's own thread drives block production.
+ */
+export function intervalMiningConfig(intervalMs: bigint): MiningConfig {
+  return {
+    autoMine: false,
+    blockGasLimit: DEFAULT_BLOCK_GAS_LIMIT,
+    interval: intervalMs,
+    memPool: {
+      order: MineOrdering.Priority,
+    },
+  };
+}
+
+/**
+ * Subscribes `provider` to `newHeads`, so its subscription callback receives
+ * each mined block. Returns the subscription id.
+ */
+export async function subscribeToNewHeads(provider: Provider): Promise<string> {
+  const response = await provider.handleRequest(
+    JSON.stringify({
+      id: 1,
+      jsonrpc: "2.0",
+      method: "eth_subscribe",
+      params: ["newHeads"],
+    })
+  );
+
+  const body = (
+    typeof response.data === "string"
+      ? JSON.parse(response.data)
+      : response.data
+  ) as { result?: unknown };
+  if (typeof body.result !== "string") {
+    throw new Error(`eth_subscribe failed: ${JSON.stringify(body)}`);
+  }
+  return body.result;
 }
 
 /** A [`LoggerConfig`] with logging disabled, for tests that don't inspect logs. */
