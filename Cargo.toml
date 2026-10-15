@@ -479,8 +479,3 @@ useless_transmute = "warn"
 verbose_file_reads = "warn"
 wildcard-imports = "warn"
 zero_sized_map_values = "warn"
-
-[patch.crates-io]
-# Experiment: build libmimalloc-sys2 from the mimalloc 3.3.2 sources (what
-# main ships) to get a perf profile of the fast build for comparison.
-libmimalloc-sys2 = { path = "vendor/libmimalloc-sys2" }
