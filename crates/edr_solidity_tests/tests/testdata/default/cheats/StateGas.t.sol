@@ -69,6 +69,29 @@ contract StateGasTest is DSTest {
     }
 
     /// forge-config: default.isolate = true
+    function testIsolatedReportsStateGas() public {
+        StateGasTarget target = new StateGasTarget();
+        target.setValue();
+
+        Vm.Gas memory callGas = vm.lastCallGas();
+        assertStorageWriteGas(callGas);
+        assertStorageWriteGas(vm.lastFrameGas());
+        // The snapshot is the receipt of the isolated transaction: regular and state gas, net of refunds.
+        uint256 receipt = callGas.gasTotalUsed + uint64(callGas.gasStateUsed) - uint64(callGas.gasRefunded);
+        assertEq(vm.snapshotGasLastCall("isolatedStateGasCall"), receipt, "last call snapshot is not the receipt");
+        assertEq(vm.snapshotGasLastFrame("isolatedStateGasFrame"), receipt, "last frame snapshot is not the receipt");
+
+        StateGasTarget revertingTarget = new StateGasTarget();
+        (bool success,) = address(revertingTarget).call(abi.encodeCall(revertingTarget.setValueAndRevert, ()));
+        assertTrue(!success, "state gas call should revert");
+        Vm.Gas memory revertedGas = vm.lastFrameGas();
+        assertEq(revertedGas.gasStateUsed, 0, "reverted frame used state gas");
+        assertEq(revertedGas.gasRefunded, 0, "reverted frame was refunded");
+        // A reverted transaction has no state gas and no refund, so its receipt is its regular gas.
+        assertEq(vm.snapshotGasLastFrame("isolatedStateGasRevert"), revertedGas.gasTotalUsed, "reverted snapshot is not the receipt");
+    }
+
+    /// forge-config: default.isolate = true
     function testCalldataFloorPreservesRegularGas() public {
         bytes memory data = new bytes(CALLDATA_SIZE);
         StateGasTarget target = new StateGasTarget();

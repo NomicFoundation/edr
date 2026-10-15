@@ -1825,3 +1825,40 @@ pub(crate) fn calculate_initial_gas<HardforkT: HardforkTr>(
     });
     cfg.gas_params().initial_tx_gas_for_tx(tx, eip2780)
 }
+
+#[cfg(test)]
+mod tests {
+    use revm::{
+        context::TxEnv,
+        context_interface::cfg::GasParams,
+        primitives::{eip2780, eip8038, hardfork::SpecId},
+    };
+
+    use super::*;
+
+    #[test]
+    fn calculate_stipend_uses_eip2780_transaction_context() {
+        let caller = Address::repeat_byte(0x11);
+        let recipient = Address::repeat_byte(0x22);
+        let mut tx = TxEnv {
+            caller,
+            kind: TxKind::Call(recipient),
+            ..Default::default()
+        };
+        let cfg = CfgEnv::<SpecId>::new_with_spec(SpecId::AMSTERDAM);
+
+        assert_eq!(
+            calculate_stipend(&tx, &cfg),
+            eip2780::TX_BASE_COST + eip8038::COLD_ACCOUNT_ACCESS
+        );
+        let cfg = cfg.with_enable_amsterdam_eip2780(false);
+        assert_eq!(
+            calculate_stipend(&tx, &cfg),
+            GasParams::new_spec(SpecId::AMSTERDAM).tx_base_stipend()
+        );
+
+        tx.kind = TxKind::Call(caller);
+        let cfg = cfg.with_enable_amsterdam_eip2780(true);
+        assert_eq!(calculate_stipend(&tx, &cfg), eip2780::TX_BASE_COST);
+    }
+}
