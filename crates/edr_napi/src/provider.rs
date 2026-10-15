@@ -22,7 +22,7 @@ use parking_lot::RwLock;
 pub use self::factory::ProviderFactory;
 use self::response::{call_trace_external_mem_size, GcResponse, Response};
 use crate::{
-    async_deallocator::AsyncDeallocatorSender, call_override::CallOverrideCallback,
+    async_deallocator::Deallocators, call_override::CallOverrideCallback,
     contract_decoder::ContractDecoder, gc::gc_tracked,
 };
 
@@ -32,7 +32,7 @@ pub struct Provider {
     contract_decoder: Arc<RwLock<edr_solidity::contract_decoder::ContractDecoder>>,
     provider: Arc<dyn SyncProvider>,
     runtime: runtime::Handle,
-    dropped_provider_sender: AsyncDeallocatorSender<Arc<dyn SyncProvider>>,
+    deallocators: Deallocators,
     /// What a response reports to V8 for each call trace arena it carries.
     /// Follows `verbose_raw_tracing`, which [`Self::set_verbose_tracing`]
     /// toggles.
@@ -50,7 +50,7 @@ impl Provider {
         provider: Arc<dyn SyncProvider>,
         runtime: runtime::Handle,
         contract_decoder: Arc<RwLock<edr_solidity::contract_decoder::ContractDecoder>>,
-        dropped_provider_sender: AsyncDeallocatorSender<Arc<dyn SyncProvider>>,
+        deallocators: Deallocators,
         #[cfg(feature = "scenarios")] scenario_file: Option<
             napi::tokio::sync::Mutex<napi::tokio::fs::File>,
         >,
@@ -59,7 +59,7 @@ impl Provider {
             contract_decoder,
             provider,
             runtime,
-            dropped_provider_sender,
+            deallocators,
             // `verbose_raw_tracing` is not exposed in the provider config, so
             // it starts disabled.
             call_trace_external_mem_size: AtomicI64::new(call_trace_external_mem_size(false)),
@@ -183,6 +183,8 @@ impl Provider {
             .call_trace_external_mem_size
             .load(atomic::Ordering::Relaxed);
 
+        let dropped_response_sender = self.deallocators.response.clone();
+
         let enqueue_request =
             move |provider: &dyn SyncProvider, request: napi::Result<String>| match request {
                 Ok(request) => provider.enqueue_request(
@@ -192,6 +194,7 @@ impl Provider {
                             Ok(GcResponse::from(Response::new(
                                 response,
                                 call_trace_external_mem_size,
+                                dropped_response_sender,
                             )))
                         }),
                         Err(error) => deferred.reject(error),
@@ -311,13 +314,13 @@ gc_tracked! {
     fn drop(self) {
         let Self {
             provider,
-            dropped_provider_sender,
+            deallocators,
             ..
         } = self;
 
         // Off-loads deallocation to a background thread to avoid blocking the
         // JS thread (the provider may be running thread-safe functions on a
         // background thread; dropping it here would deadlock).
-        dropped_provider_sender.deallocate(provider);
+        deallocators.provider.deallocate(provider);
     }
 }
