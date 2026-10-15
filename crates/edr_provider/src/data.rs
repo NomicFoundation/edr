@@ -4345,72 +4345,82 @@ mod tests {
         let osaka_cap = edr_eip7825::OSAKA_TRANSACTION_GAS_CAP;
         let amsterdam_cap = edr_eip8037::TX_MAX_TOTAL_GAS_LIMIT;
 
-        for (hardfork, transaction_gas_cap, gas_limit, expected) in [
+        for (hardfork, transaction_gas_cap, gas_limit, expected, reason) in [
             (
                 EvmSpecId::PRAGUE,
                 ConfigOption::Default,
                 LARGE_GAS_LIMIT,
                 LARGE_GAS_LIMIT,
+                "Prague has no transaction gas bound",
             ),
             (
                 EvmSpecId::PRAGUE,
                 ConfigOption::Custom(CUSTOM_CAP),
                 LARGE_GAS_LIMIT,
                 CUSTOM_CAP,
+                "before Amsterdam a custom cap is the transaction gas bound",
             ),
             (
                 EvmSpecId::OSAKA,
                 ConfigOption::Default,
                 LARGE_GAS_LIMIT,
                 osaka_cap,
+                "the EIP-7825 cap is the bound from Osaka",
             ),
             (
                 EvmSpecId::OSAKA,
                 ConfigOption::Default,
                 SMALL_GAS_LIMIT,
                 SMALL_GAS_LIMIT,
+                "a gas limit below the bound is kept",
             ),
             (
                 EvmSpecId::OSAKA,
                 ConfigOption::Custom(CUSTOM_CAP),
                 LARGE_GAS_LIMIT,
                 CUSTOM_CAP,
+                "before Amsterdam a custom cap replaces the EIP-7825 cap",
             ),
             (
                 EvmSpecId::OSAKA,
                 ConfigOption::Disable,
                 LARGE_GAS_LIMIT,
                 LARGE_GAS_LIMIT,
+                "disabling the cap removes the bound before Amsterdam",
             ),
             (
                 EvmSpecId::AMSTERDAM,
                 ConfigOption::Default,
                 LARGE_GAS_LIMIT,
                 amsterdam_cap,
+                "the EIP-8037 total gas limit is the bound from Amsterdam",
             ),
             (
                 EvmSpecId::AMSTERDAM,
                 ConfigOption::Default,
                 SMALL_GAS_LIMIT,
                 SMALL_GAS_LIMIT,
+                "a gas limit below the bound is kept",
             ),
             (
                 EvmSpecId::AMSTERDAM,
                 ConfigOption::Custom(CUSTOM_CAP),
                 LARGE_GAS_LIMIT,
                 amsterdam_cap,
+                "from Amsterdam a custom cap bounds execution gas only, not the total",
             ),
             (
                 EvmSpecId::AMSTERDAM,
                 ConfigOption::Disable,
                 LARGE_GAS_LIMIT,
                 amsterdam_cap,
+                "from Amsterdam disabling the cap lifts the execution bound only, not the total",
             ),
         ] {
             assert_eq!(
                 transaction_gas_limit_within_bound(gas_limit, &transaction_gas_cap, hardfork),
                 expected,
-                "hardfork {hardfork:?}, cap {transaction_gas_cap:?}, gas limit {gas_limit}"
+                "hardfork {hardfork:?}, cap {transaction_gas_cap:?}, gas limit {gas_limit}: {reason}"
             );
         }
     }
