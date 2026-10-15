@@ -1,5 +1,7 @@
 #![cfg(feature = "test-utils")]
 
+use std::num::NonZeroU64;
+
 use edr_chain_l1::{
     rpc::{call::L1CallRequest, TransactionRequest},
     InvalidTransaction, L1ChainSpec,
@@ -16,14 +18,13 @@ use edr_provider::{
 use edr_test_utils::secret_key::secret_key_to_address;
 
 use crate::common::{
-    gas_reporter::{
-        call_without_gas, deploy_gas_reporter, send_transaction_without_gas, CALLER,
-        GAS_REPORTER_ADDRESS,
-    },
+    gas_reporter::{deploy_gas_reporter, send_transaction_without_gas},
     provider::{new_provider_with_config, DEFAULT_TRANSACTION_GAS_LIMIT_ABOVE_OSAKA_CAP},
 };
 
 const CUSTOM_TRANSACTION_GAS_CAP: u64 = 50_000;
+/// Above `DEFAULT_TRANSACTION_GAS_LIMIT_ABOVE_OSAKA_CAP`.
+const CUSTOM_CAP_ABOVE_CONFIGURED_DEFAULT: u64 = 40_000_000;
 const EXCEEDS_TRANSACTION_GAS_LIMIT: u64 = CUSTOM_TRANSACTION_GAS_CAP + 1;
 /// Above `OSAKA_TRANSACTION_GAS_CAP` (2^24), below the default block gas limit.
 const EXCEEDS_OSAKA_CAP: u64 = 20_000_000;
@@ -229,58 +230,102 @@ async fn test_default_cap_is_absent_before_osaka() -> anyhow::Result<()> {
 fn new_provider_with_configured_default(
     hardfork: edr_chain_l1::Hardfork,
     transaction_gas_cap: ConfigOption<u64>,
+    default_transaction_gas_limit: NonZeroU64,
 ) -> anyhow::Result<Provider<L1ChainSpec>> {
     new_provider_with_config(|config| {
         config.hardfork = hardfork;
         config.transaction_gas_cap = transaction_gas_cap;
-        config.default_transaction_gas_limit = Some(DEFAULT_TRANSACTION_GAS_LIMIT_ABOVE_OSAKA_CAP);
+        config.default_transaction_gas_limit = Some(default_transaction_gas_limit);
     })
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn creation_rejects_configured_default_above_osaka_cap() -> anyhow::Result<()> {
-    let hardfork = edr_chain_l1::Hardfork::Osaka;
+async fn creation_rejects_configured_default_above_bound() -> anyhow::Result<()> {
+    for (hardfork, transaction_gas_cap, bound, reason) in [
+        (
+            edr_chain_l1::Hardfork::Osaka,
+            ConfigOption::Default,
+            OSAKA_TRANSACTION_GAS_CAP,
+            "the EIP-7825 cap is the bound from Osaka",
+        ),
+        (
+            edr_chain_l1::Hardfork::Osaka,
+            ConfigOption::Custom(CUSTOM_TRANSACTION_GAS_CAP),
+            CUSTOM_TRANSACTION_GAS_CAP,
+            "before Amsterdam a custom cap is the bound",
+        ),
+    ] {
+        let Err(error) = new_provider_with_configured_default(
+            hardfork,
+            transaction_gas_cap.clone(),
+            DEFAULT_TRANSACTION_GAS_LIMIT_ABOVE_OSAKA_CAP,
+        ) else {
+            anyhow::bail!(
+                "hardfork {hardfork:?}, cap {transaction_gas_cap:?}: {reason}: provider creation should fail"
+            );
+        };
 
-    let Err(error) = new_provider_with_configured_default(hardfork, ConfigOption::Default) else {
-        anyhow::bail!("provider creation should fail");
-    };
-
-    let message = error.to_string();
-    assert!(
-        message.contains(&format!(
-            "exceeds the transaction gas bound {OSAKA_TRANSACTION_GAS_CAP}"
-        )),
-        "unexpected error: {message}"
-    );
+        let message = error.to_string();
+        assert!(
+            message.contains(&format!("exceeds the transaction gas bound {bound}")),
+            "hardfork {hardfork:?}, cap {transaction_gas_cap:?}: {reason}: unexpected error: {message}"
+        );
+    }
 
     Ok(())
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn creation_accepts_configured_default_within_bound() -> anyhow::Result<()> {
-    for (hardfork, transaction_gas_cap, reason) in [
+async fn creation_accepts_configured_default_within_bound_and_sends_it_verbatim(
+) -> anyhow::Result<()> {
+    let osaka_transaction_gas_cap =
+        NonZeroU64::new(OSAKA_TRANSACTION_GAS_CAP).expect("cap should be non-zero");
+
+    for (hardfork, transaction_gas_cap, default_transaction_gas_limit, reason) in [
         (
             edr_chain_l1::Hardfork::Osaka,
             ConfigOption::Disable,
+            DEFAULT_TRANSACTION_GAS_LIMIT_ABOVE_OSAKA_CAP,
             "disabling the cap removes the bound before Amsterdam",
         ),
         (
             edr_chain_l1::Hardfork::Amsterdam,
             ConfigOption::Custom(CUSTOM_TRANSACTION_GAS_CAP),
+            DEFAULT_TRANSACTION_GAS_LIMIT_ABOVE_OSAKA_CAP,
             "from Amsterdam a custom cap bounds execution gas only, not the total",
         ),
+        (
+            edr_chain_l1::Hardfork::Osaka,
+            ConfigOption::Custom(CUSTOM_CAP_ABOVE_CONFIGURED_DEFAULT),
+            DEFAULT_TRANSACTION_GAS_LIMIT_ABOVE_OSAKA_CAP,
+            "a custom cap above the value is the bound",
+        ),
+        (
+            edr_chain_l1::Hardfork::Prague,
+            ConfigOption::Default,
+            DEFAULT_TRANSACTION_GAS_LIMIT_ABOVE_OSAKA_CAP,
+            "Prague has no transaction gas bound",
+        ),
+        (
+            edr_chain_l1::Hardfork::Osaka,
+            ConfigOption::Default,
+            osaka_transaction_gas_cap,
+            "a value equal to the bound is accepted",
+        ),
     ] {
-        let provider = new_provider_with_configured_default(hardfork, transaction_gas_cap.clone())
-            .map_err(|error| {
-                anyhow::anyhow!(
-                    "hardfork {hardfork:?}, cap {transaction_gas_cap:?}: {reason}: {error}"
-                )
-            })?;
+        let provider = new_provider_with_configured_default(
+            hardfork,
+            transaction_gas_cap.clone(),
+            default_transaction_gas_limit,
+        )
+        .map_err(|error| {
+            anyhow::anyhow!("hardfork {hardfork:?}, cap {transaction_gas_cap:?}: {reason}: {error}")
+        })?;
         deploy_gas_reporter(&provider)?;
 
         assert_eq!(
             send_transaction_without_gas(&provider)?,
-            DEFAULT_TRANSACTION_GAS_LIMIT_ABOVE_OSAKA_CAP.get(),
+            default_transaction_gas_limit.get(),
             "hardfork {hardfork:?}, cap {transaction_gas_cap:?}: {reason}"
         );
     }
@@ -294,9 +339,12 @@ mod fork {
     use edr_provider::config::ProviderConfig;
 
     use super::*;
-    use crate::common::provider::{
-        mainnet_fork_config, new_provider_from_config, OSAKA_MAINNET_BLOCK_NUMBER,
-        PRAGUE_MAINNET_BLOCK_NUMBER,
+    use crate::common::{
+        gas_reporter::{call_without_gas, CALLER, GAS_REPORTER_ADDRESS},
+        provider::{
+            mainnet_fork_config, new_provider_from_config, OSAKA_MAINNET_BLOCK_NUMBER,
+            PRAGUE_MAINNET_BLOCK_NUMBER,
+        },
     };
 
     /// Creates an Osaka provider forking mainnet at a Prague block, with the
@@ -417,6 +465,7 @@ mod fork {
         Ok(())
     }
 
+    /// Also checks that the configured value is used as is at a Prague block.
     #[tokio::test(flavor = "multi_thread")]
     async fn call_without_gas_at_osaka_block_rejects_configured_default_on_prague_provider(
     ) -> anyhow::Result<()> {
@@ -425,7 +474,6 @@ mod fork {
         config.transaction_gas_cap = ConfigOption::Default;
         config.default_transaction_gas_limit = Some(DEFAULT_TRANSACTION_GAS_LIMIT_ABOVE_OSAKA_CAP);
         let provider = new_provider_from_config(config)?;
-        deploy_gas_reporter(&provider)?;
 
         let result = provider.handle_request(ProviderRequest::with_single(MethodInvocation::Call(
             L1CallRequest {

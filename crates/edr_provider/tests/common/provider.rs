@@ -146,8 +146,8 @@ pub fn storage_at(
     Ok(response.deserialize_result()?)
 }
 
-/// A configured default transaction gas limit above
-/// `OSAKA_TRANSACTION_GAS_CAP`.
+/// Above the Osaka cap, but within the Amsterdam bound and the default block
+/// gas limit.
 pub const DEFAULT_TRANSACTION_GAS_LIMIT_ABOVE_OSAKA_CAP: NonZeroU64 =
     NonZeroU64::new(30_000_000).expect("gas limit should be non-zero");
 
