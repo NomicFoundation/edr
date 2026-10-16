@@ -26,7 +26,7 @@ use revm::{
         result::{ExecutionResult, HaltReason, HaltReasonTr},
         BlockEnv, CfgEnv, Context as EvmContext, CreateScheme,
     },
-    context_interface::{result::Output, ContextError, ContextTr, JournalTr},
+    context_interface::{result::Output, Cfg as _, ContextError, ContextTr, JournalTr},
     interpreter::{
         interpreter::EthInterpreter, CallInputs, CallOutcome, CallScheme, CreateInputs,
         CreateOutcome, Gas, InstructionResult, Interpreter, InterpreterResult,
@@ -39,6 +39,18 @@ use super::{
     edge_cov::EdgeCovInspector, Cheatcodes, CheatsConfig, Fuzzer, LineCoverageCollector,
     LogCollector, RevertDiagnostic, TracingInspector,
 };
+use crate::executors::calculate_initial_gas;
+
+/// Gas accounting carried across an isolated frame's synthetic transaction
+/// boundary.
+struct IsolatedGas {
+    /// Regular execution gas available to the isolated frame.
+    regular_limit: u64,
+    /// State gas reservoir available to the isolated frame.
+    reservoir: u64,
+    /// State gas already charged by the outer opcode.
+    precharged_state: Option<u64>,
+}
 
 #[derive(Clone, Debug, Default)]
 #[must_use = "builders do nothing unless you call `build` on them"]
@@ -842,9 +854,14 @@ impl<
         kind: TxKind,
         caller: Address,
         input: Bytes,
-        gas_limit: u64,
+        gas: IsolatedGas,
         value: U256,
     ) -> (InterpreterResult, Option<Address>) {
+        let IsolatedGas {
+            regular_limit,
+            reservoir,
+            precharged_state,
+        } = gas;
         let cached_env = EvmEnv::new(ecx.cfg.clone(), ecx.block.clone(), ecx.tx.clone());
 
         ecx.block.set_basefee(0);
@@ -853,15 +870,33 @@ impl<
         ecx.tx.set_kind(kind);
         ecx.tx.set_data(input);
         ecx.tx.set_value(value);
-        // Add 21000 to the gas limit to account for the base cost of transaction.
-        ecx.tx.set_gas_limit(gas_limit + 21000);
-
-        // If we haven't disabled gas limit checks, ensure that transaction gas limit
-        // will not exceed block gas limit.
-        if !ecx.cfg.disable_block_gas_limit {
-            ecx.tx
-                .set_gas_limit(std::cmp::min(ecx.tx.gas_limit(), ecx.block.gas_limit()));
+        // Preserve the frame's regular gas and reservoir across the synthetic
+        // transaction boundary: the regular intrinsic gas is added on top of
+        // the regular gas and the cap is set there so EIP-8037 turns the rest
+        // into the reservoir. The intrinsic state gas is paid from the extra
+        // state gas, which offsets the account-creation charge already paid by
+        // the outer opcode.
+        let initial_gas = calculate_initial_gas(&ecx.tx, &ecx.cfg);
+        let regular_gas_limit = regular_limit.saturating_add(initial_gas.initial_regular_gas());
+        ecx.cfg.tx_gas_limit_cap = Some(regular_gas_limit);
+        // revm rejects transactions whose gas limit is below the EIP-7623
+        // calldata floor. Raising the limit would give the frame more gas than
+        // it was forwarded, so skip that check and apply the floor to the
+        // transaction result instead.
+        let floor_gas =
+            (initial_gas.floor_gas() > regular_gas_limit).then_some(initial_gas.floor_gas());
+        if floor_gas.is_some() {
+            ecx.cfg.disable_eip7623 = true;
         }
+        let tx_gas_limit = regular_gas_limit
+            .saturating_add(reservoir)
+            .saturating_add(precharged_state.unwrap_or(0));
+        ecx.tx.set_gas_limit(tx_gas_limit);
+        // The block gas limit was already enforced on the test transaction this
+        // frame belongs to. The synthetic transaction only exceeds it by its
+        // intrinsic gas and precharged state gas, and clamping it would take
+        // that out of the reservoir the frame had.
+        ecx.cfg.disable_block_gas_limit = true;
         ecx.tx.set_gas_price(0);
 
         self.inner_context_data = Some(InnerContextData {
@@ -909,6 +944,9 @@ impl<
             // need to reset the env in case it was modified via cheatcodes during execution
             let evm_context = evm.into_evm_context();
             *context.cfg = evm_context.cfg.clone();
+            context.cfg.tx_gas_limit_cap = cached_env.cfg.tx_gas_limit_cap;
+            context.cfg.disable_eip7623 = cached_env.cfg.disable_eip7623;
+            context.cfg.disable_block_gas_limit = cached_env.cfg.disable_block_gas_limit;
             *context.block = evm_context.block.clone();
 
             *context.tx = cached_env.tx;
@@ -920,7 +958,7 @@ impl<
         self.in_inner_context = false;
         self.inner_context_data = None;
 
-        let mut gas = Gas::new(gas_limit);
+        let mut gas = Gas::new_with_regular_gas_and_reservoir(regular_limit, reservoir);
 
         let Ok(res) = res else {
             // Should we match, encode and propagate error as a revert reason?
@@ -957,41 +995,52 @@ impl<
             }
         }
 
+        let mut transaction_gas = *res.result.gas();
+        if let Some(floor_gas) = floor_gas {
+            transaction_gas = transaction_gas.with_floor_gas(floor_gas);
+        }
+        let tx_state_gas_used = transaction_gas.block_state_gas_used();
+        // A failed frame refunds the account-creation charge to the outer
+        // opcode, and its transaction does not charge that state gas either.
+        let precharged_state = precharged_state.map_or(0, |gas| gas.min(tx_state_gas_used));
+        let state_gas_used = tx_state_gas_used - precharged_state;
+        // Gas snapshots report the receipt gas of the isolated transaction.
+        if let Some(cheatcodes) = self.cheatcodes.as_deref_mut() {
+            cheatcodes
+                .gas_metering
+                .set_isolated_receipt(transaction_gas.tx_gas_used(), precharged_state);
+        }
+        // The transaction also pays its intrinsic gas and calldata floor, which
+        // can exceed the gas forwarded to the frame. The frame then consumes its
+        // whole regular budget, as on an exceptional halt.
+        if !(gas.record_state_cost(state_gas_used)
+            && gas.record_regular_cost(transaction_gas.block_regular_gas_used()))
+        {
+            gas.spend_all();
+        }
+
         let (result, address, output) = match res.result {
             ExecutionResult::Success {
                 reason,
-                gas: result_gas,
                 logs: _,
                 output,
+                ..
             } => {
-                gas.set_refund(result_gas.final_refunded() as i64);
-                let _ = gas.record_regular_cost(result_gas.tx_gas_used());
+                gas.set_refund(transaction_gas.final_refunded() as i64);
                 let address = match output {
                     Output::Create(_, address) => address,
                     Output::Call(_) => None,
                 };
                 (reason.into(), address, output.into_data())
             }
-            ExecutionResult::Halt {
-                reason,
-                gas: result_gas,
-                ..
-            } => {
+            ExecutionResult::Halt { reason, .. } => {
                 let reason: HaltReason = reason.clone().try_into().unwrap_or_else(|_error| {
                     panic!("Halt reason cannot be converted to `HaltReason`: {reason:?}")
                 });
 
-                let _ = gas.record_regular_cost(result_gas.tx_gas_used());
                 (reason.into(), None, Bytes::new())
             }
-            ExecutionResult::Revert {
-                gas: result_gas,
-                output,
-                ..
-            } => {
-                let _ = gas.record_regular_cost(result_gas.tx_gas_used());
-                (InstructionResult::Revert, None, output)
-            }
+            ExecutionResult::Revert { output, .. } => (InstructionResult::Revert, None, output),
         };
         (
             InterpreterResult {
@@ -1401,15 +1450,22 @@ impl<
                 // Isolate CALLs
                 CallScheme::Call => {
                     let input = call.input.bytes(ecx);
-                    // TODO(EIP-8037): port upstream's `IsolatedGas` so the isolated
-                    // re-execution starts from `call.reservoir` and does not re-charge
-                    // the new-account state gas the parent already paid.
+                    // The CALL opcode already charged the new-account state gas on
+                    // the parent, and the synthetic transaction charges it again
+                    // for its recipient (EIP-2780).
+                    let precharged_state = call
+                        .charged_new_account_state_gas
+                        .then_some(ecx.cfg.gas_params().new_account_state_gas());
                     let (result, _) = self.transact_inner(
                         ecx,
                         TxKind::Call(call.target_address),
                         call.caller,
                         input,
-                        call.gas_limit,
+                        IsolatedGas {
+                            regular_limit: call.gas_limit,
+                            reservoir: call.reservoir,
+                            precharged_state,
+                        },
                         call.value.get(),
                     );
                     return Some(CallOutcome {
@@ -1519,7 +1575,16 @@ impl<
                 TxKind::Create,
                 create.caller(),
                 create.init_code().clone(),
-                create.gas_limit(),
+                IsolatedGas {
+                    regular_limit: create.gas_limit(),
+                    reservoir: create.reservoir(),
+                    // The CREATE opcode already charged the account-creation state
+                    // gas on the parent, and the synthetic transaction charges it
+                    // again as intrinsic state gas.
+                    precharged_state: create
+                        .charged_create_state_gas()
+                        .then_some(ecx.cfg.gas_params().create_state_gas()),
+                },
                 create.value(),
             );
             return Some(CreateOutcome {
