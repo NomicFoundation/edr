@@ -502,6 +502,7 @@ mod fork {
         let gas_limit = call_without_gas(
             &provider,
             Some(BlockSpec::Number(PRAGUE_MAINNET_BLOCK_NUMBER)),
+            edr_chain_l1::Hardfork::Prague,
         )?;
         assert_eq!(
             gas_limit,

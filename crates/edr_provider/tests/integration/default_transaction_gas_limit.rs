@@ -82,7 +82,7 @@ async fn call_and_transaction_without_gas_use_osaka_cap() -> anyhow::Result<()> 
     )?;
 
     assert_eq!(
-        call_without_gas(&provider, None)?,
+        call_without_gas(&provider, None, edr_chain_l1::Hardfork::Osaka)?,
         OSAKA_TRANSACTION_GAS_CAP
     );
     assert_eq!(
@@ -103,7 +103,7 @@ async fn call_without_gas_is_capped_by_block_gas_limit() -> anyhow::Result<()> {
         },
     )?;
 
-    let gas_limit = call_without_gas(&provider, None)?;
+    let gas_limit = call_without_gas(&provider, None, edr_chain_l1::Hardfork::Osaka)?;
 
     assert_eq!(gas_limit, SMALL_BLOCK_GAS_LIMIT);
 
@@ -119,7 +119,7 @@ async fn call_and_transaction_without_gas_use_custom_transaction_gas_cap() -> an
     )?;
 
     assert_eq!(
-        call_without_gas(&provider, None)?,
+        call_without_gas(&provider, None, edr_chain_l1::Hardfork::Osaka)?,
         CUSTOM_TRANSACTION_GAS_CAP
     );
     assert_eq!(
@@ -139,7 +139,10 @@ async fn call_without_gas_uses_block_gas_limit_when_transaction_gas_cap_is_disab
         |config| set_block_gas_limit(config, LARGE_BLOCK_GAS_LIMIT),
     )?;
 
-    assert_eq!(call_without_gas(&provider, None)?, LARGE_BLOCK_GAS_LIMIT);
+    assert_eq!(
+        call_without_gas(&provider, None, edr_chain_l1::Hardfork::Osaka)?,
+        LARGE_BLOCK_GAS_LIMIT
+    );
 
     Ok(())
 }
@@ -192,11 +195,19 @@ async fn pending_call_and_transaction_without_gas_use_mining_gas_limit() -> anyh
     )?;
 
     assert_eq!(
-        call_without_gas(&provider, Some(BlockSpec::pending()))?,
+        call_without_gas(
+            &provider,
+            Some(BlockSpec::pending()),
+            edr_chain_l1::Hardfork::Osaka
+        )?,
         PENDING_BLOCK_GAS_LIMIT
     );
     assert_eq!(
-        call_without_gas(&provider, Some(BlockSpec::latest()))?,
+        call_without_gas(
+            &provider,
+            Some(BlockSpec::latest()),
+            edr_chain_l1::Hardfork::Osaka
+        )?,
         OSAKA_TRANSACTION_GAS_CAP
     );
     assert_eq!(
@@ -218,7 +229,7 @@ async fn configured_default_gas_limit_takes_precedence() -> anyhow::Result<()> {
     )?;
 
     assert_eq!(
-        call_without_gas(&provider, None)?,
+        call_without_gas(&provider, None, edr_chain_l1::Hardfork::Osaka)?,
         CONFIGURED_DEFAULT_GAS_LIMIT
     );
     assert_eq!(
@@ -283,6 +294,7 @@ mod fork {
         let gas_limit = call_without_gas(
             &provider,
             Some(BlockSpec::Number(PRAGUE_MAINNET_BLOCK_NUMBER)),
+            edr_chain_l1::Hardfork::Prague,
         )?;
         assert_eq!(
             gas_limit,
@@ -306,6 +318,7 @@ mod fork {
         let gas_limit = call_without_gas(
             &provider,
             Some(BlockSpec::Number(OSAKA_MAINNET_BLOCK_NUMBER)),
+            edr_chain_l1::Hardfork::Osaka,
         )?;
         assert_eq!(gas_limit, OSAKA_TRANSACTION_GAS_CAP);
 
@@ -324,6 +337,7 @@ mod fork {
         let gas_limit = call_without_gas(
             &provider,
             Some(BlockSpec::Number(OSAKA_MAINNET_BLOCK_NUMBER)),
+            edr_chain_l1::Hardfork::Osaka,
         )?;
         assert_eq!(gas_limit, OSAKA_TRANSACTION_GAS_CAP);
 
@@ -343,7 +357,7 @@ mod fork {
         mine_block(&provider);
         let mined_block_gas_limit = block_gas_limit(&provider, PreEip1898BlockSpec::latest())?;
 
-        let gas_limit = call_without_gas(&provider, None)?;
+        let gas_limit = call_without_gas(&provider, None, edr_chain_l1::Hardfork::Amsterdam)?;
         assert_eq!(gas_limit, mined_block_gas_limit);
 
         let gas_limit = send_transaction_without_gas(&provider)?;
