@@ -96,6 +96,16 @@ pub fn send_transaction(
     Ok(response.deserialize_result()?)
 }
 
+/// Parses the quantity `field` of a JSON-RPC object.
+pub fn quantity_field(object: &serde_json::Value, field: &str) -> anyhow::Result<u64> {
+    let quantity = object
+        .get(field)
+        .ok_or_else(|| anyhow::anyhow!("object should have a `{field}` field"))?;
+    let quantity: U64 = serde_json::from_value(quantity.clone())?;
+
+    Ok(quantity.to())
+}
+
 /// Returns the account's balance via `eth_getBalance`.
 pub fn balance_at(provider: &Provider<L1ChainSpec>, address: Address) -> anyhow::Result<U256> {
     let response = provider.handle_request(ProviderRequest::with_single(
