@@ -1,7 +1,24 @@
 use revm::{
     context::{CfgEnv, JournalInner, JournalTr},
+    primitives::hardfork::SpecId,
     Context, Database, Journal, JournalEntry,
 };
+
+/// Sets the hardfork of `cfg` with its mainnet gas params and Amsterdam
+/// feature flags.
+///
+/// revm's setter only ever enables the Amsterdam flags, but an inline
+/// `evm_version` override can lower the hardfork below Amsterdam for a single
+/// test, so they are set explicitly.
+pub fn set_cfg_spec_id<HardforkT: Into<SpecId> + Clone>(
+    cfg: &mut CfgEnv<HardforkT>,
+    spec_id: HardforkT,
+) {
+    cfg.set_spec_and_mainnet_gas_params(spec_id.clone());
+    let is_amsterdam = spec_id.into().is_enabled_in(SpecId::AMSTERDAM);
+    cfg.enable_amsterdam_eip8037 = is_amsterdam;
+    cfg.enable_amsterdam_eip2780 = is_amsterdam;
+}
 
 /// Helper container type for `block`, `cfg`, and `tx`.
 #[derive(Clone, Debug)]
@@ -34,10 +51,11 @@ where
     TxT: Default,
 {
     pub fn default_with_spec_id(spec_id: HardforkT) -> Self {
-        let mut cfg = CfgEnv::default();
-        cfg.spec = spec_id;
-
-        Self::new(cfg, BlockT::default(), TxT::default())
+        Self::new(
+            CfgEnv::new_with_spec(spec_id),
+            BlockT::default(),
+            TxT::default(),
+        )
     }
 
     pub fn new(cfg: CfgEnv<HardforkT>, block: BlockT, tx: TxT) -> Self {
@@ -51,7 +69,7 @@ where
         spec_id: HardforkT,
     ) -> Self {
         let mut cfg = cfg;
-        cfg.spec = spec_id;
+        set_cfg_spec_id(&mut cfg, spec_id);
 
         Self::new(cfg, block, tx)
     }
@@ -177,5 +195,26 @@ where
                 tx: &mut self.tx,
             },
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn set_cfg_spec_id_toggles_amsterdam_flags() {
+        let mut cfg = CfgEnv::<SpecId>::new_with_spec(SpecId::AMSTERDAM);
+        assert!(cfg.enable_amsterdam_eip8037);
+        assert!(cfg.enable_amsterdam_eip2780);
+
+        // An inline `evm_version` override can lower the hardfork below Amsterdam.
+        set_cfg_spec_id(&mut cfg, SpecId::CANCUN);
+        assert!(!cfg.enable_amsterdam_eip8037);
+        assert!(!cfg.enable_amsterdam_eip2780);
+
+        set_cfg_spec_id(&mut cfg, SpecId::AMSTERDAM);
+        assert!(cfg.enable_amsterdam_eip8037);
+        assert!(cfg.enable_amsterdam_eip2780);
     }
 }

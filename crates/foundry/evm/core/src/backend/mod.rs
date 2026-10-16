@@ -1135,7 +1135,7 @@ impl<
         &self,
         mut env: EvmEnvWithChainContext<BlockT, TxT, HardforkT, ChainContextT>,
     ) -> EvmEnvWithChainContext<BlockT, TxT, HardforkT, ChainContextT> {
-        env.cfg.spec = self.inner.spec_id;
+        crate::set_cfg_spec_id(&mut env.cfg, self.inner.spec_id);
         env
     }
 

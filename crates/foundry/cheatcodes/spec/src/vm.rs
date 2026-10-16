@@ -131,9 +131,8 @@ interface Vm {
         /// State charges can draw from this allowance, so `gasLimit - gasRemaining` can include state gas.
         uint64 gasRemaining;
         /// Net EIP-8037 state gas: state creation charges minus refills, including nested execution.
-        /// Always zero for now, including on Amsterdam: EIP-8037 state gas is not supported yet. Once it is:
-        /// zero if the frame reverted or halted; can be negative when the frame undoes state created earlier
-        /// in the same transaction, so use signed arithmetic with `gasTotalUsed`.
+        /// Zero before Amsterdam or if the frame reverted or halted. Can be negative when the frame undoes
+        /// state created earlier in the same transaction, so use signed arithmetic with `gasTotalUsed`.
         /// Their sum measures net consumption, not the gas limit needed to execute.
         int64 gasStateUsed;
     }
