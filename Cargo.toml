@@ -274,7 +274,7 @@ c-kzg = { version = "2.1.8", default-features = false, features = [
     "ethereum_kzg_settings",
 ] }
 
-revm-inspectors = { version = "0.44.2", features = ["serde"] }
+revm-inspectors = { version = "0.44.1", features = ["serde"] }
 # No foundry-fork-db release supports revm 43 (0.27.0 on crates.io pins revm
 # ^41), so a foundry-core git revision is used: the one Foundry v1.8.5 (the
 # latest stable release, on revm 43.0.3) resolves foundry-fork-db to in its
