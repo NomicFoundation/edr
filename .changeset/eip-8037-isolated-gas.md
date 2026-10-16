@@ -1,5 +1,11 @@
 ---
-"@nomicfoundation/edr": patch
+"@nomicfoundation/edr": minor
 ---
 
-Fixed isolated-mode gas accounting: isolated calls and creates now keep their EIP-8037 state gas reservoir and real intrinsic gas, `Vm.Gas.gasTotalUsed` reports the transaction's regular gas before refunds, gas snapshots report the transaction's receipt gas, frames whose intrinsic gas or calldata floor exceeds the forwarded gas consume their whole budget instead of reporting zero, and isolated calls below the EIP-7623 calldata floor no longer revert. Consecutive `startSnapshotGas` regions in one function no longer include the previous region's cheatcode overhead in their first sample.
+- Fixed isolated Solidity test calls and creates losing their EIP-8037 state gas reservoir and paying a flat 21000 intrinsic gas instead of the transaction's real intrinsic gas.
+- Changed `Vm.Gas.gasTotalUsed` for isolated frames to report the transaction's regular gas before refunds, with `gasRefunded` reported separately.
+- Changed `snapshotGasLastCall`, `snapshotGasLastFrame` and `startSnapshotGas`/`stopSnapshotGas` to report the receipt gas of an isolated frame's transaction, so the value no longer depends on the gas forwarded to the call or on refunds.
+- Fixed isolated frames whose intrinsic gas or calldata floor exceeded the forwarded gas reporting zero gas and returning the forwarded gas to the caller. They now consume their whole budget.
+- Fixed isolated calls with calldata below the EIP-7623 floor reverting when the same call succeeds without isolation.
+- Fixed consecutive `startSnapshotGas` regions in one function including the previous region's cheatcode overhead in their value.
+- Changed isolated frames to no longer be validated against the transaction gas cap and the block gas limit, which the enclosing test transaction already satisfied.
