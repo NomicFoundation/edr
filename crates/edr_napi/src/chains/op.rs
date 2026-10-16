@@ -299,9 +299,9 @@ pub fn op_provider_factory() -> ProviderFactory {
 }
 
 /// The value of a storage slot, built from the contract's storage layout.
-struct StorageSlotValue(U256);
+struct StorageValue(U256);
 
-impl StorageSlotValue {
+impl StorageValue {
     /// Packs fields the way Solidity does: each one at `value << (8 * offset)`.
     /// Fields must be in ascending offset order, not overlap and fit in the
     /// slot.
@@ -321,14 +321,14 @@ impl StorageSlotValue {
                 field.offset,
                 field.width
             );
-            slot |= field.value << (8 * field.offset);
+            slot |= U256::from(field.value) << (8 * field.offset);
         }
         Self(slot)
     }
 }
 
-impl From<StorageSlotValue> for BigInt {
-    fn from(value: StorageSlotValue) -> Self {
+impl From<StorageValue> for BigInt {
+    fn from(value: StorageValue) -> Self {
         u256_to_bigint(&value.0)
     }
 }
@@ -338,7 +338,7 @@ impl From<StorageSlotValue> for BigInt {
 struct SlotField {
     offset: usize,
     width: usize,
-    value: U256,
+    value: u64,
 }
 
 impl SlotField {
@@ -346,7 +346,7 @@ impl SlotField {
         Self {
             offset,
             width: size_of::<T>(),
-            value: U256::from(value.into()),
+            value: value.into(),
         }
     }
 }
@@ -371,7 +371,7 @@ fn gas_price_oracle_ecotone() -> AccountOverride {
         code: Some(gas_price_oracle_code_ecotone().into()),
         storage: Some(vec![StorageSlot {
             index: BigInt::from(0u64),
-            value: StorageSlotValue::packed(&[
+            value: StorageValue::packed(&[
                 SlotField::new(0, true), // bool isEcotone
             ])
             .into(),
@@ -387,7 +387,7 @@ fn gas_price_oracle_fjord() -> AccountOverride {
         code: Some(gas_price_oracle_code_fjord().into()),
         storage: Some(vec![StorageSlot {
             index: BigInt::from(0u64),
-            value: StorageSlotValue::packed(&[
+            value: StorageValue::packed(&[
                 SlotField::new(0, true), // bool isEcotone
                 SlotField::new(1, true), // bool isFjord
             ])
@@ -404,7 +404,7 @@ fn gas_price_oracle_isthmus() -> AccountOverride {
         code: Some(gas_price_oracle_code_isthmus().into()),
         storage: Some(vec![StorageSlot {
             index: BigInt::from(0u64),
-            value: StorageSlotValue::packed(&[
+            value: StorageValue::packed(&[
                 SlotField::new(0, true), // bool isEcotone
                 SlotField::new(1, true), // bool isFjord
                 SlotField::new(2, true), // bool isIsthmus
@@ -420,7 +420,7 @@ fn l1_block_storage(hardfork: edr_op::Hardfork) -> Vec<StorageSlot> {
     let mut base_storage = vec![
         StorageSlot {
             index: BigInt::from(0u64),
-            value: StorageSlotValue::packed(&[
+            value: StorageValue::packed(&[
                 SlotField::new(0, 1u64), // uint64 number
                 SlotField::new(8, 1u64), // uint64 timestamp
             ])
@@ -439,7 +439,7 @@ fn l1_block_storage(hardfork: edr_op::Hardfork) -> Vec<StorageSlot> {
         StorageSlot {
             index: BigInt::from(3u64),
             // The fee scalars are OP Mainnet's.
-            value: StorageSlotValue::packed(&[
+            value: StorageValue::packed(&[
                 SlotField::new(0, 0u64),         // uint64 sequenceNumber
                 SlotField::new(8, 1_014_213u32), // uint32 blobBaseFeeScalar
                 SlotField::new(12, 5227u32),     // uint32 baseFeeScalar
@@ -516,7 +516,7 @@ mod tests {
 
     #[test]
     fn packed_value_places_fields_at_their_offsets() {
-        let value: BigInt = StorageSlotValue::packed(&[
+        let value: BigInt = StorageValue::packed(&[
             SlotField::new(0, 0u64),
             SlotField::new(8, 0xf79c5u32),
             SlotField::new(12, 0x146bu32),
@@ -529,13 +529,13 @@ mod tests {
     #[test]
     #[should_panic(expected = "overlaps")]
     fn packed_value_rejects_overlapping_fields() {
-        StorageSlotValue::packed(&[SlotField::new(0, 1u64), SlotField::new(4, 1u64)]);
+        StorageValue::packed(&[SlotField::new(0, 1u64), SlotField::new(4, 1u64)]);
     }
 
     #[test]
     #[should_panic(expected = "exceeds the slot")]
     fn packed_value_rejects_fields_past_the_slot() {
-        StorageSlotValue::packed(&[SlotField::new(28, 1u64)]);
+        StorageValue::packed(&[SlotField::new(28, 1u64)]);
     }
 
     /// Slots 0 and 3 of `L1Block`. The expected limbs are what
