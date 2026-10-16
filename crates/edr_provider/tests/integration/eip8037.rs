@@ -486,7 +486,7 @@ fn rejects_transaction_exceeding_remaining_state_gas() -> anyhow::Result<()> {
 #[test]
 fn rejects_transaction_exceeding_remaining_execution_gas() -> anyhow::Result<()> {
     const BLOCK_GAS_LIMIT: u64 = 400_000;
-    const SECOND_GAS_LIMIT: u64 = 150_000;
+    const SECOND_GAS_LIMIT: u64 = 250_000;
 
     let mut fixture = new_fixture(BLOCK_GAS_LIMIT)?;
 
