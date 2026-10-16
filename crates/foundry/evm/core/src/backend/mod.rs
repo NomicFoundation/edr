@@ -2761,7 +2761,7 @@ mod tests {
     use alloy_primitives::{Address, U256};
     use alloy_provider::Provider;
     use edr_test_utils::env::json_rpc_url_provider;
-    use foundry_fork_db::cache::{BlockchainDb, BlockchainDbMeta};
+    use foundry_fork_db::cache::{AccountFetchPolicy, BlockchainDb, BlockchainDbMeta};
     use revm::{
         context::{
             result::{HaltReason, InvalidTransaction},
@@ -2833,6 +2833,7 @@ mod tests {
             hosts: BTreeSet::default(),
             fork_hash: None,
             source_id: None,
+            account_fetch_policy: AccountFetchPolicy::Auto,
         };
 
         let db = BlockchainDb::new(
