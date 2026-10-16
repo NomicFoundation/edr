@@ -13,7 +13,7 @@ use edr_provider::{
 };
 use edr_runtime::transaction::CreationError;
 use revm_primitives::{
-    eip2780::{TRANSFER_LOG_COST, TX_BASE_COST, TX_VALUE_COST},
+    eip2780::{TX_BASE_COST, TX_VALUE_COST},
     eip8037::{CPSB_GLAMSTERDAM, NEW_ACCOUNT_BYTES},
     eip8038::{COLD_ACCOUNT_ACCESS, CREATE_ACCESS},
 };
@@ -36,9 +36,6 @@ const CONTRACT_ADDRESS: Address = address!("0x0000000000000000000000000000000000
 /// Flat intrinsic gas of a transaction before Amsterdam.
 const PRE_AMSTERDAM_INTRINSIC_GAS: u64 = 21_000;
 
-/// EIP-2780: charge for a nonzero value sent to another account. revm still
-/// splits the EIP's single charge into two constants.
-const VALUE_CHARGE: u64 = TX_VALUE_COST + TRANSFER_LOG_COST;
 /// EIP-8037: state gas of a new account.
 const NEW_ACCOUNT_STATE_GAS: u64 = NEW_ACCOUNT_BYTES * CPSB_GLAMSTERDAM;
 
@@ -124,13 +121,13 @@ async fn value_transfer_pays_base_cost_recipient_access_and_value_charge_from_am
     // intrinsic cost.
     assert_eq!(
         gas_used_by_sending(&amsterdam_provider, request.clone())?,
-        TX_BASE_COST + COLD_ACCOUNT_ACCESS + VALUE_CHARGE + NEW_ACCOUNT_STATE_GAS
+        TX_BASE_COST + COLD_ACCOUNT_ACCESS + TX_VALUE_COST + NEW_ACCOUNT_STATE_GAS
     );
     // To an existing account, the decomposed charges add up to the flat
     // pre-Amsterdam cost.
     assert_eq!(
         gas_used_by_sending(&amsterdam_provider, request)?,
-        TX_BASE_COST + COLD_ACCOUNT_ACCESS + VALUE_CHARGE
+        TX_BASE_COST + COLD_ACCOUNT_ACCESS + TX_VALUE_COST
     );
 
     Ok(())

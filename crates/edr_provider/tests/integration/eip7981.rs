@@ -42,9 +42,9 @@ const ACCESS_LIST_ADDRESS_COST: u64 = 2_400;
 const ACCESS_LIST_STORAGE_KEY_COST: u64 = 1_900;
 
 /// EIP-8038 per-item access list costs from Amsterdam onward (cold account
-/// and cold storage access).
-const EIP8038_ACCESS_LIST_ADDRESS_COST: u64 = 3_000;
-const EIP8038_ACCESS_LIST_STORAGE_KEY_COST: u64 = 3_000;
+/// and cold storage access less the warm access still charged at first use).
+const EIP8038_ACCESS_LIST_ADDRESS_COST: u64 = 2_900;
+const EIP8038_ACCESS_LIST_STORAGE_KEY_COST: u64 = 2_000;
 
 /// Intrinsic cost of a nonzero calldata byte (EIP-2028).
 const NONZERO_CALLDATA_BYTE_COST: u64 = 16;
