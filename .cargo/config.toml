@@ -22,3 +22,12 @@ rustflags = ["-C", "target-feature=-crt-static"]
 
 [target.x86_64-pc-windows-msvc]
 rustflags = ["-C", "target-feature=+crt-static"]
+
+# mimalloc 3.5 (via `mimalloc-safe`) caps arena objects at 256 MiB; larger
+# allocations are mmap'ed and munmap'ed each time and page-faulted in from
+# zero. EDR's EVM step traces exceed that on long transactions (+20% on the
+# openzeppelin-contracts benchmark). MI_FREE_USE_PAGEMAP restores the 16 GiB
+# limit at the cost of mimalloc's `mi_free` fast path (<1% of CPU).
+# Note: a CFLAGS already set in the environment overrides this.
+[env]
+CFLAGS = "-DMI_FREE_USE_PAGEMAP=1"

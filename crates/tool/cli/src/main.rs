@@ -13,7 +13,7 @@ use remote_block::SupportedChainTypes;
 
 // Matches `edr_napi`. Important for scenarios.
 #[global_allocator]
-static ALLOC: mimalloc::MiMalloc = mimalloc::MiMalloc;
+static ALLOC: mimalloc_safe::MiMalloc = mimalloc_safe::MiMalloc;
 
 #[derive(Parser)]
 #[clap(name = "tasks", version, author)]
