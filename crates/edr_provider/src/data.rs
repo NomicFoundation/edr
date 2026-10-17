@@ -1591,9 +1591,9 @@ where
     > {
         options.base_fee = options.base_fee.or(self.next_block_base_fee_per_gas);
         options.beneficiary = Some(options.beneficiary.unwrap_or(self.beneficiary));
-        options.gas_limit = options
-            .gas_limit
-            .or_else(|| self.mem_pool.block_gas_limit().map(NonZeroU64::get));
+        if options.gas_limit.is_none() {
+            options.gas_limit = Some(self.next_block_gas_limit()?);
+        }
 
         let evm_config = self.create_evm_config(self.blockchain.chain_id());
 
@@ -1839,6 +1839,15 @@ where
                 Ok,
             )
             .map(Some)
+    }
+
+    /// Returns the gas limit of the next block to be mined: the block gas
+    /// limit, or the parent's gas limit when the block gas limit is disabled.
+    fn next_block_gas_limit(&self) -> Result<u64, DynBlockchainError> {
+        match self.mem_pool.block_gas_limit() {
+            Some(block_gas_limit) => Ok(block_gas_limit.get()),
+            None => Ok(self.last_block()?.block_header().gas_limit),
+        }
     }
 
     /// Calculates the next block's base fee per blob gas.
