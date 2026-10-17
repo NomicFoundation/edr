@@ -247,7 +247,7 @@ mod fork {
 
     use super::*;
     use crate::common::provider::{
-        mainnet_fork_config, new_provider_from_config, quantity_field, OSAKA_MAINNET_BLOCK_NUMBER,
+        block_gas_limit, mainnet_fork_config, new_provider_from_config, OSAKA_MAINNET_BLOCK_NUMBER,
         PRAGUE_MAINNET_BLOCK_NUMBER,
     };
 
@@ -268,20 +268,6 @@ mod fork {
     }
 
     /// Returns the gas limit of the block at `block_spec`.
-    fn block_gas_limit(
-        provider: &Provider<L1ChainSpec>,
-        block_spec: PreEip1898BlockSpec,
-    ) -> anyhow::Result<u64> {
-        let response = provider.handle_request(ProviderRequest::with_single(
-            MethodInvocation::GetBlockByNumber(block_spec, false),
-        ))?;
-
-        let block: Option<serde_json::Value> = response.deserialize_result()?;
-        let block = block.ok_or_else(|| anyhow::anyhow!("block should exist"))?;
-
-        quantity_field(&block, "gasLimit")
-    }
-
     #[tokio::test(flavor = "multi_thread")]
     async fn call_without_gas_at_prague_block_uses_block_gas_limit_on_osaka_provider(
     ) -> anyhow::Result<()> {
