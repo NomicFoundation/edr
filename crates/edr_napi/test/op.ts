@@ -17,6 +17,8 @@ import {
   // @ts-ignore op exports are absent in the testNoBuild build
   OP_CHAIN_TYPE,
   // @ts-ignore op exports are absent in the testNoBuild build
+  OpHardfork,
+  // @ts-ignore op exports are absent in the testNoBuild build
   opGenesisState,
   // @ts-ignore op exports are absent in the testNoBuild build
   opHardforkFromString,
@@ -32,6 +34,7 @@ import {
 } from "..";
 import {
   ALCHEMY_URL,
+  callGasLimitWithoutGas,
   loadContract,
   runAllSolidityTests,
   toBuffer,
@@ -69,7 +72,6 @@ describe("Multi-chain", () => {
     coinbase: new Uint8Array(
       Buffer.from("0000000000000000000000000000000000000000", "hex")
     ),
-    defaultTransactionGasLimit: 300_000_000n,
     genesisState,
     hardfork: opHardforkToString(opLatestHardfork()),
     initialParentBeaconBlockRoot: new Uint8Array(
@@ -203,6 +205,30 @@ describe("Multi-chain", () => {
       );
 
       await assert.isFulfilled(block);
+    });
+
+    it("uses the block gas limit for a call without `gas` when defaultTransactionGasLimit is omitted", async function () {
+      // Pre-Osaka, so no transaction gas cap applies.
+      const hardfork = OpHardfork.Isthmus;
+      const provider = await context.createProvider(
+        OP_CHAIN_TYPE,
+        {
+          ...providerConfig,
+          defaultTransactionGasLimit: undefined,
+          hardfork: opHardforkToString(hardfork),
+          genesisState: opGenesisState(hardfork),
+        },
+        loggerConfig,
+        {
+          subscriptionCallback: (_event: SubscriptionEvent) => {},
+        },
+        new ContractDecoder()
+      );
+
+      assert.equal(
+        await callGasLimitWithoutGas(provider),
+        providerConfig.network.genesisBlockGasLimit
+      );
     });
 
     describe("Predeploys", () => {

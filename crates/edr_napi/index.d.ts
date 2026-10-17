@@ -1442,10 +1442,24 @@ export interface ProviderConfig {
   /** The address of the coinbase */
   coinbase: Uint8Array
   /**
-   * The default transaction gas limit to use for RPC call and transaction
-   * requests that do not specify a `gas` value.
+   * The gas limit of RPC call and transaction requests that do not specify
+   * a `gas` value.
+   *
+   * When set, it is used as is. Creating the provider fails when it exceeds
+   * the transaction gas bound of the configured hardfork and transaction gas
+   * cap. A request at a block whose bound is lower fails like a request with
+   * an explicit `gas` above that bound.
+   *
+   * When not set, it is derived from the hardfork of the request's block.
+   * It is `2^32 - 1` from Amsterdam ([EIP-8037]), `2^24` from Osaka
+   * ([EIP-7825]), and the block gas limit before. The block gas limit caps
+   * each of these. Before Amsterdam, a configured `transactionGasCap`
+   * replaces the hardfork's bound.
+   *
+   * [EIP-7825]: https://eips.ethereum.org/EIPS/eip-7825
+   * [EIP-8037]: https://eips.ethereum.org/EIPS/eip-8037
    */
-  defaultTransactionGasLimit: bigint
+  defaultTransactionGasLimit?: bigint
   /**
    * The gas estimation mode to use for `eth_estimateGas`. Defaults to
    * `GasEstimationMode::TopLevelSuccess` if not set.

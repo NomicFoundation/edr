@@ -17,7 +17,7 @@ use edr_provider::{
 use edr_test_utils::secret_key::secret_key_to_address;
 
 use crate::common::provider::{
-    new_provider_with_config, quantity_field, send_transaction as send_transaction_request,
+    block_gas_limit, new_provider_with_config, send_transaction as send_transaction_request,
 };
 
 const BLOCK_GAS_LIMIT: u64 = 30_000_000;
@@ -119,18 +119,6 @@ async fn test_send_transaction_without_auto_mine_respects_disabled_block_gas_lim
     Ok(())
 }
 
-/// Returns the gas limit of the latest block.
-fn latest_block_gas_limit(provider: &Provider<L1ChainSpec>) -> anyhow::Result<u64> {
-    let response = provider.handle_request(ProviderRequest::with_single(
-        MethodInvocation::GetBlockByNumber(PreEip1898BlockSpec::latest(), false),
-    ))?;
-
-    let block: Option<serde_json::Value> = response.deserialize_result()?;
-    let block = block.ok_or_else(|| anyhow::anyhow!("block should exist"))?;
-
-    quantity_field(&block, "gasLimit")
-}
-
 /// With the block gas limit disabled, a block takes its parent's gas limit.
 /// `GASLIMIT` returns that value in a mined transaction and in a pending call.
 #[tokio::test(flavor = "multi_thread")]
@@ -141,7 +129,7 @@ async fn gas_limit_opcode_returns_parent_gas_limit_with_disabled_block_gas_limit
         GAS_LIMIT_REPORTER_ADDRESS,
         GAS_LIMIT_REPORTER_CODE,
     )))?;
-    let parent_gas_limit = latest_block_gas_limit(&provider)?;
+    let parent_gas_limit = block_gas_limit(&provider, PreEip1898BlockSpec::latest())?;
 
     send_transaction_request(
         &provider,
@@ -152,7 +140,10 @@ async fn gas_limit_opcode_returns_parent_gas_limit_with_disabled_block_gas_limit
         },
     )?;
 
-    assert_eq!(latest_block_gas_limit(&provider)?, parent_gas_limit);
+    assert_eq!(
+        block_gas_limit(&provider, PreEip1898BlockSpec::latest())?,
+        parent_gas_limit
+    );
 
     let response = provider.handle_request(ProviderRequest::with_single(
         MethodInvocation::GetStorageAt(GAS_LIMIT_REPORTER_ADDRESS, U256::ZERO, None),
