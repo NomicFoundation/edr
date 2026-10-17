@@ -750,10 +750,9 @@ where
             &config.transaction_gas_cap,
             config.hardfork.clone(),
         );
-        if let (Some(default_transaction_gas_limit), Some(bound)) = (
-            config.default_transaction_gas_limit,
-            transaction_gas_bounds.total_transaction_gas,
-        ) && default_transaction_gas_limit.get() > bound
+        if let Some(default_transaction_gas_limit) = config.default_transaction_gas_limit
+            && let Some(bound) = transaction_gas_bounds.total_transaction_gas
+            && default_transaction_gas_limit.get() > bound
         {
             return Err(CreationError::DefaultTransactionGasLimitExceedsBound {
                 default_transaction_gas_limit: default_transaction_gas_limit.get(),
