@@ -243,7 +243,7 @@ async fn configured_default_gas_limit_takes_precedence() -> anyhow::Result<()> {
 #[cfg(feature = "test-remote")]
 mod fork {
     use edr_eth::PreEip1898BlockSpec;
-    use edr_provider::{test_utils::mine_block, MethodInvocation, ProviderRequest};
+    use edr_provider::test_utils::mine_block;
 
     use super::*;
     use crate::common::provider::{
