@@ -1,0 +1,13 @@
+[package]
+name = "edr_napi_callback"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+# `napi8` covers the reference and property APIs this crate calls. The version
+# must match the addon's, so both link one N-API binding.
+napi = { version = "3", default-features = false, features = ["napi8"] }
+static_assertions = "1.1.0"
+
+[lints]
+workspace = true
