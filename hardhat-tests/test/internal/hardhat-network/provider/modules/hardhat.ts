@@ -3146,4 +3146,34 @@ describe("Hardhat module", function () {
       assert.equal(metadata.chainId, 1000);
     });
   });
+
+  PROVIDERS.forEach(({ name, useProvider }) => {
+    workaroundWindowsCiFailures.call(this, { isFork: true });
+
+    describe(`Using ${name}`, function () {
+      setCWD();
+      useProvider({
+        hardfork: "prague",
+      });
+
+      it("Issue edr/1244", async function () {
+        if (ALCHEMY_URL === undefined) {
+          this.skip();
+        }
+
+        const MODIFIED_BLOCK_NUMBER = 11565019; // first block of 2021
+        await this.provider.send("hardhat_reset", [
+          {
+            forking: {
+              jsonRpcUrl: ALCHEMY_URL,
+              blockNumber: MODIFIED_BLOCK_NUMBER,
+            },
+          },
+        ]);
+
+        const resultAfter = await this.provider.send("eth_blockNumber");
+        assert.equal(rpcQuantityToNumber(resultAfter), MODIFIED_BLOCK_NUMBER);
+      });
+    });
+  });
 });
