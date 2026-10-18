@@ -671,6 +671,41 @@ describe("Provider", () => {
       assert.lengthOf(rawTraces, 1);
     });
 
+    it("should record a leading STOP step in a creation frame", async function () {
+      const provider = await createGenericProvider(
+        context,
+        tracingProviderOverrides
+      );
+
+      const responseObject = await provider.handleRequest(
+        JSON.stringify({
+          id: 1,
+          jsonrpc: "2.0",
+          method: "eth_sendTransaction",
+          params: [
+            {
+              from: "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+              // STOP
+              data: "0x00",
+              gas: "0x" + 1_000_000n.toString(16),
+            },
+          ],
+        })
+      );
+
+      const rawTraces = responseObject.traces();
+      assert.lengthOf(rawTraces, 1);
+
+      const trace = rawTraces[0];
+      const messages = collectMessages(trace);
+      assert.lengthOf(messages, 1);
+      assert.isNotOk(messages[0].to);
+
+      const steps = collectSteps(trace);
+      assert.lengthOf(steps, 1);
+      assert.strictEqual(steps[0].opcode.name, "STOP");
+    });
+
     describe("precompile calls", function () {
       const IDENTITY_PRECOMPILE_ADDRESS =
         "0x0000000000000000000000000000000000000004";
@@ -956,6 +991,45 @@ describe("Provider", () => {
         JSON.parse(response.data).result,
         "0x" + RESULT.map((byte) => byte.toString(16).padStart(2, "0")).join("")
       );
+    });
+
+    it("omits a top-level call that the callback reverts from the raw trace", async function () {
+      const provider = await createGenericProvider(context, {
+        observability: {
+          includeCallTraces: IncludeTraces.All,
+        },
+      });
+
+      await provider.setCallOverrideCallback(
+        (): Promise<CallOverrideResult | undefined> =>
+          Promise.resolve({
+            result: new Uint8Array(),
+            shouldRevert: true,
+          })
+      );
+
+      const response = await provider.handleRequest(
+        JSON.stringify({
+          id: 1,
+          jsonrpc: "2.0",
+          method: "eth_call",
+          params: [
+            {
+              to: "0xabababababababababababababababababababab",
+              data: "0xdeadbeef",
+              gas: GAS_BELOW_OSAKA_CAP,
+            },
+            "latest",
+          ],
+        })
+      );
+
+      const rawTraces = response.traces();
+      assert.lengthOf(rawTraces, 1);
+
+      const trace = rawTraces[0];
+      assert.lengthOf(collectMessages(trace), 0);
+      assert.lengthOf(collectSteps(trace), 0);
     });
   });
 

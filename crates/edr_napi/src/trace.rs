@@ -125,7 +125,9 @@ type RawTrace = Either3<TracingMessage, TracingStep, TracingMessageResult>;
 /// following the order that `EthereumJS` would have produced.
 pub(crate) fn raw_trace_from_call_trace_arena(arena: &CallTraceArena) -> Vec<RawTrace> {
     let mut result = Vec::new();
-    if let Some(node) = arena.nodes().first() {
+    if let Some(node) = arena.nodes().first()
+        && (node.trace.kind.is_any_create() || !should_skip_call(&node.trace))
+    {
         convert_node(arena, node, false, node.trace.caller, &mut result);
     }
     result
@@ -171,11 +173,11 @@ fn convert_node(
 
     // 2. Emit Step messages (TracingStep) and recursively convert child calls
     let mut steps = trace.steps.iter().peekable();
-    if let Some(first_step) = steps.peek()
+    if !is_create
+        && let Some(first_step) = steps.peek()
         && first_step.op == OpCode::STOP
     {
-        // Historically, Hardhat 2 didn't record the first step if it was a STOP opcode,
-        // so we skip it to maintain compatibility with existing traces.
+        // Calls skip a leading STOP step. Creates keep it.
         steps.next();
     }
 
