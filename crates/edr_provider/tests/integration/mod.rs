@@ -26,6 +26,7 @@ mod eth_max_priority_fee_per_gas;
 mod eth_request_serialization;
 mod event_loop;
 mod hardhat_request_serialization;
+mod hardhat_state_dump;
 mod interval_mining;
 mod issues;
 mod rip7212;

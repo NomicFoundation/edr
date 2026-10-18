@@ -59,6 +59,11 @@ impl<BlockReceiptT: ReceiptTrait, BlockT, HardforkT, SignedTransactionT>
             last_block_number,
         }
     }
+
+    /// Retrieves the state diffs of all stored blocks, ordered by block number.
+    pub fn state_diffs(&self) -> &[(u64, StateDiff)] {
+        &self.state_diffs
+    }
 }
 
 impl<

@@ -8,8 +8,8 @@ use edr_block_header::BlockConfig;
 use edr_block_storage::ReservableSparseBlockStorage;
 use edr_blockchain_api::{
     utils::compute_state_at_block, BlockHashByNumber, BlockchainMetadata, GetBlockchainBlock,
-    GetBlockchainLogs, InsertBlock, ReceiptByTransactionHash, ReserveBlocks, RevertToBlock,
-    StateAtBlock, TotalDifficultyByBlockHash,
+    GetBlockchainLogs, InsertBlock, LocalStateDiffs, ReceiptByTransactionHash, ReserveBlocks,
+    RevertToBlock, StateAtBlock, TotalDifficultyByBlockHash,
 };
 use edr_chain_spec::{EvmSpecId, ExecutableTransaction, ProtocolHardfork};
 use edr_primitives::{Address, HashSet, B256, U256};
@@ -356,6 +356,14 @@ impl<
         );
 
         Ok(())
+    }
+}
+
+impl<BlockReceiptT: ReceiptTrait, HardforkT, LocalBlockT, SignedTransactionT> LocalStateDiffs
+    for LocalBlockchain<BlockReceiptT, HardforkT, LocalBlockT, SignedTransactionT>
+{
+    fn local_state_diffs(&self) -> &[(u64, StateDiff)] {
+        self.storage.state_diffs()
     }
 }
 
