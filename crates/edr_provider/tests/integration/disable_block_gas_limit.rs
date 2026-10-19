@@ -9,21 +9,35 @@ use edr_chain_l1::{
 use edr_defaults::SECRET_KEYS;
 use edr_eth::{BlockSpec, PreEip1898BlockSpec};
 use edr_mem_pool::MemPoolAddTransactionError;
-use edr_primitives::{address, bytes, Address, Bytes, U256};
+use edr_primitives::{address, Address, Bytes, U256};
 use edr_provider::{
     MethodInvocation, Provider, ProviderError, ProviderErrorForChainSpec, ProviderRequest,
     ResponseWithCallTraces,
 };
 use edr_test_utils::secret_key::secret_key_to_address;
 
-use crate::common::provider::{
-    new_provider_with_config, quantity_field, send_transaction as send_transaction_request,
+use crate::common::{
+    bytecode::{
+        opcode::{DUP1, GASLIMIT, SSTORE},
+        BytecodeBuilder,
+    },
+    provider::{
+        new_provider_with_config, quantity_field, send_transaction as send_transaction_request,
+    },
 };
 
 const BLOCK_GAS_LIMIT: u64 = 30_000_000;
 const EXCEEDS_BLOCK_GAS_LIMIT: u64 = BLOCK_GAS_LIMIT + 1;
 /// Stores `GASLIMIT` in slot 0 and returns it as a 32-byte word.
-const GAS_LIMIT_REPORTER_CODE: Bytes = bytes!("0x458060005560005260206000f3");
+fn gas_limit_reporter_code() -> Bytes {
+    let mut code = BytecodeBuilder::default();
+    code.opcode(GASLIMIT)
+        .opcode(DUP1)
+        .push1(0)
+        .opcode(SSTORE)
+        .return_top_word();
+    code.runtime()
+}
 const GAS_LIMIT_REPORTER_ADDRESS: Address = address!("0x1000000000000000000000000000000000000001");
 
 fn new_provider(
@@ -139,7 +153,7 @@ async fn gas_limit_opcode_returns_parent_gas_limit_with_disabled_block_gas_limit
     let provider = new_provider(true, None)?;
     provider.handle_request(ProviderRequest::with_single(MethodInvocation::SetCode(
         GAS_LIMIT_REPORTER_ADDRESS,
-        GAS_LIMIT_REPORTER_CODE,
+        gas_limit_reporter_code(),
     )))?;
     let parent_gas_limit = latest_block_gas_limit(&provider)?;
 
