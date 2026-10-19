@@ -344,6 +344,12 @@ jobs:
             [ -d "$d" ] || continue
             id=$(basename "$d")
 
+            # A scenario with a `workingDirectory` installs hardhat in that
+            # subdirectory of its clone (e.g. a monorepo's `contracts/`), so
+            # resolve from there; without one, from the clone itself.
+            wd=$(jq -r '.workingDirectory // empty' "end-to-end/$id/scenario.json" 2>/dev/null || true)
+            proj="${d%/}${wd:+/$wd}"
+
             # Resolve the EDR that THIS scenario's hardhat loads. Works across
             # npm/pnpm/yarn node_modules layouts (Node realpaths pnpm symlinks).
             # Nested EDR copies pulled by other dependents (e.g. @1inch/solidity-utils,
@@ -375,12 +381,12 @@ jobs:
                 const ver = (p) => JSON.parse(fs.readFileSync(p, "utf8")).version;
                 process.stdout.write(ver(hhPkg) + " " + ver(edrPkg));
               } catch (e) { process.stderr.write(String(e.message || e)); }
-            ' "$d" 2>/tmp/edr-resolve-err)  || true
+            ' "$proj" 2>/tmp/edr-resolve-err)  || true
 
             if [ -z "${edr_ver:-}" ]; then
               # yarn Plug'n'Play scenarios have no node_modules to resolve through.
-              if { [ -f "$d/.pnp.cjs" ] || [ -f "$d/.pnp.loader.mjs" ]; } \
-                   && grep -rqs -- "$EDR_VER" "$d/yarn.lock"; then
+              if { [ -f "$proj/.pnp.cjs" ] || [ -f "$proj/.pnp.loader.mjs" ]; } \
+                   && grep -rqs -- "$EDR_VER" "$proj/yarn.lock"; then
                 found=1
                 echo "OK (PnP lockfile): $id"
                 continue
