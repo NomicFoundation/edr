@@ -142,13 +142,13 @@ pub fn parse_slang_compiler_metadata(
     let BuildInfoWithOutput {
         _format,
         id: _,
-        solc_version,
+        solc_version: solidity_version,
         solc_long_version: _,
         input,
         output,
     } = metadata.parse_json::<BuildInfoWithOutput<SolxBytecode>>()?;
 
-    extract_slang_contract_metadata(solc_version, input, output)
+    extract_slang_contract_metadata(solidity_version, input, output)
         .map_err(CompilerMetadataParseError::from)
 }
 
@@ -163,7 +163,7 @@ pub fn parse_split_slang_compiler_metadata(
     let BuildInfo {
         _format,
         id: input_id,
-        solc_version,
+        solc_version: solidity_version,
         solc_long_version: _,
         input,
     } = input.parse_json::<BuildInfo>()?;
@@ -181,22 +181,23 @@ pub fn parse_split_slang_compiler_metadata(
         });
     }
 
-    extract_slang_contract_metadata(solc_version, input, output)
+    extract_slang_contract_metadata(solidity_version, input, output)
         .map_err(SplitCompilerMetadataParseError::from)
 }
 
 /// Extracts [`IdentifiedContract`]s from the provided slang compiler input
 /// and output.
 ///
-/// `compiler_version` is not checked against the minimum supported solc
-/// version: the slang compiler is versioned independently of solc.
+/// `solidity_version` is the Solidity version the compile targeted, which
+/// Hardhat writes to the build info's `solcVersion`; the error inference's
+/// version-gated heuristics compare it against solc releases.
 pub fn extract_slang_contract_metadata(
-    compiler_version: String,
+    solidity_version: String,
     compiler_input: CompilerInput,
     compiler_output: CompilerOutput<SolxBytecode>,
 ) -> Result<Vec<IdentifiedContract>, ContractMetadataExtractionError> {
     let build_model = slang_build_model(compiler_input, &compiler_output)?;
-    identify_contracts(compiler_version, build_model, &compiler_output)
+    identify_contracts(solidity_version, build_model, &compiler_output)
 }
 
 /// Builds the model from every source's `debugSymbols`.
@@ -1162,7 +1163,7 @@ contract Diamond is Left, Right {
 
     /// Counter fixture with its solc AST replaced by a hand-written
     /// `debugSymbols` table.
-    fn counter_build_info(compiler_version: &str) -> (serde_json::Value, serde_json::Value) {
+    fn counter_build_info() -> (serde_json::Value, serde_json::Value) {
         let content = include_str!("../../fixtures/sources/Counter.sol");
         let mut input: serde_json::Value =
             serde_json::from_str(include_str!("../../fixtures/solx_compiler_input.json")).unwrap();
@@ -1206,8 +1207,8 @@ contract Diamond is Left, Right {
         let build_info = json!({
             "_format": "hh-sol-build-info-1",
             "id": "slang-counter",
-            "solcVersion": compiler_version,
-            "solcLongVersion": compiler_version,
+            "solcVersion": "0.8.34",
+            "solcLongVersion": "0.1.0+slang",
             "compilerType": "slang",
             "input": input,
         });
@@ -1243,8 +1244,7 @@ contract Diamond is Left, Right {
 
     #[test]
     fn slang_compiler_type_round_trips_through_build_info_parsing() {
-        // A slang compiler version, below the minimum solc version.
-        let (build_info, build_info_output) = counter_build_info("0.1.0");
+        let (build_info, build_info_output) = counter_build_info();
         let mut with_output = build_info.clone();
         with_output["output"] = build_info_output["output"].clone();
         let with_output = with_output.to_string();
