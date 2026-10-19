@@ -1,5 +1,5 @@
-//! DWARF debug-info parser for solx-built artifacts. Produces the same
-//! [`Instruction`] vector as
+//! DWARF debug-info parser for solx and slang compiler artifacts. Produces the
+//! same [`Instruction`] vector as
 //! [`crate::artifacts::solc::source_map::decode_instructions`] does
 //! for solc, so the rest of the stack-trace pipeline stays compiler-agnostic.
 
@@ -21,31 +21,31 @@ use decode_caches::DecodeCaches;
 
 type DwarfReader = EndianRcSlice<RunTimeEndian>;
 
-/// Failure modes when decoding a solx DWARF blob. Replaces previous
+/// Failure modes when decoding a DWARF blob. Replaces previous
 /// `anyhow::Error` returns so callers (and tests) can match on the specific
 /// failure, as is the convention for reusable EDR crates.
 #[derive(Debug, thiserror::Error)]
 pub enum DwarfError {
     /// `evm.*.debugInfo` wasn't valid ASCII-hex.
-    #[error("failed to hex-decode solx evm.*.debugInfo: {0}")]
+    #[error("failed to hex-decode evm.*.debugInfo: {0}")]
     HexDecode(#[from] hex::FromHexError),
 
     /// The decoded bytes weren't a recognisable ELF container.
-    #[error("solx debugInfo blob is not a valid ELF (expected ELF32-MSB): {0}")]
+    #[error("debugInfo blob is not a valid ELF (expected ELF32-MSB): {0}")]
     ElfParse(#[from] object::Error),
 
-    /// A DWARF section is compressed — solx doesn't emit them today,
+    /// A DWARF section is compressed — neither compiler emits them today,
     /// so we surface this as an explicit unsupported case rather than
     /// silently producing empty traces.
     #[error("compressed DWARF section {0:?} is not supported by EDR yet")]
     CompressedSection(&'static str),
 
     /// EDR currently assumes one compilation unit per contract's
-    /// debugInfo blob (matching solx's output). Multi-CU blobs would
+    /// debugInfo blob (matching the compilers' output). Multi-CU blobs would
     /// share file-name / inlined-range tables across CUs, leading to
     /// wrong cross-CU resolution if processed naively.
     #[error(
-        "solx debugInfo blob contains {0}+ DWARF compilation units; \
+        "debugInfo blob contains {0}+ DWARF compilation units; \
          EDR only supports single-CU blobs (one CU per contract)"
     )]
     MultiCu(u32),
@@ -128,7 +128,7 @@ fn is_stack_shuffle(opcode: OpCode) -> bool {
     )
 }
 
-/// Decode a solx-emitted DWARF blob into the same
+/// Decode a compiler-emitted DWARF blob into the same
 /// [`Instruction`] vector that
 /// [`crate::artifacts::solc::source_map::decode_instructions`] produces for
 /// solc artifacts.
@@ -212,7 +212,7 @@ pub fn decode_instructions(
 /// Iterator over `(pc, opcode, push_data)` decoded from raw bytecode,
 /// skipping each PUSH's immediate operands so the next yielded PC is the
 /// next instruction (not an operand byte). Terminates on the first byte
-/// that isn't a valid opcode — solx's trailing CBOR metadata is delimited
+/// that isn't a valid opcode — the trailing CBOR metadata is delimited
 /// by such a byte, so this also serves as a natural end-of-code sentinel.
 struct PcOpcodes<'a> {
     bytecode: &'a [u8],
@@ -353,7 +353,7 @@ impl<'a> RangeSweep<'a> {
     }
 }
 
-/// Per-CU view of a single solx DWARF blob.
+/// Per-CU view of a single DWARF blob.
 struct ParsedDwarf {
     /// addr2line indexes the line program for `find_location(pc)`.
     context: Addr2lineContext<DwarfReader>,
@@ -375,7 +375,7 @@ impl ParsedDwarf {
             let Some(section) = file.section_by_name(id.name()) else {
                 return Ok(EndianRcSlice::new(Rc::from(Vec::new()), endian));
             };
-            // Bail on compressed sections so a future solx that emits them
+            // Bail on compressed sections so a future compiler that emits them
             // fails loudly instead of producing empty traces.
             let compressed = section
                 .compressed_file_range()
@@ -534,7 +534,7 @@ impl ParsedDwarf {
                         _ => {}
                     }
                 }
-                // Skip artificial concrete subprograms (solx's __entry
+                // Skip artificial concrete subprograms (the compiler's __entry
                 // dispatcher covers the whole bytecode — would classify
                 // every JUMP as IntoFunction).
                 if is_subprogram_with_pc && self_artificial {
@@ -871,7 +871,7 @@ fn range_call_site_to_location(
         );
         return None;
     };
-    // solx's DWARF carries no `decl_column` (LLVM subprograms track only
+    // The DWARF carries no `decl_column` (LLVM subprograms track only
     // file and line), so a declaration anchor starts at the line start and
     // gets nudged past the indentation below.
     let column = if call_site.is_some() {

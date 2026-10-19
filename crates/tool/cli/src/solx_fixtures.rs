@@ -3,9 +3,9 @@
 //!
 //! Splices each fixture's source files (from `fixtures/sources/`) into its
 //! committed input JSON — whose `content` fields are deliberately empty —
-//! runs `solx --standard-json`, and rewrites the output JSON with solx's
-//! verbatim output. Run after bumping the solx version or editing a fixture
-//! source, then re-run the consuming tests
+//! runs the compiler with `--standard-json`, and rewrites the output JSON
+//! with its verbatim output. Run after bumping a compiler version or editing
+//! a fixture source, then re-run the consuming tests
 //! (`cargo test -p edr_provider --features test-utils solx_stack_trace`).
 //!
 //! solx release binaries: <https://github.com/NomicFoundation/solx/releases>.
@@ -113,7 +113,7 @@ fn generate_all(
     standard_json_args: &[&str],
     fixtures: &[Fixture],
 ) -> anyhow::Result<()> {
-    let version = run_solx(compiler, &["--version"], None)?;
+    let version = run_compiler(compiler, &["--version"], None)?;
     println!("using: {}", version.trim());
 
     let fixtures_dir = project_root().join("crates/edr_solidity/fixtures");
@@ -124,7 +124,7 @@ fn generate_all(
 }
 
 fn generate_fixture(
-    solx: &Path,
+    compiler: &Path,
     standard_json_args: &[&str],
     fixtures_dir: &Path,
     fixture: &Fixture,
@@ -161,14 +161,14 @@ fn generate_fixture(
         );
     }
 
-    let compiler_output = run_solx(
-        solx,
+    let compiler_output = run_compiler(
+        compiler,
         standard_json_args,
         Some(&serde_json::to_string(&compiler_input)?),
     )?;
 
     let parsed: serde_json::Value = serde_json::from_str(&compiler_output)
-        .with_context(|| format!("{}: solx emitted invalid JSON", fixture.name))?;
+        .with_context(|| format!("{}: the compiler emitted invalid JSON", fixture.name))?;
     let errors: Vec<&serde_json::Value> = parsed
         .get("errors")
         .and_then(serde_json::Value::as_array)
@@ -192,7 +192,7 @@ fn generate_fixture(
             })
             .collect();
         bail!(
-            "{}: solx reported errors:\n{}",
+            "{}: the compiler reported errors:\n{}",
             fixture.name,
             messages.join("\n")
         );
@@ -206,8 +206,8 @@ fn generate_fixture(
     .with_context(|| format!("{}: writing the compiler output", fixture.name))
 }
 
-fn run_solx(solx: &Path, args: &[&str], stdin: Option<&str>) -> anyhow::Result<String> {
-    let mut child = Command::new(solx)
+fn run_compiler(compiler: &Path, args: &[&str], stdin: Option<&str>) -> anyhow::Result<String> {
+    let mut child = Command::new(compiler)
         .args(args)
         .stdin(if stdin.is_some() {
             Stdio::piped()
@@ -216,7 +216,7 @@ fn run_solx(solx: &Path, args: &[&str], stdin: Option<&str>) -> anyhow::Result<S
         })
         .stdout(Stdio::piped())
         .spawn()
-        .with_context(|| format!("failed to run {}", solx.display()))?;
+        .with_context(|| format!("failed to run {}", compiler.display()))?;
     // Feed stdin from a thread so a large input can't deadlock against the
     // child filling the stdout pipe; a write error surfaces as a non-zero
     // exit status below.
@@ -232,7 +232,7 @@ fn run_solx(solx: &Path, args: &[&str], stdin: Option<&str>) -> anyhow::Result<S
     if !output.status.success() {
         bail!(
             "`{} {}` failed: {}",
-            solx.display(),
+            compiler.display(),
             args.join(" "),
             output.status
         );
