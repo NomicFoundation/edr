@@ -5,7 +5,11 @@
 //! peer range is open-ended, so a key that a released compiler emits is never
 //! dropped: a renamed key is read through `#[serde(alias)]`.
 
-use std::{collections::HashMap, str::FromStr as _, sync::Arc};
+use std::{
+    collections::{HashMap, HashSet},
+    str::FromStr as _,
+    sync::Arc,
+};
 
 use anyhow::{bail, Context as _};
 use edr_primitives::hex;
@@ -191,29 +195,23 @@ pub fn extract_slang_contract_metadata(
     compiler_input: CompilerInput,
     compiler_output: CompilerOutput<SolxBytecode>,
 ) -> Result<Vec<IdentifiedContract>, ContractMetadataExtractionError> {
-    let Some(build_model) = slang_build_model(compiler_input, &compiler_output)? else {
-        return Ok(Vec::new());
-    };
-
+    let build_model = slang_build_model(compiler_input, &compiler_output)?;
     identify_contracts(compiler_version, build_model, &compiler_output)
 }
 
-/// Builds the model from every source's `debugSymbols`, or returns `None`
-/// when a source lacks them.
+/// Builds the model from every source's `debugSymbols`.
 pub(crate) fn slang_build_model(
     compiler_input: CompilerInput,
     compiler_output: &CompilerOutput<SolxBytecode>,
-) -> anyhow::Result<Option<DwarfBuildModel>> {
+) -> anyhow::Result<DwarfBuildModel> {
     let mut sources = Vec::with_capacity(compiler_output.sources.len());
     for (source_name, source) in &compiler_output.sources {
-        let Some(debug_symbols) = source.debug_symbols.as_ref() else {
-            log::warn!(
-                "The slang compiler output for {source_name} has no debugSymbols: it was \
-                 produced without the \"debugSymbols\" output selection. Stack traces are \
-                 unavailable for this compilation."
-            );
-            return Ok(None);
-        };
+        let debug_symbols = source.debug_symbols.as_ref().with_context(|| {
+            format!(
+                "Compiler output for {source_name} has no debugSymbols; select the \
+                 \"debugSymbols\" output"
+            )
+        })?;
 
         let content = match compiler_input.sources.get(source_name) {
             Some(input_source) => input_source.content.clone(),
@@ -225,6 +223,7 @@ pub(crate) fn slang_build_model(
     }
 
     let mut contracts: IndexMap<(&str, &str), Arc<RwLock<Contract>>> = IndexMap::new();
+    let mut unmodelled_contracts: HashSet<(&str, &str)> = HashSet::new();
     let mut ast_spans = HashMap::with_capacity(sources.len());
 
     for (source_name, file_id, file, debug_symbols) in &sources {
@@ -234,7 +233,10 @@ pub(crate) fn slang_build_model(
             let kind = match contract_symbol.kind {
                 ContractSymbolKind::Contract => ContractKind::Contract,
                 ContractSymbolKind::Library => ContractKind::Library,
-                ContractSymbolKind::Interface | ContractSymbolKind::Unknown => continue,
+                ContractSymbolKind::Interface | ContractSymbolKind::Unknown => {
+                    unmodelled_contracts.insert((*source_name, contract_symbol.name.as_str()));
+                    continue;
+                }
             };
 
             let contract_abi = compiler_output
@@ -311,11 +313,17 @@ pub(crate) fn slang_build_model(
                 if base_key == key {
                     continue;
                 }
-                // Interfaces are not modelled.
-                let Some(base_contract) = contracts.get(&base_key) else {
-                    continue;
-                };
-                contract.add_next_linearized_base_contract(&base_contract.read())?;
+                if let Some(base_contract) = contracts.get(&base_key) {
+                    contract.add_next_linearized_base_contract(&base_contract.read())?;
+                } else if !unmodelled_contracts.contains(&base_key) {
+                    bail!(
+                        "debugSymbols entry {} in {} has base {}:{}, which no source declares",
+                        contract_symbol.name,
+                        source_name,
+                        base.path,
+                        base.name
+                    );
+                }
             }
         }
     }
@@ -340,13 +348,13 @@ pub(crate) fn slang_build_model(
         .map(|(_, file_id, file, _)| (file_id, file))
         .collect();
 
-    Ok(Some(DwarfBuildModel::from_parts(
+    Ok(DwarfBuildModel::from_parts(
         CompiledContractsAndFiles {
             contract_id_to_contract,
             file_id_to_source_file,
         },
         ast_spans,
-    )))
+    ))
 }
 
 fn contract_function(
@@ -786,9 +794,7 @@ contract Diamond is Left, Right {
         let (input, output) = diamond_input_output();
         let input: CompilerInput = serde_json::from_value(input).unwrap();
         let output: CompilerOutput<SolxBytecode> = serde_json::from_value(output).unwrap();
-        slang_build_model(input, &output)
-            .expect("debugSymbols are valid")
-            .expect("every source has debugSymbols")
+        slang_build_model(input, &output).expect("debugSymbols are valid")
     }
 
     fn contract_named(model: &DwarfBuildModel, name: &str) -> Arc<RwLock<Contract>> {
@@ -1108,20 +1114,50 @@ contract Diamond is Left, Right {
         assert!(model.source_model_by_file_id(2).is_none());
     }
 
+    fn diamond_build_model_error(output: serde_json::Value) -> String {
+        let (input, _) = diamond_input_output();
+        let input: CompilerInput = serde_json::from_value(input).unwrap();
+        let output: CompilerOutput<SolxBytecode> = serde_json::from_value(output).unwrap();
+        slang_build_model(input, &output)
+            .expect_err("the model must not be built")
+            .to_string()
+    }
+
     #[test]
-    fn missing_debug_symbols_contribute_no_contracts() {
-        let (input, mut output) = diamond_input_output();
+    fn missing_debug_symbols_are_an_error() {
+        let (_, mut output) = diamond_input_output();
         output["sources"]["B.sol"]
             .as_object_mut()
             .unwrap()
             .remove("debugSymbols");
 
+        assert_eq!(
+            diamond_build_model_error(output),
+            "Compiler output for B.sol has no debugSymbols; select the \"debugSymbols\" output"
+        );
+    }
+
+    #[test]
+    fn unresolved_base_is_an_error() {
+        let (_, mut output) = diamond_input_output();
+        output["sources"]["B.sol"]["debugSymbols"]["contracts"][0]["bases"][1] =
+            base("a.sol", "Root");
+
+        assert_eq!(
+            diamond_build_model_error(output),
+            "debugSymbols entry Left in B.sol has base a.sol:Root, which no source declares"
+        );
+    }
+
+    #[test]
+    fn unknown_kind_base_is_skipped() {
+        let (_, mut output) = diamond_input_output();
+        output["sources"]["A.sol"]["debugSymbols"]["contracts"][0]["kind"] = json!("future");
+        let (input, _) = diamond_input_output();
         let input: CompilerInput = serde_json::from_value(input).unwrap();
         let output: CompilerOutput<SolxBytecode> = serde_json::from_value(output).unwrap();
 
-        let contracts = extract_slang_contract_metadata("0.1.0".to_string(), input, output)
-            .expect("a missing table is not an error");
-        assert!(contracts.is_empty());
+        slang_build_model(input, &output).expect("an unknown-kind base is not modelled");
     }
 
     /// Counter fixture with its solc AST replaced by a hand-written

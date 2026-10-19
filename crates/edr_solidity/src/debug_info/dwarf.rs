@@ -1085,7 +1085,6 @@ mod tests {
                         .unwrap();
                 input.sources.get_mut("Counter.sol").unwrap().content = counter_src.to_string();
                 slang_build_model(input, &load_counter_output(compiler))
-                    .unwrap()
                     .expect("the slang Counter fixture has debugSymbols")
             }
         }
@@ -1143,8 +1142,7 @@ mod tests {
             Compiler::Solx => solx_build_model(input, &output)
                 .expect("AST processor must accept the stack-trace-scenarios fixture"),
             Compiler::Slang => slang_build_model(input, &output)
-                .expect("debugSymbols reader must accept the stack-trace-scenarios fixture")
-                .expect("every stack-trace-scenarios source has debugSymbols"),
+                .expect("debugSymbols reader must accept the stack-trace-scenarios fixture"),
         }
     }
 
