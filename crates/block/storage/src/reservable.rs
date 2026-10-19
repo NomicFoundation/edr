@@ -4,7 +4,7 @@ use std::num::NonZeroU64;
 use edr_block_api::{Block, BlockReceipts, EmptyBlock, FetchBlockReceipts, LocalBlock};
 use edr_block_header::{BlockConfig, HeaderOverrides, PartialHeader};
 use edr_chain_spec::{EvmSpecId, ExecutableTransaction, ProtocolHardfork};
-use edr_primitives::{Address, HashMap, HashSet, B256, U256};
+use edr_primitives::{Address, HashSet, B256, U256};
 use edr_receipt::{log::FilterLog, ExecutionReceipt, ReceiptTrait};
 use edr_state_api::StateDiff;
 use parking_lot::{RwLock, RwLockUpgradableReadGuard, RwLockWriteGuard};
@@ -22,7 +22,6 @@ struct Reservation<HardforkT> {
     previous_base_fee_per_gas: Option<u128>,
     previous_state_root: B256,
     previous_total_difficulty: U256,
-    previous_diff_index: usize,
     block_config: BlockConfig<HardforkT>,
 }
 
@@ -39,9 +38,8 @@ pub struct ReservableSparseBlockStorage<
     storage: RwLock<SparseBlockStorage<BlockReceiptT, BlockT, SignedTransactionT>>,
     // We can store the state diffs contiguously, as reservations don't contain any diffs.
     // Diffs are a mapping from one state to the next, so the genesis block contains the initial
-    // state.
+    // state. They are ordered by block number.
     state_diffs: Vec<(u64, StateDiff)>,
-    number_to_diff_index: HashMap<u64, usize>,
     last_block_number: u64,
 }
 
@@ -55,9 +53,15 @@ impl<BlockReceiptT: ReceiptTrait, BlockT, HardforkT, SignedTransactionT>
             reservations: RwLock::new(Vec::new()),
             storage: RwLock::new(SparseBlockStorage::default()),
             state_diffs: Vec::new(),
-            number_to_diff_index: HashMap::default(),
             last_block_number,
         }
+    }
+
+    /// Retrieves the number of state diffs of blocks up to and including the
+    /// block with the provided number.
+    fn diff_count_until_block(&self, block_number: u64) -> usize {
+        self.state_diffs
+            .partition_point(|(diff_block_number, _)| *diff_block_number <= block_number)
     }
 }
 
@@ -75,7 +79,6 @@ impl<
             reservations: RwLock::new(Vec::new()),
             storage: RwLock::new(SparseBlockStorage::with_block(block, total_difficulty)),
             state_diffs: vec![(0, diff)],
-            number_to_diff_index: std::iter::once((0, 0)).collect(),
             last_block_number: 0,
         }
     }
@@ -99,10 +102,6 @@ impl<
 
             // Keep the genesis block's diff
             self.state_diffs.truncate(1);
-
-            // Keep the genesis block's mapping
-            self.number_to_diff_index.clear();
-            self.number_to_diff_index.insert(0, 0);
         } else {
             // Only retain reservations that are not fully reverted
             self.reservations.get_mut().retain_mut(|reservation| {
@@ -117,21 +116,8 @@ impl<
             });
 
             // Remove all diffs that are newer than the reverted block
-            let diff_index = self
-                .number_to_diff_index
-                .get(&block_number)
-                .copied()
-                .unwrap_or_else(|| {
-                    let reservations = self.reservations.get_mut();
-
-                    find_reservation(reservations, block_number)
-                    .expect("There must either be a block or a reservation matching the block number").previous_diff_index
-                });
-
-            self.state_diffs.truncate(diff_index + 1);
-
-            self.number_to_diff_index
-                .retain(|number, _| *number <= block_number);
+            let diff_count = self.diff_count_until_block(block_number);
+            self.state_diffs.truncate(diff_count);
         }
 
         true
@@ -211,20 +197,18 @@ impl<BlockReceiptT: Clone + ReceiptTrait, BlockT: Clone, HardforkT: Clone, Signe
     /// the block with the provided number, if it exists.
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     pub fn state_diffs_until_block(&self, block_number: u64) -> Option<&[(u64, StateDiff)]> {
-        let diff_index = self
-            .number_to_diff_index
-            .get(&block_number)
-            .copied()
-            .or_else(|| {
-                let reservations = self.reservations.read();
-                find_reservation(&reservations, block_number)
-                    .map(|reservation| reservation.previous_diff_index)
-            })?;
+        if block_number > self.last_block_number {
+            return None;
+        }
 
+        // A block's state is the result of the diffs of all blocks up to and including
+        // it. This also holds for reserved blocks, which have no diffs, whether or not
+        // they have been created yet.
+        let diff_count = self.diff_count_until_block(block_number);
         Some(
             self.state_diffs
-                .get(0..=diff_index)
-                .expect("diff_index is valid"),
+                .get(..diff_count)
+                .expect("diff_count is at most the number of diffs"),
         )
     }
 
@@ -257,7 +241,6 @@ impl<BlockReceiptT: Clone + ReceiptTrait, BlockT: Clone, HardforkT: Clone, Signe
             previous_base_fee_per_gas: previous_base_fee,
             previous_state_root,
             previous_total_difficulty,
-            previous_diff_index: self.state_diffs.len() - 1,
             block_config: block_config.clone(),
         };
 
@@ -297,9 +280,6 @@ impl<
         total_difficulty: U256,
     ) -> Result<&BlockT, InsertBlockAndReceiptsError> {
         self.last_block_number = block.block_header().number;
-        self.number_to_diff_index
-            .insert(self.last_block_number, self.state_diffs.len());
-
         self.state_diffs.push((self.last_block_number, state_diff));
 
         let receipts: Vec<_> = block.transaction_receipts().to_vec();
