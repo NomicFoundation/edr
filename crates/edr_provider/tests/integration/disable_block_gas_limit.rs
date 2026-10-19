@@ -2,20 +2,43 @@
 
 use std::num::NonZeroU64;
 
-use edr_chain_l1::{rpc::TransactionRequest, L1ChainSpec};
+use edr_chain_l1::{
+    rpc::{call::L1CallRequest, TransactionRequest},
+    L1ChainSpec,
+};
 use edr_defaults::SECRET_KEYS;
+use edr_eth::{BlockSpec, PreEip1898BlockSpec};
 use edr_mem_pool::MemPoolAddTransactionError;
-use edr_primitives::address;
+use edr_primitives::{address, Address, Bytes, U256};
 use edr_provider::{
     MethodInvocation, Provider, ProviderError, ProviderErrorForChainSpec, ProviderRequest,
     ResponseWithCallTraces,
 };
 use edr_test_utils::secret_key::secret_key_to_address;
 
-use crate::common::provider::new_provider_with_config;
+use crate::common::{
+    bytecode::{
+        opcode::{DUP1, GASLIMIT, SSTORE},
+        BytecodeBuilder,
+    },
+    provider::{
+        new_provider_with_config, quantity_field, send_transaction as send_transaction_request,
+    },
+};
 
 const BLOCK_GAS_LIMIT: u64 = 30_000_000;
 const EXCEEDS_BLOCK_GAS_LIMIT: u64 = BLOCK_GAS_LIMIT + 1;
+/// Stores `GASLIMIT` in slot 0 and returns it as a 32-byte word.
+fn gas_limit_reporter_code() -> Bytes {
+    let mut code = BytecodeBuilder::default();
+    code.opcode(GASLIMIT)
+        .opcode(DUP1)
+        .push1(0)
+        .opcode(SSTORE)
+        .return_top_word();
+    code.runtime()
+}
+const GAS_LIMIT_REPORTER_ADDRESS: Address = address!("0x1000000000000000000000000000000000000001");
 
 fn new_provider(
     auto_mine: bool,
@@ -106,6 +129,64 @@ async fn test_send_transaction_without_auto_mine_respects_disabled_block_gas_lim
     let provider = new_provider(false, None)?;
 
     send_transaction(&provider, EXCEEDS_BLOCK_GAS_LIMIT)?;
+
+    Ok(())
+}
+
+/// Returns the gas limit of the latest block.
+fn latest_block_gas_limit(provider: &Provider<L1ChainSpec>) -> anyhow::Result<u64> {
+    let response = provider.handle_request(ProviderRequest::with_single(
+        MethodInvocation::GetBlockByNumber(PreEip1898BlockSpec::latest(), false),
+    ))?;
+
+    let block: Option<serde_json::Value> = response.deserialize_result()?;
+    let block = block.ok_or_else(|| anyhow::anyhow!("block should exist"))?;
+
+    quantity_field(&block, "gasLimit")
+}
+
+/// With the block gas limit disabled, a block takes its parent's gas limit.
+/// `GASLIMIT` returns that value in a mined transaction and in a pending call.
+#[tokio::test(flavor = "multi_thread")]
+async fn gas_limit_opcode_returns_parent_gas_limit_with_disabled_block_gas_limit(
+) -> anyhow::Result<()> {
+    let provider = new_provider(true, None)?;
+    provider.handle_request(ProviderRequest::with_single(MethodInvocation::SetCode(
+        GAS_LIMIT_REPORTER_ADDRESS,
+        gas_limit_reporter_code(),
+    )))?;
+    let parent_gas_limit = latest_block_gas_limit(&provider)?;
+
+    send_transaction_request(
+        &provider,
+        TransactionRequest {
+            from: secret_key_to_address(SECRET_KEYS[0])?,
+            to: Some(GAS_LIMIT_REPORTER_ADDRESS),
+            ..TransactionRequest::default()
+        },
+    )?;
+
+    assert_eq!(latest_block_gas_limit(&provider)?, parent_gas_limit);
+
+    let response = provider.handle_request(ProviderRequest::with_single(
+        MethodInvocation::GetStorageAt(GAS_LIMIT_REPORTER_ADDRESS, U256::ZERO, None),
+    ))?;
+    let mined_gas_limit: U256 = response.deserialize_result()?;
+    assert_eq!(mined_gas_limit, U256::from(parent_gas_limit));
+
+    let response =
+        provider.handle_request(ProviderRequest::with_single(MethodInvocation::Call(
+            L1CallRequest {
+                to: Some(GAS_LIMIT_REPORTER_ADDRESS),
+                ..L1CallRequest::default()
+            },
+            Some(BlockSpec::pending()),
+            None,
+        )))?;
+    let output: Bytes = response.deserialize_result()?;
+    let pending_gas_limit = U256::try_from_be_slice(&output)
+        .ok_or_else(|| anyhow::anyhow!("output should fit in a 32-byte word"))?;
+    assert_eq!(pending_gas_limit, U256::from(parent_gas_limit));
 
     Ok(())
 }
