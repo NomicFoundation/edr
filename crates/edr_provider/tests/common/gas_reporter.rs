@@ -8,18 +8,25 @@ use edr_chain_l1::{
 };
 use edr_chain_spec::EvmSpecId;
 use edr_eth::BlockSpec;
-use edr_primitives::{address, bytes, Address, Bytes, U256};
+use edr_primitives::{address, Address, Bytes, U256};
 use edr_provider::{MethodInvocation, Provider, ProviderRequest};
 use edr_rpc_eth::{AccountOverrideOptions, StateOverrideOptions};
 use edr_runtime::transaction::calculate_initial_tx_gas_for_tx;
 use edr_transaction::TxKind;
 
-use crate::common::provider::{quantity_field, send_transaction};
+use crate::common::{
+    bytecode::{opcode::GAS, BytecodeBuilder},
+    provider::{quantity_field, send_transaction},
+};
 
 pub const CALLER: Address = address!("0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266");
 pub const GAS_REPORTER_ADDRESS: Address = address!("0x1000000000000000000000000000000000000001");
 /// Returns the gas left after executing `GAS` as a 32-byte word.
-const GAS_REPORTER_CODE: Bytes = bytes!("5a60005260206000f3");
+fn gas_reporter_code() -> Bytes {
+    let mut code = BytecodeBuilder::default();
+    code.opcode(GAS).return_top_word();
+    code.runtime()
+}
 /// The gas left that `GAS` reports excludes its own cost.
 const GAS_OPCODE_COST: u64 = 2;
 
@@ -27,7 +34,7 @@ const GAS_OPCODE_COST: u64 = 2;
 pub fn deploy_gas_reporter(provider: &Provider<L1ChainSpec>) -> anyhow::Result<()> {
     provider.handle_request(ProviderRequest::with_single(MethodInvocation::SetCode(
         GAS_REPORTER_ADDRESS,
-        GAS_REPORTER_CODE,
+        gas_reporter_code(),
     )))?;
 
     Ok(())
@@ -79,7 +86,7 @@ pub fn call_without_gas(
         AccountOverrideOptions {
             balance: None,
             nonce: None,
-            code: Some(GAS_REPORTER_CODE),
+            code: Some(gas_reporter_code()),
             storage: None,
             storage_diff: None,
         },
