@@ -51,6 +51,12 @@ enum Command {
         /// (<https://github.com/NomicFoundation/solx/releases>)
         solx: PathBuf,
     },
+    /// Regenerate the slang compiler-output fixtures in
+    /// `crates/edr_solidity/fixtures` (see `solx_fixtures.rs`)
+    GenSlangFixtures {
+        /// Path to a slang compiler binary that emits `debugSymbols`
+        compiler: PathBuf,
+    },
     /// Replays a block from a remote node and compares it to the mined block.
     ReplayBlock {
         #[clap(long, short, value_enum)]
@@ -89,6 +95,7 @@ async fn main() -> anyhow::Result<()> {
         } => benchmark::run(working_directory, &test_command, iterations),
         Command::ConvertScenario { path } => scenario::convert(path).await,
         Command::GenSolxFixtures { solx } => solx_fixtures::generate(&solx),
+        Command::GenSlangFixtures { compiler } => solx_fixtures::generate_slang(&compiler),
         Command::ReplayBlock {
             chain_type,
             url,
