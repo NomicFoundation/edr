@@ -1,5 +1,18 @@
 # @nomicfoundation/edr
 
+## 0.24.0
+
+### Minor Changes
+
+- 1da28b2: Added Solidity stack traces for build infos with `compilerType: "slang"`. The compiler output must include the per-source `debugSymbols` output selection; without it, the build info contributes no contracts to stack traces and a warning is logged.
+
+### Patch Changes
+
+- 5ce1648: Added the Amsterdam hardfork activation on Hoodi, so EDR infers it from the block timestamp when forking
+- 87bb637: Added experimental EIP-7954 support: from the Amsterdam hardfork, deployment transactions may carry up to 128 KiB of init code and deploy up to 64 KiB of contract code.
+- a83d0a1: Fixed `GASLIMIT` returning `1_000_000` while a block is mined with the block gas limit disabled. It now returns the parent block's gas limit, which the mined block's header already carried.
+- bc64432: Fixed simulated OP networks not charging the L1 data fee: the `L1Block` predeploy's genesis storage now sets `baseFeeScalar` and `blobBaseFeeScalar`, so transactions pay the fee and receipts report it.
+
 ## 0.23.0
 
 ### Minor Changes
