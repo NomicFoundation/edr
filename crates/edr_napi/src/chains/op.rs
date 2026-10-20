@@ -9,7 +9,7 @@ use edr_op::{
     },
     OpChainSpec,
 };
-use edr_primitives::hex;
+use edr_primitives::{hex, U256};
 use edr_provider::time::CurrentTime;
 use edr_solidity::contract_decoder::ContractDecoder;
 use napi::{
@@ -23,6 +23,7 @@ use crate::{
     account::{AccountOverride, StorageSlot},
     provider::{factory::SyncProviderFactory, ProviderFactory},
     subscription::{subscriber_callback_for_chain_spec, SubscriptionTsfn},
+    trace::u256_to_bigint,
 };
 
 pub struct OpProviderFactory;
@@ -297,6 +298,82 @@ pub fn op_provider_factory() -> ProviderFactory {
     factory.into()
 }
 
+/// The value of a storage slot, built from the contract's storage layout.
+struct StorageValue(U256);
+
+impl StorageValue {
+    /// Packs fields the way Solidity does: each one at `value << (8 * offset)`.
+    /// Fields must be in ascending offset order, not overlap and fit in the
+    /// slot; in a `const` item, violations are compile errors.
+    const fn packed(fields: &[SlotField]) -> Self {
+        let mut limbs = [0u64; 4];
+        let mut next_free = 0;
+        // Written with `while` and explicit limb ORs so that the function can
+        // be `const`.
+        let mut fields = fields;
+        while let [field, rest @ ..] = fields {
+            assert!(
+                field.offset >= next_free,
+                "field overlaps the previous field"
+            );
+            next_free = field.offset + field.width;
+            assert!(next_free <= 32, "field exceeds the slot");
+
+            let [l0, l1, l2, l3] = U256::from_limbs([field.value, 0, 0, 0])
+                .wrapping_shl(8 * field.offset)
+                .into_limbs();
+            limbs[0] |= l0;
+            limbs[1] |= l1;
+            limbs[2] |= l2;
+            limbs[3] |= l3;
+            fields = rest;
+        }
+        Self(U256::from_limbs(limbs))
+    }
+}
+
+impl From<StorageValue> for BigInt {
+    fn from(value: StorageValue) -> Self {
+        u256_to_bigint(&value.0)
+    }
+}
+
+/// A field of a storage slot at its byte offset, as listed in the contract's
+/// storage layout. The width is that of the Rust type.
+struct SlotField {
+    offset: usize,
+    width: usize,
+    value: u64,
+}
+
+impl SlotField {
+    const fn bool(offset: usize, value: bool) -> Self {
+        Self {
+            offset,
+            width: size_of_val(&value),
+            value: value as u64,
+        }
+    }
+
+    const fn u32(offset: usize, value: u32) -> Self {
+        Self {
+            offset,
+            width: size_of_val(&value),
+            value: value as u64,
+        }
+    }
+
+    const fn u64(offset: usize, value: u64) -> Self {
+        Self {
+            offset,
+            width: size_of_val(&value),
+            value,
+        }
+    }
+}
+
+/// Slot offsets follow the `GasPriceOracle` storage layout:
+/// <https://github.com/ethereum-optimism/optimism/blob/e7a1f703310e494d8cdd1e9e239b7a9b1e13a305/packages/contracts-bedrock/snapshots/storageLayout/GasPriceOracle.json>
 fn gas_price_oracle_override(hardfork: edr_op::Hardfork) -> AccountOverride {
     if hardfork >= edr_op::Hardfork::Isthmus {
         gas_price_oracle_isthmus()
@@ -308,6 +385,10 @@ fn gas_price_oracle_override(hardfork: edr_op::Hardfork) -> AccountOverride {
 }
 
 fn gas_price_oracle_ecotone() -> AccountOverride {
+    const FLAGS: StorageValue = StorageValue::packed(&[
+        SlotField::bool(0, true), // bool isEcotone
+    ]);
+
     AccountOverride {
         address: Uint8Array::with_data_copied(GAS_PRICE_ORACLE_ADDRESS),
         balance: None,
@@ -315,15 +396,17 @@ fn gas_price_oracle_ecotone() -> AccountOverride {
         code: Some(gas_price_oracle_code_ecotone().into()),
         storage: Some(vec![StorageSlot {
             index: BigInt::from(0u64),
-            // bool isEcotone = true
-            value: BigInt::from(
-                0x0000000000000000000000000000000000000000000000000000000000000001u64,
-            ),
+            value: FLAGS.into(),
         }]),
     }
 }
 
 fn gas_price_oracle_fjord() -> AccountOverride {
+    const FLAGS: StorageValue = StorageValue::packed(&[
+        SlotField::bool(0, true), // bool isEcotone
+        SlotField::bool(1, true), // bool isFjord
+    ]);
+
     AccountOverride {
         address: Uint8Array::with_data_copied(GAS_PRICE_ORACLE_ADDRESS),
         balance: None,
@@ -331,16 +414,18 @@ fn gas_price_oracle_fjord() -> AccountOverride {
         code: Some(gas_price_oracle_code_fjord().into()),
         storage: Some(vec![StorageSlot {
             index: BigInt::from(0u64),
-            // bool isEcotone = true
-            // bool isFjord = true
-            value: BigInt::from(
-                0x0000000000000000000000000000000000000000000000000000000000000101u64,
-            ),
+            value: FLAGS.into(),
         }]),
     }
 }
 
 fn gas_price_oracle_isthmus() -> AccountOverride {
+    const FLAGS: StorageValue = StorageValue::packed(&[
+        SlotField::bool(0, true), // bool isEcotone
+        SlotField::bool(1, true), // bool isFjord
+        SlotField::bool(2, true), // bool isIsthmus
+    ]);
+
     AccountOverride {
         address: Uint8Array::with_data_copied(GAS_PRICE_ORACLE_ADDRESS),
         balance: None,
@@ -348,28 +433,29 @@ fn gas_price_oracle_isthmus() -> AccountOverride {
         code: Some(gas_price_oracle_code_isthmus().into()),
         storage: Some(vec![StorageSlot {
             index: BigInt::from(0u64),
-            // bool isEcotone = true
-            // bool isFjord = true
-            // bool isIsthmus = true
-            value: BigInt::from(
-                0x0000000000000000000000000000000000000000000000000000000000010101u64,
-            ),
+            value: FLAGS.into(),
         }]),
     }
 }
+
+/// Slot offsets follow the `L1Block` storage layout:
+/// <https://github.com/ethereum-optimism/optimism/blob/e7a1f703310e494d8cdd1e9e239b7a9b1e13a305/packages/contracts-bedrock/snapshots/storageLayout/L1Block.json>
 fn l1_block_storage(hardfork: edr_op::Hardfork) -> Vec<StorageSlot> {
+    const NUMBER_AND_TIMESTAMP: StorageValue = StorageValue::packed(&[
+        SlotField::u64(0, 1), // uint64 number
+        SlotField::u64(8, 1), // uint64 timestamp
+    ]);
+    // The fee scalars are OP Mainnet's.
+    const FEE_SCALARS: StorageValue = StorageValue::packed(&[
+        SlotField::u64(0, 0),         // uint64 sequenceNumber
+        SlotField::u32(8, 1_014_213), // uint32 blobBaseFeeScalar
+        SlotField::u32(12, 5227),     // uint32 baseFeeScalar
+    ]);
+
     let mut base_storage = vec![
         StorageSlot {
             index: BigInt::from(0u64),
-            // uint64 public number = 1
-            // uint64 public timestamp = 1
-            value: BigInt {
-                words: vec![
-                    0x0000000000000001_u64, // least significative
-                    0x0000000000000001_u64,
-                ],
-                sign_bit: false,
-            },
+            value: NUMBER_AND_TIMESTAMP.into(),
         },
         StorageSlot {
             index: BigInt::from(1u64),
@@ -383,18 +469,7 @@ fn l1_block_storage(hardfork: edr_op::Hardfork) -> Vec<StorageSlot> {
         },
         StorageSlot {
             index: BigInt::from(3u64),
-            // uint64 sequenceNumber = 0
-            // uint32 blobBaseFeeScalar = 1014213
-            // uint32 baseFeeScalar = 5227
-            value: BigInt {
-                words: vec![
-                    0x0000000000000000_u64, // least significative
-                    0x0000000000000000_u64,
-                    0x00000000000f79c5_u64,
-                    0x000000000000146b_u64,
-                ],
-                sign_bit: false,
-            },
+            value: FEE_SCALARS.into(),
         },
         StorageSlot {
             index: BigInt::from(4u64),
@@ -462,5 +537,44 @@ mod tests {
             assert_eq!(edr_op::Hardfork::from(napi_hardfork), hardfork);
             assert_eq!(OpHardfork::from_str(name).unwrap(), napi_hardfork);
         }
+    }
+
+    #[test]
+    fn packed_value_places_fields_at_their_offsets() {
+        let value: BigInt = StorageValue::packed(&[
+            SlotField::u64(0, 0),
+            SlotField::u32(8, 0xf79c5),
+            SlotField::u32(12, 0x146b),
+        ])
+        .into();
+
+        assert_eq!(value.words, [0, 0x0000146b000f79c5, 0, 0]);
+    }
+
+    #[test]
+    #[should_panic(expected = "overlaps")]
+    fn packed_value_rejects_overlapping_fields() {
+        StorageValue::packed(&[SlotField::u64(0, 1), SlotField::u64(4, 1)]);
+    }
+
+    #[test]
+    #[should_panic(expected = "exceeds the slot")]
+    fn packed_value_rejects_fields_past_the_slot() {
+        StorageValue::packed(&[SlotField::u64(28, 1)]);
+    }
+
+    /// Slots 0 and 3 of `L1Block`. The expected limbs are what
+    /// `eth_getStorageAt` returns on OP Mainnet (slot 3 at block
+    /// 158,246,644, sequence number aside), in the order `TryCast<U256>`
+    /// reads them.
+    #[test]
+    fn l1_block_packed_slots_follow_the_storage_layout() {
+        let storage = l1_block_storage(edr_op::Hardfork::Isthmus);
+
+        assert_eq!(storage[0].index.words, [0]);
+        assert_eq!(storage[0].value.words, [1, 1, 0, 0]);
+
+        assert_eq!(storage[3].index.words, [3]);
+        assert_eq!(storage[3].value.words, [0, 0x0000146b000f79c5, 0, 0]);
     }
 }
