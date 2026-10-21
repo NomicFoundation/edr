@@ -1,6 +1,7 @@
 //! From Amsterdam onward (EIP-2780), the flat intrinsic transaction gas is
 //! replaced by a base cost plus recipient- and value-based charges.
 //! Pre-Amsterdam hardforks keep the flat cost.
+#![cfg(feature = "test-utils")]
 
 use edr_chain_l1::{
     rpc::{call::L1CallRequest, TransactionRequest},
