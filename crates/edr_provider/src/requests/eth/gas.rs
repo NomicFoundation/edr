@@ -173,13 +173,10 @@ fn resolve_estimate_gas_request<
     let request = ChainSpecT::TransactionRequest::from_rpc_type(request, context)?;
     let transaction = request.fake_sign(sender);
 
-    let hardfork = data.hardfork_at_block_spec(block_spec)?;
-    transaction::validate(
-        transaction,
-        hardfork.into(),
-        data.transaction_execution_gas_bound(),
-    )
-    .map_err(ProviderError::TransactionCreationError)
+    let evm_spec_id: EvmSpecId = data.hardfork_at_block_spec(block_spec)?.into();
+    let execution_gas_bound = data.transaction_execution_gas_bound_at_hardfork(evm_spec_id);
+    transaction::validate(transaction, evm_spec_id, execution_gas_bound)
+        .map_err(ProviderError::TransactionCreationError)
 }
 
 #[cfg(test)]

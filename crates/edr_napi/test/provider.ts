@@ -27,6 +27,7 @@ import {
   loadContract,
   registerGenericProviderFactory,
   silentLoggerConfig,
+  transactionGasLimitWithoutGas,
 } from "./helpers";
 
 chai.use(chaiAsPromised);
@@ -57,9 +58,10 @@ describe("Provider", () => {
     "0000000000000000000000000000000000000000000000000000000000000005" +
     "68656c6c6f000000000000000000000000000000000000000000000000000000";
 
-  // defaultTransactionGasLimit (300M) exceeds the EIP-7825 Osaka cap; set an
-  // explicit sub-cap gas.
   const GAS_BELOW_OSAKA_CAP = "0xf4240";
+
+  // EIP-7825 caps transaction gas at MAX_TX_GAS_LIMIT_OSAKA = 16,777,216 on Osaka.
+  const OSAKA_TRANSACTION_GAS_CAP = 16_777_216n;
 
   async function sendConsoleLogHello(provider: Provider): Promise<any> {
     const response = await provider.handleRequest(
@@ -773,9 +775,6 @@ describe("Provider", () => {
   });
 
   describe("transactionGasCap", () => {
-    // EIP-7825 caps transaction gas at MAX_TX_GAS_LIMIT_OSAKA = 16,777,216 on Osaka.
-    const OSAKA_TRANSACTION_GAS_CAP = 16_777_216n;
-
     async function createProviderWithGasCap(
       transactionGasCap: bigint | false | undefined
     ): Promise<Provider> {
@@ -872,6 +871,32 @@ describe("Provider", () => {
       await assert.isRejected(
         createProviderWithGasCap(true as unknown as false),
         /Boolean value for `transactionGasCap` must be false to disable the transaction gas cap/
+      );
+    });
+  });
+
+  describe("defaultTransactionGasLimit", () => {
+    it("derives the gas limit of a transaction without `gas` from the hardfork when omitted", async function () {
+      const hardfork = l1HardforkToString(L1Hardfork.Osaka);
+      const provider = await createGenericProvider(context, {
+        hardfork,
+        defaultTransactionGasLimit: undefined,
+        genesisState: fundedGenesisState(hardfork),
+      });
+
+      assert.equal(
+        await transactionGasLimitWithoutGas(provider),
+        OSAKA_TRANSACTION_GAS_CAP
+      );
+    });
+
+    it("rejects a value above the transaction gas bound of the hardfork", async function () {
+      await assert.isRejected(
+        createGenericProvider(context, {
+          hardfork: l1HardforkToString(L1Hardfork.Osaka),
+          defaultTransactionGasLimit: 300_000_000n,
+        }),
+        `exceeds the transaction gas bound ${OSAKA_TRANSACTION_GAS_CAP}`
       );
     });
   });
