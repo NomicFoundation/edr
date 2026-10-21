@@ -945,9 +945,6 @@ where
 
     /// Returns the gas limit of a request without a `gas` value, executing in
     /// the block at `block_spec`.
-    ///
-    /// See [`ProviderConfig::default_transaction_gas_limit`] for how the limit
-    /// is derived.
     pub fn default_transaction_gas_limit(
         &self,
         block_spec: &BlockSpec,
