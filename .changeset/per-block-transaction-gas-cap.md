@@ -2,4 +2,4 @@
 "@nomicfoundation/edr": patch
 ---
 
-Fixed calls and gas estimates at a block of an older hardfork being checked against the provider's transaction gas cap. They now use the cap of that block's hardfork. For example, an Osaka provider no longer rejects an explicit `gas` above `2^24` at a pre-Osaka fork block. A Prague provider now enforces that cap at an Osaka fork block. `debug_traceCall` and `debug_traceTransaction` replays also use the bounds of their block.
+Fixed calls and gas estimates at remote blocks of a forked blockchain being checked against the provider's transaction gas cap. Remote blocks are the fork block and the blocks before it. Those requests now use the cap of the remote chain's hardfork at that block. For example, an Osaka provider no longer rejects an explicit `gas` above `2^24` at a pre-Osaka remote block. A Prague provider now enforces that cap at an Osaka remote block. Replays by `debug_traceCall` and `debug_traceTransaction` at remote blocks also use the gas cap of their block.
