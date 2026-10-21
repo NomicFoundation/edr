@@ -19,7 +19,6 @@ import {
 } from "..";
 import {
   ALCHEMY_URL,
-  callGasLimitWithoutGas,
   createGenericProvider,
   DEFAULT_GENESIS_ADDRESS,
   fundedGenesisState,
@@ -28,6 +27,7 @@ import {
   loadContract,
   registerGenericProviderFactory,
   silentLoggerConfig,
+  transactionGasLimitWithoutGas,
 } from "./helpers";
 
 chai.use(chaiAsPromised);
@@ -876,14 +876,16 @@ describe("Provider", () => {
   });
 
   describe("defaultTransactionGasLimit", () => {
-    it("derives the gas limit of a call without `gas` from the hardfork when omitted", async function () {
+    it("derives the gas limit of a transaction without `gas` from the hardfork when omitted", async function () {
+      const hardfork = l1HardforkToString(L1Hardfork.Osaka);
       const provider = await createGenericProvider(context, {
-        hardfork: l1HardforkToString(L1Hardfork.Osaka),
+        hardfork,
         defaultTransactionGasLimit: undefined,
+        genesisState: fundedGenesisState(hardfork),
       });
 
       assert.equal(
-        await callGasLimitWithoutGas(provider),
+        await transactionGasLimitWithoutGas(provider),
         OSAKA_TRANSACTION_GAS_CAP
       );
     });

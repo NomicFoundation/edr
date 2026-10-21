@@ -34,10 +34,10 @@ import {
 } from "..";
 import {
   ALCHEMY_URL,
-  callGasLimitWithoutGas,
   loadContract,
   runAllSolidityTests,
   toBuffer,
+  transactionGasLimitWithoutGas,
 } from "./helpers";
 
 chai.use(chaiAsPromised);
@@ -207,7 +207,7 @@ describe("Multi-chain", () => {
       await assert.isFulfilled(block);
     });
 
-    it("uses the block gas limit for a call without `gas` when defaultTransactionGasLimit is omitted", async function () {
+    it("uses the block gas limit for a transaction without `gas` when defaultTransactionGasLimit is omitted", async function () {
       // Pre-Osaka, so no transaction gas cap applies.
       const hardfork = OpHardfork.Isthmus;
       const provider = await context.createProvider(
@@ -216,7 +216,9 @@ describe("Multi-chain", () => {
           ...providerConfig,
           defaultTransactionGasLimit: undefined,
           hardfork: opHardforkToString(hardfork),
-          genesisState: opGenesisState(hardfork),
+          genesisState: providerConfig.genesisState.concat(
+            opGenesisState(hardfork)
+          ),
         },
         loggerConfig,
         {
@@ -226,8 +228,8 @@ describe("Multi-chain", () => {
       );
 
       assert.equal(
-        await callGasLimitWithoutGas(provider),
-        providerConfig.network.genesisBlockGasLimit
+        await transactionGasLimitWithoutGas(provider),
+        providerConfig.mining.blockGasLimit
       );
     });
 

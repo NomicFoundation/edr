@@ -102,37 +102,59 @@ export async function getGasPrice(provider: Provider): Promise<bigint> {
   return BigInt(response);
 }
 
-const GAS_REPORTER_ADDRESS = "0x1000000000000000000000000000000000000001";
-// Returns the gas left after executing `GAS` as a 32-byte word.
-const GAS_REPORTER_CODE = "0x5a60005260206000f3";
-const TX_BASE_COST = 21_000n;
-const GAS_OPCODE_COST = 2n;
-// The gas left that `GAS` reports excludes its own cost.
-const GAS_SPENT_BEFORE_REPORT = TX_BASE_COST + GAS_OPCODE_COST;
-
-/** Returns the gas limit of an `eth_call` without `gas` at the latest block. */
-export async function callGasLimitWithoutGas(
+/** Returns the gas limit of a transaction sent without `gas`. */
+export async function transactionGasLimitWithoutGas(
   provider: Provider
 ): Promise<bigint> {
-  await handleRequest(provider, "hardhat_setCode", [
-    GAS_REPORTER_ADDRESS,
-    GAS_REPORTER_CODE,
-  ]);
-  const gasLeft = await handleRequest(provider, "eth_call", [
-    { to: GAS_REPORTER_ADDRESS },
-    "latest",
-  ]);
-  if (gasLeft === undefined) {
-    throw new Error("The call to the gas reporter failed");
+  const transactionHash = await handleRequestOrThrow(
+    provider,
+    "eth_sendTransaction",
+    [{ from: DEFAULT_GENESIS_ADDRESS, to: DEFAULT_GENESIS_ADDRESS }]
+  );
+  const transaction = await handleRequestOrThrow(
+    provider,
+    "eth_getTransactionByHash",
+    [transactionHash]
+  );
+  if (transaction === null) {
+    throw new Error("The transaction sent without `gas` was not found");
   }
-
-  return BigInt(gasLeft) + GAS_SPENT_BEFORE_REPORT;
+  return BigInt(transaction.gas);
 }
 
+/** Returns the result of a JSON-RPC request, or `undefined` if it fails. */
 async function handleRequest(
   provider: Provider,
   method: string,
   params: any[] = []
+): Promise<any> {
+  const response = await jsonRpcResponse(provider, method, params);
+
+  return response.result;
+}
+
+/**
+ * Returns the result of a JSON-RPC request. Throws the error message of the
+ * response if the request fails.
+ */
+async function handleRequestOrThrow(
+  provider: Provider,
+  method: string,
+  params: any[] = []
+): Promise<any> {
+  const response = await jsonRpcResponse(provider, method, params);
+  if (response.error !== undefined) {
+    throw new Error(response.error.message);
+  }
+
+  return response.result;
+}
+
+/** Returns the parsed JSON-RPC response object of a request. */
+async function jsonRpcResponse(
+  provider: Provider,
+  method: string,
+  params: any[]
 ): Promise<any> {
   const responseObject = await provider.handleRequest(
     JSON.stringify({
@@ -150,7 +172,7 @@ async function handleRequest(
     response = responseObject.data;
   }
 
-  return response.result;
+  return response;
 }
 
 export function toBuffer(x: Parameters<typeof toBytes>[0]) {
