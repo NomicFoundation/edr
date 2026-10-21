@@ -706,6 +706,68 @@ describe("Provider", () => {
       assert.strictEqual(steps[0].opcode.name, "STOP");
     });
 
+    describe("contract address of a create", function () {
+      // Init code that reverts with empty output.
+      // PUSH1 0 (size)
+      // PUSH1 0 (offset)
+      // REVERT
+      const REVERTING_INIT_CODE = "0x60006000fd";
+
+      // Init code that halts on the designated invalid opcode.
+      // INVALID
+      const HALTING_INIT_CODE = "0xfe";
+
+      async function deployAndCollectResults(
+        initCode: string
+      ): Promise<TracingMessageResult[]> {
+        const provider = await createGenericProvider(
+          context,
+          tracingProviderOverrides
+        );
+
+        const responseObject = await provider.handleRequest(
+          JSON.stringify({
+            id: 1,
+            jsonrpc: "2.0",
+            method: "eth_sendTransaction",
+            params: [
+              {
+                from: "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+                data: initCode,
+                gas: GAS_BELOW_OSAKA_CAP,
+              },
+            ],
+          })
+        );
+
+        const rawTraces = responseObject.traces();
+        assert.lengthOf(rawTraces, 1);
+
+        return rawTraces[0].filter(
+          (traceItem): traceItem is TracingMessageResult =>
+            "execResult" in traceItem
+        );
+      }
+
+      it("should omit the contract address of a reverted deployment", async function () {
+        const results = await deployAndCollectResults(REVERTING_INIT_CODE);
+        assert.lengthOf(results, 1);
+
+        const { execResult } = results[0];
+        assert.isFalse(execResult.success);
+        assert.isUndefined(execResult.contractAddress);
+      });
+
+      it("should omit the contract address of a halted deployment", async function () {
+        const results = await deployAndCollectResults(HALTING_INIT_CODE);
+        assert.lengthOf(results, 1);
+
+        const { execResult } = results[0];
+        assert.isFalse(execResult.success);
+        assert.isUndefined(execResult.contractAddress);
+      });
+    });
+
     describe("precompile calls", function () {
       const IDENTITY_PRECOMPILE_ADDRESS =
         "0x0000000000000000000000000000000000000004";

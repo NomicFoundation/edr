@@ -101,7 +101,7 @@ pub struct TracingExecResult {
     /// Gas used during execution
     #[napi(readonly)]
     pub execution_gas_used: BigInt,
-    /// Address of the created contract, if any
+    /// Address of the created contract. None if the create failed.
     #[napi(readonly)]
     pub contract_address: Option<Uint8Array>,
     /// The reason for the exit (success or halt)

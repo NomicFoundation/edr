@@ -1952,7 +1952,7 @@ export interface TracingExecResult {
   readonly success: boolean
   /** Gas used during execution */
   readonly executionGasUsed: bigint
-  /** Address of the created contract, if any */
+  /** Address of the created contract. None if the create failed. */
   readonly contractAddress?: Uint8Array
   /** The reason for the exit (success or halt) */
   readonly reason?: SuccessReason | ExceptionalHalt
