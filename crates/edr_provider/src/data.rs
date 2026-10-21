@@ -266,16 +266,16 @@ fn transaction_gas_bounds_for_hardfork<HardforkT: Into<EvmSpecId>>(
     }
 }
 
-/// Returns `gas_limit`, capped by the bound on a transaction's gas limit in a
-/// block with the given hardfork.
+/// Returns `block_gas_limit`, capped by the bound on a transaction's gas limit
+/// in a block with the given hardfork.
 fn transaction_gas_limit_within_bound<HardforkT: Into<EvmSpecId>>(
-    gas_limit: u64,
+    block_gas_limit: u64,
     transaction_gas_cap: &ConfigOption<u64>,
     hardfork: HardforkT,
 ) -> u64 {
     transaction_gas_bounds_for_hardfork(transaction_gas_cap, hardfork)
         .total_transaction_gas
-        .map_or(gas_limit, |bound| gas_limit.min(bound))
+        .map_or(block_gas_limit, |bound| block_gas_limit.min(bound))
 }
 
 pub struct ProviderData<
@@ -956,18 +956,19 @@ where
             return Ok(default_transaction_gas_limit.get());
         }
 
-        let (gas_limit, hardfork) = if let Some(block) = self.block_by_block_spec(block_spec)? {
-            let header = block.block_header();
-            (
-                header.gas_limit,
-                self.blockchain.spec_at_block_number(header.number)?,
-            )
-        } else {
-            (self.next_block_gas_limit()?, self.blockchain.hardfork())
-        };
+        let (block_gas_limit, hardfork) =
+            if let Some(block) = self.block_by_block_spec(block_spec)? {
+                let header = block.block_header();
+                (
+                    header.gas_limit,
+                    self.blockchain.spec_at_block_number(header.number)?,
+                )
+            } else {
+                (self.next_block_gas_limit()?, self.blockchain.hardfork())
+            };
 
         Ok(transaction_gas_limit_within_bound(
-            gas_limit,
+            block_gas_limit,
             &self.transaction_gas_cap,
             hardfork,
         ))
@@ -4356,7 +4357,7 @@ mod tests {
         let osaka_cap = edr_eip7825::OSAKA_TRANSACTION_GAS_CAP;
         let amsterdam_cap = edr_eip8037::TX_MAX_TOTAL_GAS_LIMIT;
 
-        for (hardfork, transaction_gas_cap, gas_limit, expected, reason) in [
+        for (hardfork, transaction_gas_cap, block_gas_limit, expected, reason) in [
             (
                 EvmSpecId::PRAGUE,
                 ConfigOption::Default,
@@ -4429,9 +4430,9 @@ mod tests {
             ),
         ] {
             assert_eq!(
-                transaction_gas_limit_within_bound(gas_limit, &transaction_gas_cap, hardfork),
+                transaction_gas_limit_within_bound(block_gas_limit, &transaction_gas_cap, hardfork),
                 expected,
-                "hardfork {hardfork:?}, cap {transaction_gas_cap:?}, gas limit {gas_limit}: {reason}"
+                "hardfork {hardfork:?}, cap {transaction_gas_cap:?}, block gas limit {block_gas_limit}: {reason}"
             );
         }
     }
