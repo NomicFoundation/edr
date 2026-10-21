@@ -3314,7 +3314,7 @@ dependencies = [
  "foundry-cheatcodes",
  "foundry-compilers",
  "k256",
- "mimalloc",
+ "mimalloc-safe",
  "napi",
  "napi-build",
  "napi-derive",
@@ -3993,7 +3993,7 @@ dependencies = [
  "edr_test_block_replay",
  "flate2",
  "indicatif",
- "mimalloc",
+ "mimalloc-safe",
  "napi",
  "serde",
  "serde_json",
@@ -5236,7 +5236,7 @@ dependencies = [
  "libc",
  "percent-encoding",
  "pin-project-lite",
- "socket2 0.5.9",
+ "socket2 0.6.3",
  "system-configuration",
  "tokio",
  "tower-service",
@@ -5860,12 +5860,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c9627da5196e5d8ed0b0495e61e518847578da83483c37288316d9b2e03a7f72"
 
 [[package]]
-name = "libmimalloc-sys"
-version = "0.1.49"
+name = "libmimalloc-sys2"
+version = "0.1.63"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6a45a52f43e1c16f667ccfe4dd8c85b7f7c204fd5e3bf46c5b0db9a5c3c0b8e9"
+checksum = "2812ea58f6620a137d0e7c7b9ba63f515248c5575bd669f739a9ea4b56ba8259"
 dependencies = [
  "cc",
+ "cmake",
+ "libc",
 ]
 
 [[package]]
@@ -6060,12 +6062,12 @@ dependencies = [
 ]
 
 [[package]]
-name = "mimalloc"
-version = "0.1.52"
+name = "mimalloc-safe"
+version = "0.1.67"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2d4139bb28d14ad1facf21d5eb8825051b326e172d216b39f6d31df53cc97862"
+checksum = "7f9fd5a18b7a9c72d89d0e906a9d5b93c330c159e9d5072c858e4631f0bd0ada"
 dependencies = [
- "libmimalloc-sys",
+ "libmimalloc-sys2",
 ]
 
 [[package]]
@@ -8605,7 +8607,7 @@ dependencies = [
  "solar-config",
  "solar-data-structures",
  "solar-macros",
- "thiserror 1.0.69",
+ "thiserror 2.0.21",
  "tracing",
  "unicode-width",
 ]
@@ -8779,7 +8781,7 @@ dependencies = [
  "serde_json",
  "sha2 0.10.9",
  "tempfile",
- "thiserror 1.0.69",
+ "thiserror 2.0.21",
  "url",
  "zip",
 ]
