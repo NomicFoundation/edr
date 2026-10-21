@@ -2514,7 +2514,7 @@ dependencies = [
  "libc",
  "option-ext",
  "redox_users",
- "windows-sys 0.59.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -4414,7 +4414,7 @@ dependencies = [
  "edr_decoder_revert",
  "eyre",
  "foundry-cheatcodes-spec 0.3.8",
- "foundry-cheatcodes-spec 1.5.0",
+ "foundry-cheatcodes-spec 1.8.5",
  "foundry-compilers",
  "foundry-evm-core",
  "foundry-evm-traces",
@@ -4454,8 +4454,8 @@ dependencies = [
 
 [[package]]
 name = "foundry-cheatcodes-spec"
-version = "1.5.0"
-source = "git+https://github.com/foundry-rs/foundry?tag=v1.5.0#1c57854462289b2e71ee7654cd6666217ed86ffd"
+version = "1.8.5"
+source = "git+https://github.com/foundry-rs/foundry?tag=v1.8.5#51a52c59cffd940f76eddd0b4bb1791aa4b5ac7f"
 dependencies = [
  "alloy-sol-types",
  "foundry-macros",
@@ -4736,10 +4736,9 @@ dependencies = [
 
 [[package]]
 name = "foundry-macros"
-version = "1.5.0"
-source = "git+https://github.com/foundry-rs/foundry?tag=v1.5.0#1c57854462289b2e71ee7654cd6666217ed86ffd"
+version = "1.8.5"
+source = "git+https://github.com/foundry-rs/foundry?tag=v1.8.5#51a52c59cffd940f76eddd0b4bb1791aa4b5ac7f"
 dependencies = [
- "proc-macro-error2",
  "proc-macro2",
  "quote",
  "syn 2.0.119",
@@ -6245,7 +6244,7 @@ version = "0.50.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7957b9740744892f114936ab4a57b3f487491bbeafaf8083688b16841a4240e5"
 dependencies = [
- "windows-sys 0.59.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -7757,7 +7756,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -7823,7 +7822,7 @@ dependencies = [
  "security-framework",
  "security-framework-sys",
  "webpki-root-certs",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -8606,7 +8605,7 @@ dependencies = [
  "solar-config",
  "solar-data-structures",
  "solar-macros",
- "thiserror 2.0.21",
+ "thiserror 1.0.69",
  "tracing",
  "unicode-width",
 ]
@@ -8780,7 +8779,7 @@ dependencies = [
  "serde_json",
  "sha2 0.10.9",
  "tempfile",
- "thiserror 2.0.21",
+ "thiserror 1.0.69",
  "url",
  "zip",
 ]
@@ -8899,7 +8898,7 @@ dependencies = [
  "getrandom 0.4.1",
  "once_cell",
  "rustix",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -8908,7 +8907,7 @@ version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d8c27177b12a6399ffc08b98f76f7c9a1f4fe9fc967c784c5a071fa8d93cf7e1"
 dependencies = [
- "windows-sys 0.59.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
