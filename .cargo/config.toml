@@ -28,6 +28,8 @@ rustflags = ["-C", "target-feature=+crt-static"]
 # zero. EDR's EVM step traces exceed that on long transactions (+20% on the
 # openzeppelin-contracts benchmark). MI_FREE_USE_PAGEMAP restores the 16 GiB
 # limit at the cost of mimalloc's `mi_free` fast path (<1% of CPU).
-# Note: a CFLAGS already set in the environment overrides this.
+# Windows MSVC builds mimalloc as C++ via cc, which reads CXXFLAGS instead.
+# Note: a CFLAGS or CXXFLAGS already set in the environment overrides this.
 [env]
 CFLAGS = "-DMI_FREE_USE_PAGEMAP=1"
+CXXFLAGS = "-DMI_FREE_USE_PAGEMAP=1"
