@@ -62,9 +62,10 @@ where
             alloy_rlp::Header::decode(&mut temp_buf)?
         };
 
-        // The first value of the receipt is 1 byte long, which means it's the status
-        // code of an EIP-658 receipt.
-        if first_value_header.payload_length == 1 {
+        // The first value of an EIP-658 receipt is its status code: `0x80` (an empty
+        // string, payload length 0) for failure or `0x01` (payload length 1) for
+        // success. A legacy receipt's first value is a 32-byte state root.
+        if first_value_header.payload_length <= 1 {
             let receipt = Eip658OrDeposit::decode(buf)?;
             Ok(receipt.into())
         } else {
@@ -228,6 +229,26 @@ mod tests {
     }
 
     impl_execution_receipt_tests! {
+        eip658_legacy_status_false => TypedEnvelope::Legacy(OpExecutionReceipt::Eip658(Eip658 {
+            status: false,
+            cumulative_gas_used: 0xffff,
+            logs_bloom: Bloom::random(),
+            logs: Vec::new(),
+        })),
+        eip658_eip1559_status_false => TypedEnvelope::Eip1559(OpExecutionReceipt::Eip658(Eip658 {
+            status: false,
+            cumulative_gas_used: 0xffff,
+            logs_bloom: Bloom::random(),
+            logs: Vec::new(),
+        })),
+        deposit_status_false => TypedEnvelope::Deposit(OpExecutionReceipt::Deposit(Deposit {
+            status: false,
+            cumulative_gas_used: 0xffff,
+            logs_bloom: Bloom::random(),
+            logs: Vec::new(),
+            deposit_nonce: 0x1234,
+            deposit_receipt_version: Some(0x01),
+        })),
         eip658_legacy => TypedEnvelope::Legacy(OpExecutionReceipt::Eip658(Eip658 {
             status: true,
             cumulative_gas_used: 0xffff,
