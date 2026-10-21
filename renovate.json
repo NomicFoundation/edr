@@ -8,7 +8,6 @@
   "timezone": "UTC",
   "schedule": ["every weekend"],
   "rebaseWhen": "conflicted",
-  "reviewers": ["team:edrextended"],
   "minimumReleaseAge": "7 days",
   "internalChecksFilter": "strict",
   "stopUpdatingLabel": "renovate:no-rebase",

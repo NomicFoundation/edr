@@ -1,0 +1,57 @@
+# Requests the edrextended team as reviewer on ready PRs that have no reviewer yet.
+#
+# Runs on `pull_request_target` because fork PRs get a read-only token under
+# `pull_request`.
+
+name: Auto-assign reviewer
+
+on:
+  pull_request_target: # zizmor: ignore[dangerous-triggers] the job never checks out or runs PR code and only calls the API
+    types:
+      - opened
+      - reopened
+      - ready_for_review
+
+# Only requests reviewers via the API.
+permissions:
+  pull-requests: write
+
+jobs:
+  assign-reviewer:
+    name: Request the default reviewer team
+    runs-on: ubuntu-24.04
+    # don't run this in draft PRs or the changesets PR
+    if: github.event.pull_request.draft == false && github.head_ref != 'changeset-release/main'
+    steps:
+      - uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const DEFAULT_REVIEWER_TEAM = "edrextended";
+
+            // Bots such as Copilot review without taking responsibility for the PR.
+            const isHuman = (user) => user?.type === "User";
+
+            // The event payload predates reviewers chosen in the create form, which
+            // GitHub requests in a second step, and anything done while the job was
+            // queued. The live PR has them.
+            const { data: pull } = await github.rest.pulls.get({
+              ...context.repo,
+              pull_number: context.payload.pull_request.number
+            });
+
+            if (pull.state !== "open" || pull.draft) {
+              console.log("The PR is no longer ready for review");
+              return;
+            }
+
+            if (pull.requested_reviewers.some(isHuman) || pull.requested_teams.length > 0) {
+              console.log("A reviewer is already requested");
+              return;
+            }
+
+            await github.rest.pulls.requestReviewers({
+              ...context.repo,
+              pull_number: pull.number,
+              team_reviewers: [DEFAULT_REVIEWER_TEAM]
+            });
+            console.log(`Requested review from ${DEFAULT_REVIEWER_TEAM}`);
