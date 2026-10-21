@@ -50,19 +50,17 @@ pub struct ObservabilityConfig {
     pub include_call_traces: IncludeTraces,
     pub on_collected_coverage_fn: Option<Box<dyn SyncOnCollectedCoverageCallback>>,
     pub on_collected_gas_report_fn: Option<Box<dyn SyncOnCollectedGasReportCallback>>,
-    /// Whether each recorded step carries a memory snapshot.
-    pub record_memory: bool,
     /// How much of the stack each recorded step carries.
     pub record_stack: StackSnapshotType,
-    /// Records the full stack and memory while enabled. `record_memory` and
-    /// `record_stack` keep their configured values meanwhile.
+    /// Records the full stack and memory while enabled. `record_stack` keeps
+    /// its configured value meanwhile.
     pub verbose_raw_tracing: bool,
 }
 
 impl ObservabilityConfig {
     /// Whether recorded steps carry a memory snapshot.
     pub fn records_memory(&self) -> bool {
-        self.record_memory || self.verbose_raw_tracing
+        self.verbose_raw_tracing
     }
 
     /// How much of the stack recorded steps carry.
@@ -97,7 +95,6 @@ impl Debug for ObservabilityConfig {
                 "on_collected_gas_report_fn",
                 &self.on_collected_gas_report_fn.is_some(),
             )
-            .field("record_memory", &self.record_memory)
             .field("record_stack", &self.record_stack)
             .field("verbose_raw_tracing", &self.verbose_raw_tracing)
             .finish()

@@ -698,7 +698,6 @@ impl ObservabilityConfig<'_> {
             ),
             on_collected_coverage_fn,
             on_collected_gas_report_fn,
-            record_memory: default_config.record_memory,
             record_stack: self
                 .record_stack
                 .map_or(default_config.record_stack, Into::into),
