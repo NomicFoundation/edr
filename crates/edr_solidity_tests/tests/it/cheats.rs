@@ -287,3 +287,25 @@ async fn test_assume_no_revert_with_data() {
         assert!(test_result.counterexample.is_some());
     }
 }
+
+/// Runs the given `StateGasTest` test on its own; the fixture's inline config
+/// decides whether it is isolated.
+async fn run_state_gas_test(test_name: &str) {
+    let filter = SolidityTestFilter::new(
+        test_name,
+        "StateGasTest",
+        &format!(".*cheats{RE_PATH_SEPARATOR}*"),
+    );
+    let runner = TEST_DATA_DEFAULT.runner().await;
+    TestConfig::with_filter(runner, filter).run().await;
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn state_gas_repeated_deployments() {
+    run_state_gas_test("testRepeatedDeploymentsReportSameStateGas").await;
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn state_gas_repeated_deployments_isolated() {
+    run_state_gas_test("testIsolatedRepeatedDeploymentsReportSameStateGas").await;
+}

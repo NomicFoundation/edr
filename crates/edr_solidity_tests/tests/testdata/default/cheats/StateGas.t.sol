@@ -112,6 +112,36 @@ contract StateGasTest is DSTest {
         assertEq(vm.lastFrameGas().gasStateUsed, LARGE_RUNTIME_STATE_GAS, "wrong code deposit state gas");
     }
 
+    /// Every deployment creates a new account, so each create frame reports
+    /// the same state gas: the code deposit (the CREATE opcode charges the
+    /// account creation on the parent, outside the frame).
+    function testRepeatedDeploymentsReportSameStateGas() public {
+        assertRepeatedDeploymentsReportSameStateGas();
+    }
+
+    /// forge-config: default.isolate = true
+    function testIsolatedRepeatedDeploymentsReportSameStateGas() public {
+        assertRepeatedDeploymentsReportSameStateGas();
+    }
+
+    function assertRepeatedDeploymentsReportSameStateGas() internal {
+        StateGasTarget first = new StateGasTarget();
+        Vm.Gas memory firstGas = vm.lastFrameGas();
+        uint256 firstSnapshot = vm.snapshotGasLastFrame("firstDeployment");
+        assertEq(
+            firstGas.gasStateUsed,
+            int64(uint64(address(first).code.length)) * 1530,
+            "first create frame state gas is not the code deposit"
+        );
+
+        for (uint256 i = 0; i < 2; i++) {
+            new StateGasTarget();
+            Vm.Gas memory gas = vm.lastFrameGas();
+            assertEq(gas.gasStateUsed, firstGas.gasStateUsed, "later create frame reports different state gas");
+            assertEq(vm.snapshotGasLastFrame("laterDeployment"), firstSnapshot, "later create snapshot differs");
+        }
+    }
+
     /// forge-config: default.isolate = true
     function testIsolatedLargeContractDeployment() public {
         LargeRuntime deployed = new LargeRuntime();
