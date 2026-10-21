@@ -31,7 +31,18 @@ jobs:
             // Bots such as Copilot review without taking responsibility for the PR.
             const isHuman = (user) => user?.type === "User";
 
-            const pull = context.payload.pull_request;
+            // The event payload predates reviewers chosen in the create form, which
+            // GitHub requests in a second step, and anything done while the job was
+            // queued. The live PR has them.
+            const { data: pull } = await github.rest.pulls.get({
+              ...context.repo,
+              pull_number: context.payload.pull_request.number
+            });
+
+            if (pull.state !== "open" || pull.draft) {
+              console.log("The PR is no longer ready for review");
+              return;
+            }
 
             if (pull.requested_reviewers.some(isHuman) || pull.requested_teams.length > 0) {
               console.log("A reviewer is already requested");
