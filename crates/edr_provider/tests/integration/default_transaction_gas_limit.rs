@@ -267,7 +267,6 @@ mod fork {
         Ok(provider)
     }
 
-    /// Returns the gas limit of the block at `block_spec`.
     #[tokio::test(flavor = "multi_thread")]
     async fn call_without_gas_at_prague_block_uses_block_gas_limit_on_osaka_provider(
     ) -> anyhow::Result<()> {
