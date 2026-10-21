@@ -253,6 +253,9 @@ fn convert_node(
 }
 
 /// Converts an `InstructionResult` status into an optional reason.
+///
+/// Returns `None` for a missing status, a revert, a fatal or internal error,
+/// and a halt without an `ExceptionalHalt` counterpart.
 fn convert_status(
     status: Option<InstructionResult>,
 ) -> Option<Either<SuccessReason, ExceptionalHalt>> {
@@ -262,12 +265,8 @@ fn convert_status(
     match success_or_halt {
         SuccessOrHalt::Success(reason) => Some(Either::A(SuccessReason::from(reason))),
         SuccessOrHalt::Halt(reason) => ExceptionalHalt::from_halt(reason).map(Either::B),
-        SuccessOrHalt::Revert => None,
-        SuccessOrHalt::FatalExternalError => {
-            panic!("A `FatalExternalError` should not be included in a `CallTraceArena`.")
-        }
-        SuccessOrHalt::Internal(error) => {
-            panic!("An `Internal` error should not be included in a `CallTraceArena`: {error:?}")
+        SuccessOrHalt::Revert | SuccessOrHalt::FatalExternalError | SuccessOrHalt::Internal(_) => {
+            None
         }
     }
 }
