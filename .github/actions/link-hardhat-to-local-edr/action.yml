@@ -1,0 +1,102 @@
+name: Link Hardhat to local EDR
+description: "Starts Verdaccio from the Hardhat checkout at `./hardhat` and publishes the local `@nomicfoundation/edr` to it. Then repoints Hardhat at that version and reinstalls Hardhat's dependencies. Run `pnpm install` in both checkouts first, since the TypeScript compile and Verdaccio need it. Unless `typings-only` is set, also build the napi binary in crates/edr_napi first. Leaves Verdaccio running for later steps."
+
+inputs:
+  edr-version:
+    description: "The version to publish the local EDR as and to pin Hardhat to, e.g. <base-version>-local.<sha> (EDR_VER from compute-sentinel-versions.ts)."
+    required: true
+  hardhat-version:
+    description: "When set, also bumps packages/hardhat to this version (HH_VER) so that `bench:regression --use-local` republishes Hardhat. Leave empty when Hardhat is only built, not republished."
+    required: false
+    default: ""
+  typings-only:
+    description: '"true" publishes index.js, index.d.ts and the TS helpers only, with no native binary or platform package, and skips the load check. Hardhat can compile against it, but `require("@nomicfoundation/edr")` throws. Needs a prerelease `edr-version`.'
+    required: false
+    default: "false"
+
+runs:
+  using: composite
+  steps:
+    - name: Start Verdaccio
+      # Needs the preceding install: `verdaccio` is a devDependency of the
+      # Hardhat workspace.
+      shell: bash
+      working-directory: hardhat
+      run: pnpm verdaccio start --background
+
+    - name: Publish local EDR to Verdaccio
+      # Reuses Hardhat's pre-seeded Verdaccio auth.
+      shell: bash
+      env:
+        EDR_VER: ${{ inputs.edr-version }}
+        TYPINGS_ONLY: ${{ inputs.typings-only }}
+      run: |
+        set -euo pipefail
+        mode_args=()
+        case "$TYPINGS_ONLY" in
+          true) mode_args+=(--typings-only) ;;
+          false) ;;
+          *)
+            echo "::error::typings-only must be 'true' or 'false', got '$TYPINGS_ONLY'"
+            exit 1
+            ;;
+        esac
+        bash ./scripts/publish_to_verdaccio.sh \
+          --version "$EDR_VER" \
+          --registry http://127.0.0.1:4873/ \
+          --npmrc "$GITHUB_WORKSPACE/hardhat/.verdaccio/.npmrc" \
+          ${mode_args[@]+"${mode_args[@]}"}
+
+    - name: Repoint Hardhat at the local EDR build
+      shell: bash
+      working-directory: hardhat
+      env:
+        EDR_VER: ${{ inputs.edr-version }}
+        HH_VER: ${{ inputs.hardhat-version }}
+      # Repoint the EDR dependency and point the @nomicfoundation scope at
+      # Verdaccio, where the sentinel lives. When `hardhat-version` is set,
+      # also bump hardhat's own version so `decidePublishAction` returns
+      # "publish" instead of "skip". Without the bump, `--use-local` would not
+      # republish hardhat right after a Hardhat release.
+      #
+      # The override is scoped: install-wide, pnpm's whole-lockfile
+      # `minimumReleaseAge` verification would route through Verdaccio's
+      # uplink. It is also persistent, so later pnpm invocations can still
+      # resolve the localhost-only sentinel.
+      run: |
+        set -euo pipefail
+        npm pkg set "dependencies.@nomicfoundation/edr=$EDR_VER" --prefix packages/hardhat
+        if [ -n "$HH_VER" ]; then
+          npm pkg set version="$HH_VER" --prefix packages/hardhat
+        fi
+        echo "@nomicfoundation:registry=http://127.0.0.1:4873/" >> .npmrc
+
+    - name: Reinstall Hardhat dependencies against the local EDR build
+      shell: bash
+      working-directory: hardhat
+      env:
+        EDR_VER: ${{ inputs.edr-version }}
+        TYPINGS_ONLY: ${{ inputs.typings-only }}
+      # Re-sync the repoint-desynced lockfile; only the EDR packages move.
+      # The caller's build then compiles against the local EDR's typings.
+      # The checks fail fast on a broken install. Otherwise it surfaces later
+      # as a confusing tsc error or a napi load error.
+      #
+      # Not sfw-wrapped: a firewall proxy could intercept the loopback
+      # registry. The only new packages are the EDR packages from that
+      # registry. They depend on nothing outside it, so there is nothing for
+      # Socket to scan.
+      run: |
+        set -euo pipefail
+        pnpm install --no-frozen-lockfile
+        resolved=$(node -p 'require("./packages/hardhat/node_modules/@nomicfoundation/edr/package.json").version' 2>/dev/null || echo missing)
+        if [ "$resolved" != "$EDR_VER" ]; then
+          echo "::error::packages/hardhat resolves @nomicfoundation/edr@$resolved, expected $EDR_VER"
+          exit 1
+        fi
+        if [ "$TYPINGS_ONLY" != true ]; then
+          # The native binding is an optionalDependency; verify it loads.
+          (cd packages/hardhat && node -e 'require("@nomicfoundation/edr")')
+        fi
+        # Surface any lockfile drift for post-hoc comparison.
+        git --no-pager diff -- pnpm-lock.yaml
