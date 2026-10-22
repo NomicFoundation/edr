@@ -161,7 +161,11 @@ impl EvmObserver {
             .map(CodeCoverageReporter::new);
 
         let tracing_config = if config.verbose_raw_tracing {
+            // Executed bytecode and step deltas only serve Parity `vmTrace`,
+            // which EDR never produces.
             TracingInspectorConfig::all()
+                .set_bytecode(false)
+                .set_step_deltas(false)
         } else {
             TracingInspectorConfig::default_parity()
                 .set_steps(true)
