@@ -20,7 +20,7 @@ Scenarios only see EDR through the `hardhat` package, so a run, in CI or locally
 2. Hardhat's `@nomicfoundation/edr` dependency is repointed at that version, the `@nomicfoundation` scope is pointed at Verdaccio, and Hardhat's own version is bumped one patch above the newer of the checkout and the latest npm release. A release version is required because plugins' peer ranges exclude prereleases; it must exceed the npm release so `--use-local` republishes Hardhat instead of skipping it, which would leave scenarios on the npm Hardhat and its npm EDR.
 3. Hardhat is reinstalled and built against the local EDR, and `bench:regression --use-local --force-publish` reuses the running Verdaccio to republish Hardhat and pin every scenario to it. Some scenarios fork mainnet and read `ALCHEMY_URL` from the environment; without it they fail and the run continues with the next scenario.
 
-In CI, a final step reads the EDR version each scenario's Hardhat actually resolves and fails the run unless all of them match the local build.
+In CI, the composite action `.github/actions/link-hardhat-to-local-edr` starts Verdaccio, publishes EDR, repoints Hardhat and reinstalls it. Other workflows can reuse it. A final step reads the EDR version each scenario's Hardhat actually resolves and fails the run unless all of them match the local build.
 
 ## Running locally
 
