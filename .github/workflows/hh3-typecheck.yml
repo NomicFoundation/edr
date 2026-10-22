@@ -1,0 +1,103 @@
+# Type-checks Hardhat 3 against the EDR typings of the commit under test,
+# without building the native binary. It trusts the tracked
+# crates/edr_napi/index.d.ts. EDR CI's "Check that edr_napi typings file is
+# up to date" job keeps it current.
+#
+# The job name is the name of a required check, so keep it stable.
+#
+# It catches type-level breaks only. A behavioural break with unchanged types
+# still needs `/bench` on the PR or Hardhat's own test suite.
+#
+# The Hardhat ref is resolved by `resolveHardhatRef` with the regression
+# benchmark's rules. An explicit `hardhat-ref` dispatch input always wins.
+
+name: Hardhat 3 type check
+
+on:
+  merge_group:
+    types: [checks_requested]
+  pull_request:
+    branches:
+      - "**"
+  workflow_dispatch:
+    inputs:
+      hardhat-ref:
+        description: "The branch, tag or SHA of Hardhat to type-check against. Empty defaults to `main`, or to the compat pin (`.github/hardhat-compat-pin.json`) if one is active."
+        required: false
+        type: string
+
+concurrency:
+  group: ${{github.workflow}}-${{github.ref}}
+  cancel-in-progress: true
+
+jobs:
+  typecheck:
+    name: Type-check Hardhat 3 against EDR typings
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read # EDR checkout; public Hardhat reads need no scope
+    steps:
+      - name: Checkout EDR
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # Reads the pin from this checkout, which is the merge or merge-group
+      # commit. A PR that adds a pin is checked against it in the same run.
+      - name: Resolve Hardhat ref
+        id: hardhat-ref
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const { readHardhatPin, resolveHardhatRef } = require(`${process.env.GITHUB_WORKSPACE}/.github/scripts/hardhat-compat-pin.ts`);
+            const explicit = context.payload.inputs?.["hardhat-ref"];
+            const ref = explicit || (await resolveHardhatRef({ github, core, raw: readHardhatPin() })).ref;
+            core.setOutput("ref", ref);
+            core.info(`hardhat_ref=${ref}`);
+
+      - name: Checkout Hardhat
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: NomicFoundation/hardhat
+          ref: ${{ steps.hardhat-ref.outputs.ref }}
+          path: hardhat
+          persist-credentials: false
+
+      # cspell:disable-next-line
+      - uses: socketdev/action@ba6de6cc0565af1f42295590380973573297e31f # v1.3.2
+        with:
+          mode: firewall
+
+      - uses: ./.github/actions/setup-node
+        with:
+          # Match Hardhat's expected Node version.
+          node-version: "24"
+
+      - name: Compute sentinel versions
+        # Writes EDR_VER and HH_VER to $GITHUB_ENV. Only EDR_VER is used here.
+        env:
+          EDR_REF: ${{ github.sha }}
+        run: node .github/scripts/compute-sentinel-versions.ts
+
+      - name: Install EDR dependencies
+        # The typings-only publish compiles crates/edr_napi's TS helpers with
+        # the workspace's tsc.
+        run: sfw pnpm install --frozen-lockfile --prefer-offline
+
+      - name: Install Hardhat dependencies
+        working-directory: hardhat
+        run: sfw pnpm install --frozen-lockfile --prefer-offline
+
+      - name: Link Hardhat to the local EDR typings
+        uses: ./.github/actions/link-hardhat-to-local-edr
+        with:
+          edr-version: ${{ env.EDR_VER }}
+          typings-only: "true"
+
+      - name: Type-check Hardhat
+        working-directory: hardhat
+        # `tsc --build` also builds the referenced workspace packages and
+        # compiles packages/hardhat/test/**, so this covers every Hardhat
+        # source that imports EDR's typings.
+        run: pnpm --filter hardhat run build
