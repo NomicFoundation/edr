@@ -21,8 +21,8 @@ use revm_primitives::{
 use crate::common::{
     bytecode::{opcode, BytecodeBuilder},
     provider::{
-        estimate_gas, gas_used, new_provider, new_provider_with_config, send_transaction,
-        transaction_receipt,
+        estimate_gas, gas_used_by_sending, new_provider, new_provider_with_config,
+        send_transaction, transaction_receipt,
     },
 };
 
@@ -47,16 +47,6 @@ fn transfer(to: Address, value: U256) -> TransactionRequest {
         value: Some(value),
         ..TransactionRequest::default()
     }
-}
-
-/// Sends the transaction and returns the `gasUsed` of its receipt.
-fn gas_used_by_sending(
-    provider: &Provider<L1ChainSpec>,
-    request: TransactionRequest,
-) -> anyhow::Result<u64> {
-    let transaction_hash = send_transaction(provider, request)?;
-
-    Ok(gas_used(provider, transaction_hash))
 }
 
 #[tokio::test(flavor = "multi_thread")]
