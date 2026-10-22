@@ -20,6 +20,7 @@ mod eip7981;
 mod eip7997;
 mod eip8024;
 mod eip8037;
+mod eip8038;
 mod eip8246;
 mod estimate_gas;
 mod eth_get_proof;
