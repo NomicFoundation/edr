@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 #
-# Publish a locally-built EDR NAPI package to a (Verdaccio) registry.
+# Publish a locally-built EDR NAPI package to a (Verdaccio) registry, or with
+# `--typings-only` just its typings.
 #
 # It stages the prebuilt native binary into its platform package, compiles the
 # bundled TypeScript helpers, pins the packages to the requested version, wires
@@ -14,12 +15,20 @@
 # ("Couldn't find any versions") and Yarn Berry (YN0082) both treat an
 # unresolvable version as a fatal error.
 #
-# The native binary must already be built (e.g. `pnpm build` in crates/edr_napi)
-# and EDR's dependencies installed (the TypeScript compile needs the local `tsc`).
+# With `--typings-only` it publishes the main package alone, with no native
+# binary, platform package or `optionalDependencies`. That package installs
+# and type-checks, but `require("@nomicfoundation/edr")` throws. Use it to
+# compile a consumer against the typings without a Rust build. The version
+# must be a prerelease, so the package can never pass for a release.
 #
-# NOTE: This mutates tracked files in crates/edr_napi (package.json versions, the
-# injected optionalDependencies, the staged .node binary, coverage.sol and
-# dist/). Reset them with `git checkout -- crates/edr_napi` afterwards.
+# Without `--typings-only`, the native binary must already be built (e.g.
+# `pnpm build` in crates/edr_napi). EDR's dependencies must be installed in
+# either mode (the TypeScript compile needs the local `tsc`).
+#
+# NOTE: This mutates tracked files in crates/edr_napi, namely coverage.sol,
+# dist/, and the package.json version and optionalDependencies. Without
+# `--typings-only`, it also stages the .node binary. Reset them with
+# `git checkout -- crates/edr_napi` afterwards.
 #
 # Usage:
 #   scripts/publish_to_verdaccio.sh --version <ver> [options]
@@ -29,15 +38,19 @@
 #   --registry <url>    Target registry (default: http://127.0.0.1:4873/)
 #   --npmrc <path>      npmrc with the registry auth token (sets
 #                       NPM_CONFIG_USERCONFIG); omit if already logged in
+#   --typings-only      Publish only the main package, with no native binary.
+#                       It installs and type-checks, but require() throws
 #   -h, --help          Show this help
 #
-# The platform package (e.g. linux-x64-gnu) is autodetected from this host.
+# Without `--typings-only`, the platform package (e.g. linux-x64-gnu) is
+# autodetected from this host.
 
 set -euo pipefail
 
 REGISTRY="http://127.0.0.1:4873/"
 VERSION=""
 NPMRC=""
+TYPINGS_ONLY=false
 
 usage() {
   sed -n '2,/^set -euo/p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//; $d'
@@ -54,6 +67,7 @@ while [ $# -gt 0 ]; do
     --npmrc)
       [ $# -ge 2 ] || { echo "error: --npmrc requires a value" >&2; usage >&2; exit 1; }
       NPMRC="$2"; shift 2 ;;
+    --typings-only) TYPINGS_ONLY=true; shift ;;
     -h|--help) usage; exit 0 ;;
     *) echo "error: unknown argument: $1" >&2; usage >&2; exit 1 ;;
   esac
@@ -69,33 +83,51 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 NAPI_DIR="$REPO_ROOT/crates/edr_napi"
 
-# Detect the platform package suffix (e.g. linux-x64-gnu) from this host.
-PLATFORM="$(node "$SCRIPT_DIR/detect_edr_platform.ts")"
+TYPINGS_ONLY_HINT="       or pass --typings-only to publish only the typings (require() will throw)"
 
-if [ -z "$PLATFORM" ]; then
-  echo "error: detect_edr_platform.ts produced no platform suffix" >&2
-  exit 1
+if [ "$TYPINGS_ONLY" = true ]; then
+  case "$VERSION" in
+    *-*) ;;
+    *)
+      echo "error: --typings-only needs a prerelease version (e.g. 0.12.1-local.abcdef), got '$VERSION'" >&2
+      echo "       the package cannot be loaded at runtime, so it must never look like a release" >&2
+      exit 1 ;;
+  esac
+  PUBLISHED="@nomicfoundation/edr@$VERSION (typings only, not loadable at runtime)"
+else
+  # Detect the platform package suffix (e.g. linux-x64-gnu) from this host.
+  PLATFORM="$(node "$SCRIPT_DIR/detect_edr_platform.ts")"
+
+  if [ -z "$PLATFORM" ]; then
+    echo "error: detect_edr_platform.ts produced no platform suffix" >&2
+    exit 1
+  fi
+
+  PLATFORM_DIR="$NAPI_DIR/npm/$PLATFORM"
+  BINARY="edr.$PLATFORM.node"
+
+  if [ ! -d "$PLATFORM_DIR" ]; then
+    echo "error: no platform package for '$PLATFORM' (expected $PLATFORM_DIR)" >&2
+    echo "       known platforms: $(cd "$NAPI_DIR/npm" && echo */ | tr -d '/')" >&2
+    echo "$TYPINGS_ONLY_HINT" >&2
+    exit 1
+  fi
+
+  if [ ! -f "$NAPI_DIR/$BINARY" ]; then
+    echo "error: native binary $BINARY not found in $NAPI_DIR" >&2
+    echo "       build it first (e.g. 'pnpm build' in crates/edr_napi)" >&2
+    echo "$TYPINGS_ONLY_HINT" >&2
+    exit 1
+  fi
+  PUBLISHED="@nomicfoundation/edr@$VERSION (+ @nomicfoundation/edr-$PLATFORM)"
 fi
 
-PLATFORM_DIR="$NAPI_DIR/npm/$PLATFORM"
-BINARY="edr.$PLATFORM.node"
+echo ">> Publishing $PUBLISHED to $REGISTRY"
 
-if [ ! -d "$PLATFORM_DIR" ]; then
-  echo "error: no platform package for '$PLATFORM' (expected $PLATFORM_DIR)" >&2
-  echo "       known platforms: $(cd "$NAPI_DIR/npm" && echo */ | tr -d '/')" >&2
-  exit 1
+if [ "$TYPINGS_ONLY" != true ]; then
+  echo ">> Staging $BINARY into the platform package"
+  cp "$NAPI_DIR/$BINARY" "$PLATFORM_DIR/$BINARY"
 fi
-
-echo ">> Publishing @nomicfoundation/edr@$VERSION ($PLATFORM) to $REGISTRY"
-
-if [ ! -f "$NAPI_DIR/$BINARY" ]; then
-  echo "error: native binary $BINARY not found in $NAPI_DIR" >&2
-  echo "       build it first (e.g. 'pnpm build' in crates/edr_napi)" >&2
-  exit 1
-fi
-
-echo ">> Staging $BINARY into the platform package"
-cp "$NAPI_DIR/$BINARY" "$PLATFORM_DIR/$BINARY"
 
 # The published package's `files`/`exports` reference coverage.sol and dist/src
 # (the `@nomicfoundation/edr/coverage` export), so produce them.
@@ -103,34 +135,38 @@ echo ">> Compiling bundled TypeScript helpers"
 cp "$REPO_ROOT/data/contracts/coverage.sol" "$NAPI_DIR/coverage.sol"
 ( cd "$NAPI_DIR" && pnpm exec tsc )
 
-# @napi-rs/cli >= 3.8 validates during pre-publish that every target in
-# `napi.targets` has its .node binary staged, and `--skip-optional-publish` does
-# not exempt them — but only this host's binary was built. There is no flag to
-# skip that validation, so hand `napi pre-publish` a config listing just this
-# host's target: it then validates, versions and wires exactly the one platform
-# package this script publishes, and never looks at the others.
-#
-# napi *merges* this file over package.json's `napi` field, so `binaryName`
-# ("edr") is preserved and only `targets` is overridden. Its warning that the
-# config file "will be used" reads as a replacement, but it is not one.
-NAPI_CONFIG="$(mktemp)"
-trap 'rm -f "$NAPI_CONFIG"' EXIT
+echo ">> Pinning the version"
+( cd "$NAPI_DIR" && npm pkg set version="$VERSION" )
 
-node "$SCRIPT_DIR/write_napi_host_config.ts" "$NAPI_DIR" "$PLATFORM" "$NAPI_CONFIG"
+if [ "$TYPINGS_ONLY" = true ]; then
+  # A previous full run may have wired in platform packages, and they would
+  # dangle on the registry.
+  ( cd "$NAPI_DIR" && npm pkg delete optionalDependencies )
+else
+  # @napi-rs/cli >= 3.8 validates every target in `napi.targets` during
+  # pre-publish, and `--skip-optional-publish` does not exempt them, but only
+  # this host's binary was built. No flag skips that validation, so hand
+  # `napi pre-publish` a config listing just this host's target. It then
+  # validates, versions and wires exactly that platform package.
+  #
+  # napi *merges* this file over package.json's `napi` field, so `binaryName`
+  # ("edr") is preserved and only `targets` is overridden. Its warning that the
+  # config file "will be used" reads as a replacement, but it is not one.
+  NAPI_CONFIG="$(mktemp)"
+  trap 'rm -f "$NAPI_CONFIG"' EXIT
 
-if [ ! -s "$NAPI_CONFIG" ]; then
-  echo "error: write_napi_host_config.ts produced no config" >&2
-  exit 1
-fi
+  node "$SCRIPT_DIR/write_napi_host_config.ts" "$NAPI_DIR" "$PLATFORM" "$NAPI_CONFIG"
 
-echo ">> Pinning versions and wiring the platform package"
-( cd "$NAPI_DIR"
-  npm pkg set version="$VERSION"
+  if [ ! -s "$NAPI_CONFIG" ]; then
+    echo "error: write_napi_host_config.ts produced no config" >&2
+    exit 1
+  fi
 
+  echo ">> Wiring the platform package"
   # Syncs the platform package's version and wires it as an optionalDependency,
   # mirroring the release workflow.
-  "$SCRIPT_DIR/prepublish.sh" --config-path "$NAPI_CONFIG"
-)
+  ( cd "$NAPI_DIR" && "$SCRIPT_DIR/prepublish.sh" --config-path "$NAPI_CONFIG" )
+fi
 
 if [ -n "$NPMRC" ]; then
   export NPM_CONFIG_USERCONFIG="$NPMRC"
@@ -145,11 +181,13 @@ case "$VERSION" in
   *-*) PUBLISH_ARGS+=(--tag local) ;;
 esac
 
-# Publish the platform package first so the main package's dependency resolves.
-echo ">> Publishing @nomicfoundation/edr-$PLATFORM@$VERSION"
-( cd "$PLATFORM_DIR" && pnpm publish "${PUBLISH_ARGS[@]}" )
+if [ "$TYPINGS_ONLY" != true ]; then
+  # Publish the platform package first so the main package's dependency resolves.
+  echo ">> Publishing @nomicfoundation/edr-$PLATFORM@$VERSION"
+  ( cd "$PLATFORM_DIR" && pnpm publish "${PUBLISH_ARGS[@]}" )
+fi
 
 echo ">> Publishing @nomicfoundation/edr@$VERSION"
 ( cd "$NAPI_DIR" && pnpm publish "${PUBLISH_ARGS[@]}" )
 
-echo ">> Done. Published @nomicfoundation/edr@$VERSION (+ -$PLATFORM) to $REGISTRY"
+echo ">> Done. Published $PUBLISHED to $REGISTRY"
