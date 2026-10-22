@@ -230,7 +230,7 @@ pub(crate) fn infer_after_tracing<HaltReasonT: HaltReasonTrait>(
         };
     }
 
-    let result = check_cheatcode_error(trace, stacktrace)?;
+    let result = check_cheatcode_error(trace, stacktrace, function_jumpdests.last().copied())?;
     let stacktrace = return_if_hit!(result);
 
     let result = check_last_submessage(trace, stacktrace, last_submessage_data)?;
@@ -588,6 +588,7 @@ fn check_failed_last_call<HaltReasonT: HaltReasonTrait>(
 fn check_cheatcode_error<HaltReasonT: HaltReasonTrait>(
     trace: CreateOrCallMessageRef<'_, HaltReasonT>,
     mut stacktrace: Vec<StackTraceEntry>,
+    innermost_function_jumpdest: Option<&Instruction>,
 ) -> Result<Heuristic, InferrerError<HaltReasonT>> {
     enum CheatcodeErrorType {
         String,
@@ -603,7 +604,8 @@ fn check_cheatcode_error<HaltReasonT: HaltReasonTrait>(
         return Ok(Heuristic::Miss(stacktrace));
     };
 
-    let source_reference = get_cheatcode_error_source_reference(trace)?;
+    let source_reference =
+        get_cheatcode_error_source_reference(trace, innermost_function_jumpdest)?;
 
     let entry = match error_type {
         CheatcodeErrorType::String => StackTraceEntry::CheatCodeError {
@@ -645,19 +647,46 @@ fn check_cheatcode_error<HaltReasonT: HaltReasonTrait>(
 /// to optimizer-generated code with no recognizable location, so in that case
 /// we fall back to the start of the function (or constructor) that performed
 /// the call, which is always meaningful.
+///
+/// The optimizer can also deduplicate identical code across functions, so the
+/// call instruction may map to another function. In that case we attribute the
+/// error to the last instruction that maps to the function being executed.
 fn get_cheatcode_error_source_reference<HaltReasonT: HaltReasonTrait>(
     trace: CreateOrCallMessageRef<'_, HaltReasonT>,
+    innermost_function_jumpdest: Option<&Instruction>,
 ) -> Result<SourceReference, InferrerError<HaltReasonT>> {
     let contract_meta = trace
         .contract_meta()
         .ok_or(InferrerError::MissingContract)?;
 
-    // Prefer the exact cheatcode call site, when its location maps to a function.
-    for step in trace.steps().iter().rev() {
-        let NestedTraceStep::Evm(step) = step else {
-            continue;
+    // The innermost function that was jumped into, or else the called function.
+    let current_function =
+        match innermost_function_jumpdest.and_then(|jumpdest| jumpdest.location.as_ref()) {
+            Some(location) => location.get_containing_function()?,
+            None => match trace {
+                CreateOrCallMessageRef::Call(call) => contract_meta
+                    .contract
+                    .read()
+                    .get_function_from_selector(selector_from(&call.calldata))
+                    .cloned(),
+                CreateOrCallMessageRef::Create(_) => None,
+            },
         };
 
+    let is_in_current_function = |location: &SourceLocation| {
+        current_function
+            .as_ref()
+            .is_none_or(|current| current.location.contains(location))
+    };
+
+    let mut evm_steps = trace.steps().iter().rev().filter_map(|step| match step {
+        NestedTraceStep::Evm(step) => Some(step),
+        _ => None,
+    });
+
+    // Find the last call site whose location maps to a function.
+    let mut call_site = None;
+    for step in evm_steps.by_ref() {
         let instruction = contract_meta.get_instruction(step.pc)?;
         if !matches!(
             instruction.opcode,
@@ -666,10 +695,34 @@ fn get_cheatcode_error_source_reference<HaltReasonT: HaltReasonTrait>(
             continue;
         }
 
+        let Some(location) = instruction.location.as_ref() else {
+            continue;
+        };
         if let Some(source_reference) =
-            source_location_to_source_reference(&contract_meta, instruction.location.as_ref())?
+            source_location_to_source_reference(&contract_meta, Some(location))?
         {
+            call_site = Some((location, source_reference));
+            break;
+        }
+    }
+
+    if let Some((location, source_reference)) = call_site {
+        // Prefer the exact cheatcode call site.
+        if is_in_current_function(location) {
             return Ok(source_reference);
+        }
+
+        // The call was deduplicated with one in another function: use the last
+        // instruction that maps to the current function instead.
+        for step in evm_steps {
+            let instruction = contract_meta.get_instruction(step.pc)?;
+            if let Some(location) = instruction.location.as_ref()
+                && is_in_current_function(location)
+                && let Some(source_reference) =
+                    source_location_to_source_reference(&contract_meta, Some(location))?
+            {
+                return Ok(source_reference);
+            }
         }
     }
 

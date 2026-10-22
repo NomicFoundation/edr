@@ -120,6 +120,10 @@ pub enum ForgeTestProfile {
     MultiVersion,
     /// Like [`ForgeTestProfile::Default`], but compiled with `via_ir = true`.
     ViaIr,
+    /// Like [`ForgeTestProfile::Default`] (legacy codegen, optimizer enabled),
+    /// but emits build-info so stack traces can be tested with a real
+    /// `ContractDecoder`.
+    StackTraces,
 }
 
 impl fmt::Display for ForgeTestProfile {
@@ -129,6 +133,7 @@ impl fmt::Display for ForgeTestProfile {
             ForgeTestProfile::Paris => write!(f, "paris"),
             ForgeTestProfile::MultiVersion => write!(f, "multi-version"),
             ForgeTestProfile::ViaIr => write!(f, "via-ir"),
+            ForgeTestProfile::StackTraces => write!(f, "stack-traces"),
         }
     }
 }
@@ -231,6 +236,9 @@ impl ForgeTestProfile {
 
         if matches!(self, Self::ViaIr) {
             config.via_ir = true;
+        }
+
+        if matches!(self, Self::ViaIr | Self::StackTraces) {
             // Emit build-info (standard JSON input + output, incl. AST and source
             // maps) so the integration test can build a real `ContractDecoder`
             // and exercise contract recognition — unlike the `NoOpContractDecoder`
@@ -1058,6 +1066,15 @@ pub static TEST_DATA_MULTI_VERSION: Lazy<L1ForgeTestData> = Lazy::new(|| {
 /// Data for tests that need the sources compiled with `via_ir = true`.
 pub static TEST_DATA_VIA_IR: Lazy<L1ForgeTestData> = Lazy::new(|| {
     ForgeTestData::new(ForgeTestProfile::ViaIr, edr_chain_l1::Hardfork::Prague).expect("linking ok")
+});
+
+/// Data for stack trace tests that need a real `ContractDecoder`.
+pub static TEST_DATA_STACK_TRACES: Lazy<L1ForgeTestData> = Lazy::new(|| {
+    ForgeTestData::new(
+        ForgeTestProfile::StackTraces,
+        edr_chain_l1::Hardfork::Prague,
+    )
+    .expect("linking ok")
 });
 
 fn mock_rpc_endpoints() -> RpcEndpoints {

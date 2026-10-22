@@ -26,7 +26,7 @@ use foundry_evm::{
 
 use crate::helpers::{
     contract_decoder, ForgeTestData, L1ForgeTestData, SolidityTestFilter, TestConfig,
-    TEST_DATA_DEFAULT, TEST_DATA_VIA_IR,
+    TEST_DATA_DEFAULT, TEST_DATA_STACK_TRACES, TEST_DATA_VIA_IR,
 };
 
 macro_rules! remote_test_repro {
@@ -642,6 +642,51 @@ async fn issue_1482() {
             StackTraceEntry::CheatCodeError { message, .. } if message.contains("not supported")
         )),
         "expected an unsupported-cheatcode stack trace entry, got:\n{stack_trace:#?}"
+    );
+}
+
+// https://github.com/NomicFoundation/edr/issues/1871
+//
+// With the optimizer, the CALL performing `vault.unlock(11)` is shared with
+// `vault.lock(11)` in another test, so its source map points there. The
+// cheatcode error must still be attributed to the failing test's own call.
+#[tokio::test(flavor = "multi_thread")]
+async fn issue_1871() {
+    let config = runner_config(None, &TEST_DATA_STACK_TRACES, false).await;
+    let contract_decoder = contract_decoder(TEST_DATA_STACK_TRACES.build_info_path());
+    let runner = TEST_DATA_STACK_TRACES
+        .runner_with_contract_decoder(config, contract_decoder)
+        .await;
+    let suite_results = runner.test_collect(repro_filter(1871)).await.suite_results;
+
+    let result = suite_results
+        .get("stack-traces/repros/Issue1871.t.sol:Issue1871Test")
+        .expect("the Issue1871 test suite should have run")
+        .test_results
+        .get("test_RevertWhen_UnlockExceeds()")
+        .expect("test_RevertWhen_UnlockExceeds should have run");
+    assert_eq!(result.status, TestStatus::Failure);
+
+    let Some(SolidityTestStackTraceResult::Success(stack_trace)) = &result.stack_trace_result
+    else {
+        panic!(
+            "expected a stack trace, got {:?}",
+            result.stack_trace_result
+        );
+    };
+    let frames: Vec<_> = stack_trace
+        .iter()
+        .map(|entry| {
+            let source_reference = entry
+                .source_reference()
+                .expect("frame should have a source reference");
+            (source_reference.function.as_deref(), source_reference.line)
+        })
+        .collect();
+    assert_eq!(
+        frames,
+        [(Some("test_RevertWhen_UnlockExceeds"), 52)],
+        "unexpected stack trace:\n{stack_trace:#?}"
     );
 }
 
