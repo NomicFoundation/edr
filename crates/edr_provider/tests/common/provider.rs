@@ -70,6 +70,17 @@ pub fn gas_used(provider: &Provider<L1ChainSpec>, transaction_hash: B256) -> u64
         .gas_used
 }
 
+/// Sends the transaction via `eth_sendTransaction` and returns the `gasUsed`
+/// of its receipt.
+pub fn gas_used_by_sending(
+    provider: &Provider<L1ChainSpec>,
+    request: TransactionRequest,
+) -> anyhow::Result<u64> {
+    let transaction_hash = send_transaction(provider, request)?;
+
+    Ok(gas_used(provider, transaction_hash))
+}
+
 /// Estimates the request's gas usage via `eth_estimateGas`.
 pub fn estimate_gas(provider: &Provider<L1ChainSpec>, request: L1CallRequest) -> u64 {
     let response = provider
