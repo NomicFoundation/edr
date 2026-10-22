@@ -77,9 +77,36 @@ Every run is compared against the last data point recorded in the `hardhat3` dat
 - **`/bench` and dispatch runs** fail on a regression. `/bench` runs also get a ✅/❌ result comment on the PR; a ❌ is either a regression or an infrastructure failure, and the run's step annotations say which.
 - **Baseline runs** never fail on a regression. The data point is recorded regardless so the baseline tracks the newest commit, and a regression is reported to Slack instead. Since the comparison is against the previous data point, a regression alerts once and then becomes the new normal. A baseline run that fails for any other reason also notifies Slack.
 
+## Type check
+
+The `Hardhat 3 type check` workflow (`.github/workflows/hh3-typecheck.yml`) compiles Hardhat 3 against the EDR typings of the commit under test. It runs on every PR and in the merge queue on a hosted runner, so it can be a required check. It needs no Rust build. The tracked `crates/edr_napi/index.d.ts` is published with `publish_to_verdaccio.sh --typings-only`. Hardhat is linked to it through the benchmark's composite action and `packages/hardhat` is built with `tsc --build`. That build also compiles Hardhat's tests, so it covers every Hardhat source that imports EDR's typings.
+
+The check trusts the tracked `index.d.ts`. A PR that changes the napi API without regenerating it fails the `Check that edr_napi typings file is up to date` job in EDR CI instead. It catches type-level breaks only. A behavioural break with unchanged types still needs `/bench` or Hardhat's own test suite.
+
+When the check is red because Hardhat `main` itself is broken for EDR, every PR and merge-queue entry stays red until Hardhat is fixed. The escape hatches are a compat pin to an open Hardhat PR that fixes it, or an admin bypass of the required check. Other PRs pick up a pin once it is on `main` and their merge commit is refreshed, for example by a push.
+
+To reproduce it locally:
+
+```bash
+# Registry (Hardhat checkout). Auth lands in .verdaccio/.npmrc.
+pnpm install && pnpm verdaccio start --background
+
+# 1. Publish the typings (EDR checkout). <edr-version> must be a prerelease.
+pnpm install
+scripts/publish_to_verdaccio.sh --typings-only --version <edr-version> --registry http://127.0.0.1:4873/ --npmrc <hardhat>/.verdaccio/.npmrc
+
+# 2. Repoint and type-check Hardhat (Hardhat checkout).
+npm pkg set "dependencies.@nomicfoundation/edr=<edr-version>" --prefix packages/hardhat
+echo "@nomicfoundation:registry=http://127.0.0.1:4873/" >> .npmrc
+pnpm install --no-frozen-lockfile
+pnpm --filter hardhat run build
+```
+
+Clean up as for the benchmark. A typings-only EDR cannot be loaded, so never benchmark against one.
+
 ## Hardhat compat pin
 
-When an EDR change breaks compatibility with current Hardhat `main`, the default target fails until the matching Hardhat PR merges. The compat pin lets an EDR branch benchmark against a commit on that open Hardhat PR instead. Commit `.github/hardhat-compat-pin.json` on the EDR branch:
+When an EDR change breaks compatibility with current Hardhat `main`, the default target fails until the matching Hardhat PR merges. The compat pin lets an EDR branch benchmark and type-check against a commit on that open Hardhat PR instead. Commit `.github/hardhat-compat-pin.json` on the EDR branch:
 
 ```json
 {
@@ -93,14 +120,14 @@ When an EDR change breaks compatibility with current Hardhat `main`, the default
 
 ### How the pin is resolved
 
-Every run that would otherwise default to Hardhat `main` — push baselines, and dispatch / `/bench` runs without an explicit `hardhat-ref` — reads the pin at the EDR commit being benchmarked and acts on the state of the Hardhat PR:
+Push baselines, the type check, and dispatch or `/bench` runs without an explicit `hardhat-ref` read the pin at the EDR commit under test. Each acts on the state of the Hardhat PR:
 
-- **Open**: benchmarks against the pinned sha. The `/bench` status comment notes the active pin.
+- **Open**: runs against the pinned sha. The `/bench` status comment notes the active pin.
 - **Merged**: reverts to `main` and emits a notice that the pin file can be removed.
 - **Closed without merging**: reverts to `main` with a warning.
-- **Malformed** (invalid JSON, missing or invalid `pr` or `sha`): fails instead of silently benchmarking `main`, which is exactly the incompatible state the pin exists to avoid. On `/bench` the error is posted back to the PR and the run is skipped; on push and dispatch the setup job fails.
+- **Malformed** (invalid JSON, missing or invalid `pr` or `sha`): fails instead of silently using `main`, which is exactly the incompatible state the pin exists to avoid. On `/bench` the error is posted back to the PR and the run is skipped. On push and dispatch the setup job fails. The type check fails on any trigger.
 
-An explicit `hardhat-ref` (the dispatch input or the `hardhat-ref=` comment argument) always wins over the pin.
+An explicit `hardhat-ref` (the dispatch input or the `hardhat-ref=` comment argument) always wins over the pin. The benchmark reads the pin through the GitHub API at the resolved EDR ref. The type check reads it from its checkout of the merge or merge-group commit. A PR that adds a pin is checked against it in the same run. Both use `resolveHardhatRef` in `.github/scripts/hardhat-compat-pin.ts`.
 
 ### Validation
 
@@ -108,6 +135,6 @@ PRs that touch the pin file run `.github/workflows/validate-hardhat-compat-pin.y
 
 ### Lifecycle
 
-1. On the EDR PR, add the pin pointing at the Hardhat PR.
+1. On the EDR PR, add the pin pointing at the Hardhat PR. The type check on that PR then runs against the pinned sha, so it can pass before the Hardhat PR merges.
 2. Merge the EDR PR. Baselines on `main` keep using the pin while the Hardhat PR is open.
 3. Once the Hardhat PR merges, runs revert to `main` automatically. Remove the pin file in a follow-up PR.
