@@ -195,6 +195,9 @@ impl EvmObserver {
 
         let tracing_config = TracingInspectorConfig::none()
             .set_steps(true)
+            // Calldata and init code: without them, logs and stack traces
+            // cannot identify the called contract and function.
+            .set_record_inputs(true)
             .set_memory_snapshots(config.record_memory)
             .set_stack_snapshots(config.record_stack)
             // Call traces include precompile calls, like Solidity test call traces.
