@@ -760,12 +760,16 @@ async fn estimate_gas_accepts_gas_above_cap_from_amsterdam() -> anyhow::Result<(
     Ok(())
 }
 
-/// Provider on `hardfork` with the slot-creating contract at genesis.
+/// Provider on `hardfork` with the slot-creating contract at genesis and the
+/// protocol's gas cap. Requests without `gas` get their block's bound, so from
+/// Amsterdam they carry a state gas reservoir.
 fn new_slot_creator_provider(
     hardfork: edr_chain_l1::Hardfork,
 ) -> anyhow::Result<Provider<L1ChainSpec>> {
     new_provider_with_config(|config| {
         config.hardfork = hardfork;
+        config.transaction_gas_cap = ConfigOption::Default;
+        config.default_transaction_gas_limit = None;
         config.genesis_state.insert(
             SLOT_CREATOR,
             AccountOverride {
@@ -935,27 +939,43 @@ async fn debug_trace_transaction_reports_gas_dimensions_from_amsterdam() -> anyh
     let struct_logs = trace["structLogs"]
         .as_array()
         .expect("structLogs is an array");
-    let sstores: Vec<_> = struct_logs
-        .iter()
-        .filter(|log| log["op"] == "SSTORE")
-        .collect();
-    assert_eq!(sstores.len(), usize::from(FRESH_SLOTS));
-    for log in &sstores {
-        assert_eq!(
-            log["stateGasCost"],
-            serde_json::json!(SLOT_CREATION_STATE_GAS),
-            "a fresh slot should cost its state gas: {log}"
-        );
-        assert!(
-            log["stateGasReservoir"].is_u64(),
-            "every step reports the reservoir: {log}"
-        );
+    let reservoir = |log: &serde_json::Value| -> u64 {
+        log["stateGasReservoir"]
+            .as_u64()
+            .unwrap_or_else(|| panic!("every step reports the reservoir: {log}"))
+    };
+    let (sstores, other_opcodes): (Vec<_>, Vec<_>) =
+        struct_logs.iter().partition(|log| log["op"] == "SSTORE");
+
+    // The SSTOREs are the only state-creating opcodes in `slot_creator_code`,
+    // and only state-creating steps report a cost.
+    for log in other_opcodes {
+        assert!(log.get("stateGasCost").is_none(), "{log}");
     }
-    // A step that creates no state reports the reservoir but no cost.
-    let push = struct_logs.first().expect("the trace has steps");
-    assert_eq!(push["op"], "PUSH1", "the contract starts with a PUSH1");
-    assert!(push["stateGasReservoir"].is_u64());
-    assert!(push.get("stateGasCost").is_none(), "{push}");
+
+    // A step reports the reservoir before executing.
+    let initial_reservoir = reservoir(sstores[0]);
+    assert!(
+        initial_reservoir > 0,
+        "the protocol gas cap funds a reservoir"
+    );
+    // Each slot creation drains the reservoir its predecessor saw by one
+    // `SLOT_CREATION_STATE_GAS`.
+    let expected_reservoirs: Vec<u64> = (0..u64::from(FRESH_SLOTS))
+        .map(|created| initial_reservoir - created * SLOT_CREATION_STATE_GAS)
+        .collect();
+    let reservoirs: Vec<u64> = sstores.iter().map(|log| reservoir(log)).collect();
+    assert_eq!(reservoirs, expected_reservoirs);
+
+    // Every slot is fresh, so every SSTORE costs the same state gas.
+    let expected_costs = vec![SLOT_CREATION_STATE_GAS; sstores.len()];
+    let state_gas_cost = |log: &serde_json::Value| -> u64 {
+        log["stateGasCost"]
+            .as_u64()
+            .unwrap_or_else(|| panic!("an SSTORE reports its state gas cost: {log}"))
+    };
+    let costs: Vec<u64> = sstores.iter().map(|log| state_gas_cost(log)).collect();
+    assert_eq!(costs, expected_costs);
 
     Ok(())
 }
