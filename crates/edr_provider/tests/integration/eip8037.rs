@@ -864,25 +864,51 @@ fn debug_trace(
     Ok(response.deserialize_result()?)
 }
 
-/// Asserts the top-level EIP-8037 fields of a default or `callTracer` frame
-/// for a transaction creating [`FRESH_SLOTS`] slots.
-fn assert_gas_dimensions(frame: &serde_json::Value, gas_used_key: &str) -> anyhow::Result<()> {
-    let gas_used = quantity_field(frame, gas_used_key)?;
-    let execution_gas_used = quantity_field(frame, "executionGasUsed")?;
-    let state_gas_used = quantity_field(frame, "stateGasUsed")?;
-    let gas_refund = quantity_field(frame, "gasRefund")?;
+/// The EIP-8037 gas dimensions a default or `callTracer` frame reports.
+struct GasDimensions {
+    gas_used: u64,
+    execution_gas_used: u64,
+    state_gas_used: u64,
+    gas_refund: u64,
+}
+
+/// Reads the EIP-8037 gas dimensions of a frame, asserting that they add up to
+/// its gas before refunds.
+fn gas_dimensions(frame: &serde_json::Value, gas_used_key: &str) -> anyhow::Result<GasDimensions> {
+    let dimensions = GasDimensions {
+        gas_used: quantity_field(frame, gas_used_key)?,
+        execution_gas_used: quantity_field(frame, "executionGasUsed")?,
+        state_gas_used: quantity_field(frame, "stateGasUsed")?,
+        gas_refund: quantity_field(frame, "gasRefund")?,
+    };
+
+    assert_eq!(
+        dimensions.execution_gas_used + dimensions.state_gas_used,
+        dimensions.gas_used + dimensions.gas_refund,
+        "the dimensions should add up to the gas before refunds: {frame}"
+    );
+
+    Ok(dimensions)
+}
+
+/// Asserts the gas dimensions of a frame executing a transaction that creates
+/// [`FRESH_SLOTS`] slots: all of its state gas is the creations, nothing is
+/// refunded.
+fn assert_slot_creation_gas_dimensions(
+    frame: &serde_json::Value,
+    gas_used_key: &str,
+) -> anyhow::Result<()> {
+    let dimensions = gas_dimensions(frame, gas_used_key)?;
 
     let expected_state_gas_used = u64::from(FRESH_SLOTS) * SLOT_CREATION_STATE_GAS;
     assert_eq!(
-        state_gas_used, expected_state_gas_used,
+        dimensions.state_gas_used, expected_state_gas_used,
         "state gas should be the slot creations alone: {frame}"
     );
     assert_eq!(
-        execution_gas_used + state_gas_used,
-        gas_used + gas_refund,
-        "the dimensions should add up to the gas before refunds: {frame}"
+        dimensions.gas_refund, 0,
+        "creating slots refunds nothing: {frame}"
     );
-    assert_eq!(gas_refund, 0, "creating slots refunds nothing: {frame}");
 
     Ok(())
 }
@@ -899,7 +925,7 @@ async fn debug_trace_transaction_reports_gas_dimensions_from_amsterdam() -> anyh
         MethodInvocation::DebugTraceTransaction(transaction_hash, None),
     )?;
 
-    assert_gas_dimensions(&trace, "gas")?;
+    assert_slot_creation_gas_dimensions(&trace, "gas")?;
     assert_eq!(
         quantity_field(&trace, "gas")?,
         transaction_receipt(&provider, transaction_hash)?.gas_used,
@@ -949,7 +975,7 @@ async fn debug_trace_transaction_call_tracer_reports_gas_dimensions_from_amsterd
         ),
     )?;
 
-    assert_gas_dimensions(&frame, "gasUsed")?;
+    assert_slot_creation_gas_dimensions(&frame, "gasUsed")?;
 
     Ok(())
 }
@@ -964,7 +990,7 @@ async fn debug_trace_call_reports_gas_dimensions_from_amsterdam() -> anyhow::Res
         MethodInvocation::DebugTraceCall(slot_creation_call(&provider), None, None),
     )?;
 
-    assert_gas_dimensions(&trace, "gas")?;
+    assert_slot_creation_gas_dimensions(&trace, "gas")?;
 
     Ok(())
 }
