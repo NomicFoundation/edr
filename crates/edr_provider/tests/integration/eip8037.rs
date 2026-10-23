@@ -41,6 +41,7 @@ use edr_provider::{
 use edr_receipt::ExecutionReceipt as _;
 use edr_test_utils::secret_key::secret_key_from_str;
 use edr_transaction::{request::TransactionRequestAndSender, TxKind};
+use revm_primitives::eip8037::{CPSB_GLAMSTERDAM, SSTORE_SET_BYTES};
 use tokio::runtime;
 
 use crate::common::{
@@ -830,8 +831,8 @@ async fn estimate_gas_covers_state_gas() -> anyhow::Result<()> {
     Ok(())
 }
 
-/// State gas of one fresh slot: 64 state bytes at 1530 gas each.
-const SLOT_CREATION_STATE_GAS: u64 = 97_920;
+/// State gas of one fresh slot.
+const SLOT_CREATION_STATE_GAS: u64 = SSTORE_SET_BYTES * CPSB_GLAMSTERDAM;
 
 /// Mines a slot-creating transaction and returns its hash.
 fn send_slot_creation(provider: &Provider<L1ChainSpec>) -> anyhow::Result<B256> {
@@ -866,24 +867,22 @@ fn debug_trace(
 /// Asserts the top-level EIP-8037 fields of a default or `callTracer` frame
 /// for a transaction creating [`FRESH_SLOTS`] slots.
 fn assert_gas_dimensions(frame: &serde_json::Value, gas_used_key: &str) -> anyhow::Result<()> {
+    let gas_used = quantity_field(frame, gas_used_key)?;
     let execution_gas_used = quantity_field(frame, "executionGasUsed")?;
     let state_gas_used = quantity_field(frame, "stateGasUsed")?;
+    let gas_refund = quantity_field(frame, "gasRefund")?;
 
+    let expected_state_gas_used = u64::from(FRESH_SLOTS) * SLOT_CREATION_STATE_GAS;
     assert_eq!(
-        state_gas_used,
-        u64::from(FRESH_SLOTS) * SLOT_CREATION_STATE_GAS,
+        state_gas_used, expected_state_gas_used,
         "state gas should be the slot creations alone: {frame}"
     );
     assert_eq!(
         execution_gas_used + state_gas_used,
-        quantity_field(frame, gas_used_key)?,
-        "the dimensions should add up to the transaction's gas: {frame}"
+        gas_used + gas_refund,
+        "the dimensions should add up to the gas before refunds: {frame}"
     );
-    assert_eq!(
-        quantity_field(frame, "gasRefund")?,
-        0,
-        "creating slots refunds nothing: {frame}"
-    );
+    assert_eq!(gas_refund, 0, "creating slots refunds nothing: {frame}");
 
     Ok(())
 }
