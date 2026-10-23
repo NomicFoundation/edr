@@ -4,7 +4,8 @@
 
 ### Minor Changes
 
-- e676f90: - Fixed EIP-8037 state gas accounting not being enabled in Solidity tests running on the Amsterdam hardfork, including isolated calls and creates, so `Vm.Gas.gasStateUsed` is now reported. `Vm.Gas.gasTotalUsed` excludes state gas that spilled past the reservoir.
+- e676f90:
+  - Fixed EIP-8037 state gas accounting not being enabled in Solidity tests running on the Amsterdam hardfork, including isolated calls and creates, so `Vm.Gas.gasStateUsed` is now reported. `Vm.Gas.gasTotalUsed` excludes state gas that spilled past the reservoir.
   - Fixed isolated Solidity test calls and creates paying a flat 21000 intrinsic gas instead of the transaction's real intrinsic gas, which ignored calldata, access lists, authorizations and init code on every hardfork.
   - Changed `Vm.Gas.gasTotalUsed` for isolated frames to report the transaction's regular gas before refunds, with `gasRefunded` reported separately.
   - Changed `snapshotGasLastCall`, `snapshotGasLastFrame` and `startSnapshotGas`/`stopSnapshotGas` to report the receipt gas of an isolated frame's transaction, so the value no longer depends on the gas forwarded to the call or on refunds.
