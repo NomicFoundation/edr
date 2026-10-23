@@ -101,10 +101,6 @@ const HOODI_HARDFORKS: &[HardforkActivation<Hardfork>] = &[
         condition: ForkCondition::Timestamp(1_761_677_592),
         hardfork: Hardfork::Osaka,
     },
-    HardforkActivation {
-        condition: ForkCondition::Timestamp(1_793_036_568),
-        hardfork: Hardfork::Amsterdam,
-    },
 ];
 
 fn hoodi_config() -> &'static ChainConfig<Hardfork> {
