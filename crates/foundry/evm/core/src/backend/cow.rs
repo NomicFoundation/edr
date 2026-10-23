@@ -169,7 +169,7 @@ impl<
         if !self.is_initialized {
             let backend = self.backend.to_mut();
 
-            env.cfg.spec = self.spec_id;
+            crate::set_cfg_spec_id(&mut env.cfg, self.spec_id);
             backend.initialize(&env);
             self.is_initialized = true;
             return backend;

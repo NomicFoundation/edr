@@ -244,6 +244,7 @@ revm = { version = "42.0.1", default-features = false, features = [
     "memory_limit",
     "optional_block_gas_limit",
     "optional_eip3607",
+    "optional_eip7623",
     "optional_no_base_fee",
     "serde",
     "std",
