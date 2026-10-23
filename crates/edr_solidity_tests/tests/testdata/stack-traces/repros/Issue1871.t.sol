@@ -52,3 +52,24 @@ contract Issue1871Test is DSTest {
         vault.unlock(11);
     }
 }
+
+// Modifiers are inlined, so a cheatcode call in one maps to the modifier
+// rather than to the test function. That must not be mistaken for
+// deduplicated code.
+contract Issue1871ModifierTest is DSTest {
+    Vm constant vm = Vm(HEVM_ADDRESS);
+    Vault vault;
+
+    modifier checkDeposited(uint256 expected) {
+        _;
+        vm.assertEq(vault.deposited(), expected);
+    }
+
+    function setUp() public {
+        vault = new Vault();
+    }
+
+    function test_ModifierFails() public checkDeposited(2) {
+        vault.deposit(1);
+    }
+}

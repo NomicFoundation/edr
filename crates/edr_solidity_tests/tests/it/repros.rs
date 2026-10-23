@@ -652,19 +652,81 @@ async fn issue_1482() {
 // cheatcode error must still be attributed to the failing test's own call.
 #[tokio::test(flavor = "multi_thread")]
 async fn issue_1871() {
-    let config = runner_config(None, &TEST_DATA_STACK_TRACES, false).await;
-    let contract_decoder = contract_decoder(TEST_DATA_STACK_TRACES.build_info_path());
-    let runner = TEST_DATA_STACK_TRACES
+    let frames = issue_1871_frames(
+        &TEST_DATA_STACK_TRACES,
+        "stack-traces/repros/Issue1871.t.sol:Issue1871Test",
+        "test_RevertWhen_UnlockExceeds()",
+    )
+    .await;
+    assert_eq!(frames, [("test_RevertWhen_UnlockExceeds".into(), 52)]);
+}
+
+// A cheatcode call in an inlined modifier maps to the modifier, which must not
+// be mistaken for code shared with another function.
+#[tokio::test(flavor = "multi_thread")]
+async fn issue_1871_modifier() {
+    let frames = issue_1871_frames(
+        &TEST_DATA_STACK_TRACES,
+        "stack-traces/repros/Issue1871.t.sol:Issue1871ModifierTest",
+        "test_ModifierFails()",
+    )
+    .await;
+    assert_eq!(
+        frames,
+        [
+            ("test_ModifierFails".into(), 72),
+            ("checkDeposited".into(), 65)
+        ]
+    );
+}
+
+// The `viaIR` variant: the shared call maps to the other, passing test.
+#[tokio::test(flavor = "multi_thread")]
+async fn issue_1871_via_ir() {
+    let frames = issue_1871_frames(
+        &TEST_DATA_VIA_IR,
+        "via-ir/repros/Issue1871.t.sol:Issue1871Test",
+        "test_B_LockNoRevert()",
+    )
+    .await;
+    // The expectRevert and the call are both shared, so the error points at
+    // the last statement the test doesn't share: `vault.deposit(100)`.
+    assert_eq!(frames, [("test_B_LockNoRevert".into(), 35)]);
+}
+
+// `viaIR` inlines the internal helper, which must not be mistaken for code
+// shared with another function.
+#[tokio::test(flavor = "multi_thread")]
+async fn issue_1871_via_ir_inlined_helper() {
+    let frames = issue_1871_frames(
+        &TEST_DATA_VIA_IR,
+        "via-ir/repros/Issue1871.t.sol:Issue1871Test",
+        "test_HelperFails()",
+    )
+    .await;
+    assert_eq!(frames, [("_checkDeposited".into(), 47)]);
+}
+
+// Runs the `Issue1871` repro of `test_data` and returns the stack trace of the
+// failing `test` as `(function, line)` frames.
+async fn issue_1871_frames(
+    test_data: &L1ForgeTestData,
+    suite: &str,
+    test: &str,
+) -> Vec<(String, u32)> {
+    let config = runner_config(None, test_data, false).await;
+    let contract_decoder = contract_decoder(test_data.build_info_path());
+    let runner = test_data
         .runner_with_contract_decoder(config, contract_decoder)
         .await;
     let suite_results = runner.test_collect(repro_filter(1871)).await.suite_results;
 
     let result = suite_results
-        .get("stack-traces/repros/Issue1871.t.sol:Issue1871Test")
-        .expect("the Issue1871 test suite should have run")
+        .get(suite)
+        .unwrap_or_else(|| panic!("{suite} should have run"))
         .test_results
-        .get("test_RevertWhen_UnlockExceeds()")
-        .expect("test_RevertWhen_UnlockExceeds should have run");
+        .get(test)
+        .unwrap_or_else(|| panic!("{test} should have run"));
     assert_eq!(result.status, TestStatus::Failure);
 
     let Some(SolidityTestStackTraceResult::Success(stack_trace)) = &result.stack_trace_result
@@ -674,20 +736,18 @@ async fn issue_1871() {
             result.stack_trace_result
         );
     };
-    let frames: Vec<_> = stack_trace
+    stack_trace
         .iter()
         .map(|entry| {
             let source_reference = entry
                 .source_reference()
                 .expect("frame should have a source reference");
-            (source_reference.function.as_deref(), source_reference.line)
+            (
+                source_reference.function.clone().unwrap_or_default(),
+                source_reference.line,
+            )
         })
-        .collect();
-    assert_eq!(
-        frames,
-        [(Some("test_RevertWhen_UnlockExceeds"), 52)],
-        "unexpected stack trace:\n{stack_trace:#?}"
-    );
+        .collect()
 }
 
 // Asserts that a failing test produced a decoded stack trace that reaches the

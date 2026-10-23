@@ -8,8 +8,8 @@ use semver::{Version, VersionReq};
 
 use crate::{
     build_model::{
-        ContractFunction, ContractFunctionType, ContractKind, ContractMetadata,
-        ContractMetadataError, Instruction, JumpType, SourceLocation,
+        ContractFunction, ContractFunctionType, ContractFunctionVisibility, ContractKind,
+        ContractMetadata, ContractMetadataError, Instruction, JumpType, SourceLocation,
     },
     contracts_identifier::IdentifiedContract,
     nested_trace::{
@@ -649,8 +649,9 @@ fn check_cheatcode_error<HaltReasonT: HaltReasonTrait>(
 /// the call, which is always meaningful.
 ///
 /// The optimizer can also deduplicate identical code across functions, so the
-/// call instruction may map to another function. In that case we attribute the
-/// error to the last instruction that maps to the function being executed.
+/// call instruction may map to another public or external function. In that
+/// case we attribute the error to the last instruction that maps to the
+/// function being executed.
 fn get_cheatcode_error_source_reference<HaltReasonT: HaltReasonTrait>(
     trace: CreateOrCallMessageRef<'_, HaltReasonT>,
     innermost_function_jumpdest: Option<&Instruction>,
@@ -698,17 +699,28 @@ fn get_cheatcode_error_source_reference<HaltReasonT: HaltReasonTrait>(
         let Some(location) = instruction.location.as_ref() else {
             continue;
         };
+        let Some(call_function) = location.get_containing_function()? else {
+            continue;
+        };
         if let Some(source_reference) =
             source_location_to_source_reference(&contract_meta, Some(location))?
         {
-            call_site = Some((location, source_reference));
+            call_site = Some((location, call_function, source_reference));
             break;
         }
     }
 
-    if let Some((location, source_reference)) = call_site {
+    if let Some((location, call_function, source_reference)) = call_site {
+        // Inlined modifiers and internal functions also map to another function,
+        // so only a call in another public or external function is deduplicated.
+        let is_deduplicated = !is_in_current_function(location)
+            && matches!(
+                call_function.visibility,
+                Some(ContractFunctionVisibility::Public | ContractFunctionVisibility::External)
+            );
+
         // Prefer the exact cheatcode call site.
-        if is_in_current_function(location) {
+        if !is_deduplicated {
             return Ok(source_reference);
         }
 
