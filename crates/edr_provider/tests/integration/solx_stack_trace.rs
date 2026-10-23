@@ -72,9 +72,10 @@ enum Compiler {
 }
 
 /// Registers each test once per compiler, as `solx::<test>` and
-/// `slang::<test>`.
+/// `slang::<test>`. Tests after `slang_only:` are registered for slang alone:
+/// solx 0.1.x emits an empty `immutableReferences`.
 macro_rules! test_each_compiler {
-    ($($test:ident),* $(,)?) => {
+    ($($test:ident),* $(,)?; slang_only: $($slang_test:ident),* $(,)?) => {
         mod solx {
             $(
                 #[tokio::test(flavor = "multi_thread")]
@@ -89,6 +90,12 @@ macro_rules! test_each_compiler {
                 #[tokio::test(flavor = "multi_thread")]
                 async fn $test() -> anyhow::Result<()> {
                     super::$test(super::Compiler::Slang).await
+                }
+            )*
+            $(
+                #[tokio::test(flavor = "multi_thread")]
+                async fn $slang_test() -> anyhow::Result<()> {
+                    super::$slang_test(super::Compiler::Slang).await
                 }
             )*
         }
@@ -1006,6 +1013,56 @@ async fn linked_external_library_revert_points_into_library(
     Ok(())
 }
 
+/// A library function that writes state checks its own address on entry, so
+/// its deployed code differs from the compiler output wherever that address
+/// sits.
+async fn stateful_external_library_revert_points_into_library(
+    compiler: Compiler,
+) -> anyhow::Result<()> {
+    let (provider, from, output) = stack_trace_scenarios_provider(compiler)?;
+    let library = deploy_stack_trace_scenario(&provider, from, &output, "StatefulLib")?;
+
+    let unlinked = &output
+        .contracts
+        .get(STACK_TRACE_SCENARIOS_SOURCE)
+        .and_then(|m| m.get("UsesStatefulLib"))
+        .context("fixture missing UsesStatefulLib")?
+        .evm
+        .bytecode;
+    let linked = link_library(unlinked, library)?;
+    let user = deploy_contract(&provider, from, Bytes::from(hex::decode(&linked)?))?;
+
+    let stack_trace = expect_failed_call_stack_trace(&provider, from, user, call("go()"));
+    assert_revert_at_line(&stack_trace, 349, "stateful lib boom");
+    assert_trace_shape(
+        &stack_trace,
+        &[
+            "CallstackEntry project/contracts/StackTraceScenarios.sol:356 (UsesStatefulLib.go)",
+            "RevertError project/contracts/StackTraceScenarios.sol:349 (StatefulLib.hit)",
+        ],
+    );
+    Ok(())
+}
+
+/// The deployed code holds the immutable's value where the compiler output
+/// has zeros.
+async fn immutable_holder_revert_points_at_its_require(compiler: Compiler) -> anyhow::Result<()> {
+    let (provider, from, output) = stack_trace_scenarios_provider(compiler)?;
+    let addr = deploy_stack_trace_scenario(&provider, from, &output, "HoldsImmutable")?;
+    let stack_trace = expect_failed_call_stack_trace(
+        &provider,
+        from,
+        addr,
+        encode_call_u256("check(uint256)", 2),
+    );
+    assert_revert_at_line(&stack_trace, 341, "over limit");
+    assert_trace_shape(
+        &stack_trace,
+        &["RevertError project/contracts/StackTraceScenarios.sol:341 (HoldsImmutable.check)"],
+    );
+    Ok(())
+}
+
 async fn fallback_revert_points_at_fallback_body(compiler: Compiler) -> anyhow::Result<()> {
     expect_scenario_revert(
         compiler,
@@ -1288,4 +1345,7 @@ test_each_compiler!(
     mode3_nested_modifier_revert_walks_back_to_the_failing_require,
     mode3_cross_contract_modifier_revert_keeps_called_function_frame,
     mode3_bare_modifier_revert_recovers_the_failing_function,
+    stateful_external_library_revert_points_into_library;
+    slang_only:
+    immutable_holder_revert_points_at_its_require,
 );
