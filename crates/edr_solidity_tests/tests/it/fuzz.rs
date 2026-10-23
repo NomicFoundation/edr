@@ -5,12 +5,12 @@ use std::collections::BTreeMap;
 use alloy_primitives::{Bytes, U256};
 use edr_gas_report::GasReportExecutionStatus;
 use edr_solidity_tests::{
-    fuzz::CounterExample,
+    fuzz::{BaseCounterExample, CounterExample},
     inline_config::InlineConfigProfiles,
     result::{SuiteResult, TestKind, TestStatus},
 };
 
-use crate::helpers::{assert_multiple, SolidityTestFilter, TestFuzzConfig, TEST_DATA_DEFAULT};
+use crate::helpers::{assert_multiple, SolidityTestFilter, TEST_DATA_DEFAULT};
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_fuzz() {
@@ -28,6 +28,9 @@ async fn test_fuzz() {
                 r"test_fuzz_bound\(uint256\)",
                 r"testImmutableOwner\(address\)",
                 r"testStorageOwner\(address\)",
+                r"testFuzzWithRejects\(uint256\)",
+                r"testFuzz_assumeRandom\(uint256\)",
+                r"testFuzz_gasByInput\(uint256\)",
             ]
             .join("|"),
         )
@@ -145,14 +148,13 @@ async fn test_fuzz_collection() {
 #[tokio::test(flavor = "multi_thread")]
 async fn test_persist_fuzz_failure() {
     let filter = SolidityTestFilter::new(".*", ".*", ".*fuzz/FuzzFailurePersist.t.sol");
-    let mut fuzz_config = TestFuzzConfig {
-        runs: 1000,
-        seed: None,
-        ..TestFuzzConfig::default()
-    };
-    let runner = TEST_DATA_DEFAULT
-        .runner_with_fuzz_config(fuzz_config.clone())
-        .await;
+    let persist_dir = tempfile::tempdir().unwrap();
+    let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
+    config.fuzz.runs = 1000;
+    config.fuzz.seed = None;
+    config.fuzz.failure_persist_dir = Some(persist_dir.path().to_path_buf());
+    config.fuzz.failure_persist_file = "testfailure".to_string();
+    let runner = TEST_DATA_DEFAULT.runner_with_config(config.clone()).await;
 
     macro_rules! get_failure_result {
         ($runner:ident) => {
@@ -177,6 +179,17 @@ async fn test_persist_fuzz_failure() {
         _ => Bytes::new(),
     };
 
+    // the counterexample is persisted as JSON at
+    // `<failure_persist_dir>/<failure_persist_file>/<contract>/<test>`
+    let failure_file = persist_dir
+        .path()
+        .join("testfailure")
+        .join("FuzzFailurePersistTest")
+        .join("test_persist_fuzzed_failure");
+    let persisted: BaseCounterExample =
+        serde_json::from_slice(&std::fs::read(&failure_file).unwrap()).unwrap();
+    assert_eq!(persisted.calldata, initial_calldata);
+
     // run several times and compare counterexamples calldata
     for i in 0..10 {
         let new_calldata = match get_failure_result!(runner) {
@@ -188,14 +201,150 @@ async fn test_persist_fuzz_failure() {
     }
 
     // write new failure in different file, but keep the same directory
-    fuzz_config.failure_persist_file = "failure1".to_string();
-    let runner = TEST_DATA_DEFAULT.runner_with_fuzz_config(fuzz_config).await;
+    config.fuzz.failure_persist_file = "failure1".to_string();
+    let runner = TEST_DATA_DEFAULT.runner_with_config(config).await;
     let new_calldata = match get_failure_result!(runner) {
         Some(CounterExample::Single(counterexample)) => counterexample.calldata,
         _ => Bytes::new(),
     };
-    // empty file is used to load failure so new calldata is generated
+    // no failure is persisted under the new name so new calldata is generated
     assert_ne!(initial_calldata, new_calldata);
+    assert!(persist_dir
+        .path()
+        .join("failure1")
+        .join("FuzzFailurePersistTest")
+        .join("test_persist_fuzzed_failure")
+        .is_file());
+}
+
+/// Overloaded fuzz tests persist their failures under `<name>-<selector>`
+/// instead of sharing one file, and a failure persisted under the bare name,
+/// as Forge did before v1.8.2, is still replayed by the overload it targets.
+/// <https://github.com/foundry-rs/foundry/pull/16307>
+#[tokio::test(flavor = "multi_thread")]
+async fn test_persist_fuzz_failure_overloaded_tests() {
+    const CONTRACT: &str = "default/fuzz/FuzzOverload.t.sol:FuzzOverloadTest";
+    const ADDRESS_TEST: &str = "testFuzz_overload(address)";
+    const UINT_TEST: &str = "testFuzz_overload(uint256)";
+
+    let filter = SolidityTestFilter::new(".*", ".*", ".*fuzz/FuzzOverload.t.sol");
+    let persist_dir = tempfile::tempdir().unwrap();
+    let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
+    config.fuzz.runs = 10;
+    config.fuzz.failure_persist_dir = Some(persist_dir.path().to_path_buf());
+    config.fuzz.failure_persist_file = "testfailure".to_string();
+
+    let failure_dir = persist_dir
+        .path()
+        .join("testfailure")
+        .join("FuzzOverloadTest");
+    let qualified_name = |signature: &str| {
+        let selector = &alloy_primitives::keccak256(signature)[..4];
+        format!(
+            "testFuzz_overload-{}",
+            alloy_primitives::hex::encode(selector)
+        )
+    };
+    let address_file = failure_dir.join(qualified_name(ADDRESS_TEST));
+    let uint_file = failure_dir.join(qualified_name(UINT_TEST));
+    let legacy_file = failure_dir.join("testFuzz_overload");
+
+    let runner = TEST_DATA_DEFAULT.runner_with_config(config.clone()).await;
+    let results = runner.test_collect(filter.clone()).await.suite_results;
+    let test_results = &results.get(CONTRACT).unwrap().test_results;
+    for (test_name, failure_file) in [(ADDRESS_TEST, &address_file), (UINT_TEST, &uint_file)] {
+        let result = test_results.get(test_name).unwrap();
+        assert_eq!(result.status, TestStatus::Failure);
+        let Some(CounterExample::Single(counterexample)) = &result.counterexample else {
+            panic!("no counterexample for {test_name}");
+        };
+        let persisted: BaseCounterExample =
+            serde_json::from_slice(&std::fs::read(failure_file).unwrap()).unwrap();
+        assert_eq!(persisted.calldata, counterexample.calldata);
+        assert_eq!(
+            &persisted.calldata[..4],
+            &alloy_primitives::keccak256(test_name)[..4]
+        );
+    }
+    assert!(!legacy_file.exists());
+
+    // A failure persisted under the bare name by an older Forge is replayed by
+    // the overload whose selector it carries.
+    let uint_selector = &alloy_primitives::keccak256(UINT_TEST)[..4];
+    let legacy_calldata = Bytes::from(
+        [
+            uint_selector,
+            U256::from(424_242u32).to_be_bytes::<32>().as_slice(),
+        ]
+        .concat(),
+    );
+    std::fs::write(
+        &legacy_file,
+        serde_json::to_vec(&BaseCounterExample::from_fuzz_call(
+            legacy_calldata.clone(),
+            &[],
+            None,
+            None,
+        ))
+        .unwrap(),
+    )
+    .unwrap();
+    std::fs::remove_file(&uint_file).unwrap();
+
+    let runner = TEST_DATA_DEFAULT.runner_with_config(config).await;
+    let results = runner.test_collect(filter).await.suite_results;
+    let result = results
+        .get(CONTRACT)
+        .unwrap()
+        .test_results
+        .get(UINT_TEST)
+        .unwrap();
+    let Some(CounterExample::Single(counterexample)) = &result.counterexample else {
+        panic!("no counterexample for {UINT_TEST}");
+    };
+    assert_eq!(counterexample.calldata, legacy_calldata);
+    // The replayed failure is persisted under the qualified name again.
+    let persisted: BaseCounterExample =
+        serde_json::from_slice(&std::fs::read(&uint_file).unwrap()).unwrap();
+    assert_eq!(persisted.calldata, legacy_calldata);
+}
+
+/// Older EDR versions persisted fuzz failures as a single `proptest` seed file
+/// at `<failure_persist_dir>/<failure_persist_file>`. It must be replaced by
+/// the failure directory instead of blocking persistence.
+#[tokio::test(flavor = "multi_thread")]
+async fn test_persist_fuzz_failure_replaces_legacy_seed_file() {
+    let filter = SolidityTestFilter::new(".*", ".*", ".*fuzz/FuzzFailurePersist.t.sol");
+    let persist_dir = tempfile::tempdir().unwrap();
+    let legacy_file = persist_dir.path().join("testfailure");
+    std::fs::write(
+        &legacy_file,
+        "# Seeds for failure cases proptest has generated in the past.\n\
+         cc 0000000000000000000000000000000000000000000000000000000000000000\n",
+    )
+    .unwrap();
+
+    let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
+    config.fuzz.failure_persist_dir = Some(persist_dir.path().to_path_buf());
+    config.fuzz.failure_persist_file = "testfailure".to_string();
+    let runner = TEST_DATA_DEFAULT.runner_with_config(config).await;
+    let results = runner.test_collect(filter).await.suite_results;
+    let result = results
+        .get("default/fuzz/FuzzFailurePersist.t.sol:FuzzFailurePersistTest")
+        .unwrap()
+        .test_results
+        .get("test_persist_fuzzed_failure(uint256,int256,address,bool,string,(address,uint256),address[])")
+        .unwrap();
+    assert!(matches!(
+        result.counterexample,
+        Some(CounterExample::Single(_))
+    ));
+
+    assert!(legacy_file.is_dir());
+    assert!(legacy_file
+        .join("FuzzFailurePersistTest")
+        .join("test_persist_fuzzed_failure")
+        .is_file());
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -257,6 +406,8 @@ async fn test_should_not_shrink_fuzz_failure() {
     let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
     config.fuzz.runs = 256;
     config.fuzz.seed = Some(U256::from(100));
+    // The number of runs before the failure depends on worker scheduling.
+    config.fuzz.workers = Some(1);
     let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;
     let suite_results = runner.test_collect(filter).await.suite_results;
     let suite_result = suite_results
@@ -267,7 +418,10 @@ async fn test_should_not_shrink_fuzz_failure() {
         .get("testAddOne(uint256)")
         .unwrap();
     assert_eq!(test_result.status, TestStatus::Failure);
-    assert!(matches!(test_result.kind, TestKind::Fuzz { runs: 84, .. }));
+    let TestKind::Fuzz { runs, .. } = test_result.kind else {
+        panic!("not a fuzz test: {:?}", test_result.kind);
+    };
+    assert_eq!(runs, 27);
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -275,7 +429,9 @@ async fn test_fuzz_can_scrape_bytecode() {
     let filter = SolidityTestFilter::new(".*", ".*", ".*fuzz/FuzzerDict.t.sol");
     let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
     config.fuzz.runs = 2100;
-    config.fuzz.seed = Some(U256::from(119u32));
+    config.fuzz.seed = Some(U256::from(107u32));
+    // Keep the seeded input stream independent of the number of threads.
+    config.fuzz.workers = Some(1);
     let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;
     let results = runner.test_collect(filter).await.suite_results;
 
@@ -342,11 +498,39 @@ async fn test_fuzz_show_logs() {
     }
 }
 
+/// The logs of the failing fuzz run are reported even when `show_logs` is
+/// disabled; only the logs of passing runs are omitted.
+#[tokio::test(flavor = "multi_thread")]
+async fn test_fuzz_failure_logs_without_show_logs() {
+    let filter = SolidityTestFilter::new("testShouldFailFuzz", ".*", ".*fuzz/Fuzz.t.sol");
+    let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
+    config.fuzz.show_logs = false;
+    let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;
+    let suite_result = runner.test_collect(filter).await.suite_results;
+
+    let result = suite_result
+        .get("default/fuzz/Fuzz.t.sol:FuzzTest")
+        .unwrap()
+        .test_results
+        .get("testShouldFailFuzz(uint8)")
+        .unwrap();
+    assert_eq!(result.status, TestStatus::Failure);
+    // Every run logs `testFailFuzz`, so exactly one occurrence means that the
+    // failing run's logs are reported and the passing runs' logs are not.
+    let occurrences = result
+        .decoded_logs
+        .iter()
+        .filter(|log| log.contains("testFailFuzz"))
+        .count();
+    assert_eq!(occurrences, 1, "logs: {:?}", result.decoded_logs);
+}
+
 #[tokio::test(flavor = "multi_thread")]
 async fn test_fuzz_timeout() {
     let filter = SolidityTestFilter::new(".*", ".*", ".*fuzz/FuzzTimeout.t.sol");
     let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
-    config.fuzz.max_test_rejects = 50000;
+    // Disable the reject limit so that the test can only end by timing out.
+    config.fuzz.max_test_rejects = 0;
     config.fuzz.timeout = Some(1u32);
     let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;
     let results = runner.test_collect(filter).await.suite_results;
@@ -358,6 +542,340 @@ async fn test_fuzz_timeout() {
             vec![("test_fuzz_bound(uint256)", true, None, None, None)],
         )]),
     );
+}
+
+/// Disabling the reject limit without a timeout fails the test up front
+/// instead of letting a never-passing `vm.assume` run forever.
+#[tokio::test(flavor = "multi_thread")]
+async fn test_fuzz_no_reject_limit_requires_timeout() {
+    let filter = SolidityTestFilter::new(".*", ".*", ".*fuzz/FuzzTimeout.t.sol");
+    let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
+    config.fuzz.max_test_rejects = 0;
+    config.fuzz.timeout = None;
+    let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;
+    let results = runner.test_collect(filter).await.suite_results;
+
+    assert_multiple(
+        &results,
+        BTreeMap::from([(
+            "default/fuzz/FuzzTimeout.t.sol:FuzzTimeoutTest",
+            vec![(
+                "test_fuzz_bound(uint256)",
+                false,
+                Some("`maxTestRejects` = 0 requires a fuzz `timeout`".to_string()),
+                None,
+                None,
+            )],
+        )]),
+    );
+}
+
+// Test 256 runs regardless number of test rejects.
+// <https://github.com/foundry-rs/foundry/issues/9054>
+#[tokio::test(flavor = "multi_thread")]
+async fn test_fuzz_runs_with_rejects() {
+    let filter = SolidityTestFilter::new(".*", ".*", ".*fuzz/FuzzWithRejects.t.sol");
+    let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
+    config.fuzz.runs = 256;
+    let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;
+    let results = runner.test_collect(filter).await.suite_results;
+
+    let result = results
+        .get("default/fuzz/FuzzWithRejects.t.sol:FuzzWithRejectsTest")
+        .unwrap()
+        .test_results
+        .get("testFuzzWithRejects(uint256)")
+        .unwrap();
+    assert_eq!(result.status, TestStatus::Success);
+    let TestKind::Fuzz { runs, .. } = result.kind else {
+        panic!("not a fuzz test: {:?}", result.kind);
+    };
+    assert_eq!(runs, 256);
+}
+
+/// Runs the `FuzzWithRejects` fixture with `counterexample` persisted for its
+/// test and returns the number of runs of the (passing) test.
+async fn fuzz_runs_with_persisted_failure(counterexample: &BaseCounterExample) -> usize {
+    let filter = SolidityTestFilter::new(".*", ".*", ".*fuzz/FuzzWithRejects.t.sol");
+    let persist_dir = tempfile::tempdir().unwrap();
+    let failure_dir = persist_dir
+        .path()
+        .join("testfailure")
+        .join("FuzzWithRejectsTest");
+    std::fs::create_dir_all(&failure_dir).unwrap();
+    std::fs::write(
+        failure_dir.join("testFuzzWithRejects"),
+        serde_json::to_vec(counterexample).unwrap(),
+    )
+    .unwrap();
+
+    let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
+    config.fuzz.runs = 256;
+    config.fuzz.failure_persist_dir = Some(persist_dir.path().to_path_buf());
+    let runner = TEST_DATA_DEFAULT.runner_with_config(config).await;
+    let results = runner.test_collect(filter).await.suite_results;
+    let result = results
+        .get("default/fuzz/FuzzWithRejects.t.sol:FuzzWithRejectsTest")
+        .unwrap()
+        .test_results
+        .get("testFuzzWithRejects(uint256)")
+        .unwrap();
+    assert_eq!(result.status, TestStatus::Success, "{:?}", result.reason);
+    let TestKind::Fuzz { runs, .. } = result.kind else {
+        panic!("not a fuzz test: {:?}", result.kind);
+    };
+    runs
+}
+
+// Test that a persisted counterexample is only replayed if it targets the same
+// test selector, and that a replayed input does not count as a run.
+// <https://github.com/foundry-rs/foundry/issues/11927>
+#[tokio::test(flavor = "multi_thread")]
+async fn test_fuzz_replay_only_with_same_selector() {
+    let arg = alloy_primitives::U256::from(2_000_000u32).to_be_bytes::<32>();
+
+    // A counterexample recorded for a different function signature is ignored.
+    let other_selector = &alloy_primitives::keccak256("testFuzzWithRejects(uint8)")[..4];
+    let calldata = Bytes::from([other_selector, arg.as_slice()].concat());
+    let counterexample = BaseCounterExample::from_fuzz_call(calldata, &[], None, None);
+    assert_eq!(fuzz_runs_with_persisted_failure(&counterexample).await, 256);
+
+    // A counterexample for the current signature is replayed first. Its input
+    // is rejected by `vm.assume`, which must not eat into the configured runs.
+    let selector = &alloy_primitives::keccak256("testFuzzWithRejects(uint256)")[..4];
+    let calldata = Bytes::from([selector, arg.as_slice()].concat());
+    let counterexample = BaseCounterExample::from_fuzz_call(calldata, &[], None, None);
+    assert_eq!(fuzz_runs_with_persisted_failure(&counterexample).await, 256);
+}
+
+// Tests that `vm.randomUint()` produces different values across fuzz runs.
+// Regression test for <https://github.com/foundry-rs/foundry/issues/12817>
+//
+// The issue was that `vm.randomUint()` would produce the same sequence of
+// values in every fuzz run because the RNG was seeded identically for each
+// run. This test verifies that with many fuzz runs and a small range, we
+// eventually hit value 0, which proves the RNG varies across runs.
+#[tokio::test(flavor = "multi_thread")]
+async fn test_fuzz_random_uint_varies_across_runs() {
+    let filter = SolidityTestFilter::new(".*", ".*", ".*fuzz/RandomFuzz.t.sol");
+    let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
+    config.fuzz.seed = Some(U256::from(1u32));
+    // The NAPI layer seeds the cheatcode RNG with the fuzz seed; mirror it,
+    // since without a cheatcode seed every run draws from a fresh random RNG
+    // and the test passes even if the runs are not reseeded.
+    config.cheats_config_options.seed = config.fuzz.seed;
+    let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;
+    let results = runner.test_collect(filter).await.suite_results;
+
+    let result = results
+        .get("default/fuzz/RandomFuzz.t.sol:RandomFuzzTest")
+        .unwrap()
+        .test_results
+        .get("testFuzz_randomUint_shouldFail(uint256)")
+        .unwrap();
+    assert_eq!(result.status, TestStatus::Failure);
+    // `DSTest::assertTrue` logs the message instead of reverting.
+    assert!(
+        result
+            .decoded_logs
+            .iter()
+            .any(|log| log.contains("hit value 0")),
+        "logs: {:?}",
+        result.decoded_logs
+    );
+}
+
+/// A persisted failure that depends on `vm.random*` is reproduced on replay,
+/// because the counterexample records the run that produced it and the
+/// cheatcode RNG is reseeded accordingly.
+/// <https://github.com/foundry-rs/foundry/pull/14522>.
+#[tokio::test(flavor = "multi_thread")]
+async fn test_persist_fuzz_failure_replays_random_uint() {
+    let filter = SolidityTestFilter::new(".*", ".*", ".*fuzz/RandomFuzz.t.sol");
+    let persist_dir = tempfile::tempdir().unwrap();
+    let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
+    config.fuzz.seed = Some(U256::from(1u32));
+    config.cheats_config_options.seed = config.fuzz.seed;
+    config.fuzz.failure_persist_dir = Some(persist_dir.path().to_path_buf());
+    config.fuzz.failure_persist_file = "failures".to_string();
+    let runner = TEST_DATA_DEFAULT.runner_with_config(config).await;
+
+    let outcome = |results: &BTreeMap<String, SuiteResult<_>>| {
+        let result = results
+            .get("default/fuzz/RandomFuzz.t.sol:RandomFuzzTest")
+            .unwrap()
+            .test_results
+            .get("testFuzz_randomUint_shouldFail(uint256)")
+            .unwrap();
+        let TestKind::Fuzz { runs, .. } = result.kind else {
+            panic!("not a fuzz test: {:?}", result.kind);
+        };
+        let Some(CounterExample::Single(counterexample)) = &result.counterexample else {
+            panic!("no counterexample: {:?}", result.counterexample);
+        };
+        (result.status, runs, counterexample.calldata.clone())
+    };
+
+    let results = runner
+        .clone()
+        .test_collect(filter.clone())
+        .await
+        .suite_results;
+    let (status, _runs, calldata) = outcome(&results);
+    assert_eq!(status, TestStatus::Failure);
+
+    let failure_file = persist_dir
+        .path()
+        .join("failures")
+        .join("RandomFuzzTest")
+        .join("testFuzz_randomUint_shouldFail");
+    let persisted: BaseCounterExample =
+        serde_json::from_slice(&std::fs::read(&failure_file).unwrap()).unwrap();
+    assert_eq!(persisted.calldata, calldata);
+    assert_eq!(persisted.fuzz.seed, Some(U256::from(1u32)));
+    assert!(persisted.fuzz.run.is_some(), "{:?}", persisted.fuzz);
+    assert!(persisted.fuzz.worker.is_some(), "{:?}", persisted.fuzz);
+
+    // The replay alone reproduces the failure, so nothing is fuzzed; a replayed
+    // counterexample is not counted as a run.
+    let results = runner.test_collect(filter).await.suite_results;
+    assert_eq!(outcome(&results), (TestStatus::Failure, 0, calldata));
+}
+
+// Tests that a run rejected by `vm.assume` based on `vm.random*` output is not
+// retried with the same cheatcode RNG seed, which would reject it forever.
+// Regression test for <https://github.com/foundry-rs/foundry/pull/16033>
+#[tokio::test(flavor = "multi_thread")]
+async fn test_fuzz_reseeds_random_after_reject() {
+    let filter = SolidityTestFilter::new(".*", ".*", ".*fuzz/FuzzAssumeRandom.t.sol");
+    let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
+    config.fuzz.runs = 256;
+    config.fuzz.seed = Some(U256::from(1u32));
+    // The NAPI layer seeds the cheatcode RNG with the fuzz seed; mirror it so
+    // that `vm.randomUint` is deterministic.
+    config.cheats_config_options.seed = config.fuzz.seed;
+    // About half of the inputs are rejected; the limit is only reached if a
+    // rejected run is retried with the same seed over and over.
+    config.fuzz.max_test_rejects = 10_000;
+    let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;
+    let results = runner.test_collect(filter).await.suite_results;
+
+    let result = results
+        .get("default/fuzz/FuzzAssumeRandom.t.sol:FuzzAssumeRandomTest")
+        .unwrap()
+        .test_results
+        .get("testFuzz_assumeRandom(uint256)")
+        .unwrap();
+    assert_eq!(result.status, TestStatus::Success, "{:?}", result.reason);
+    let TestKind::Fuzz { runs, .. } = result.kind else {
+        panic!("not a fuzz test: {:?}", result.kind);
+    };
+    assert_eq!(runs, 256);
+}
+
+const FUZZ_WITH_REJECTS: &str = "default/fuzz/FuzzWithRejects.t.sol:FuzzWithRejectsTest";
+const FUZZ_WITH_REJECTS_TEST: &str = "testFuzzWithRejects(uint256)";
+const FUZZ_FAILURE_PERSIST: &str = "default/fuzz/FuzzFailurePersist.t.sol:FuzzFailurePersistTest";
+const FUZZ_FAILURE_PERSIST_TEST: &str =
+    "test_persist_fuzzed_failure(uint256,int256,address,bool,string,(address,uint256),address[])";
+
+/// Returns the status and `(runs, mean_gas, median_gas)` of a fuzz test.
+macro_rules! fuzz_outcome {
+    ($results:expr, $contract:expr, $test_name:expr) => {{
+        let result = $results
+            .get($contract)
+            .unwrap()
+            .test_results
+            .get($test_name)
+            .unwrap();
+        let TestKind::Fuzz {
+            runs,
+            mean_gas,
+            median_gas,
+        } = result.kind
+        else {
+            panic!("not a fuzz test: {:?}", result.kind);
+        };
+        (result.status, (runs, mean_gas, median_gas))
+    }};
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_fuzz_parallel_workers_run_all_runs() {
+    let filter = SolidityTestFilter::new(".*", ".*", ".*fuzz/FuzzWithRejects.t.sol");
+    let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
+    config.fuzz.runs = 1000;
+    config.fuzz.workers = Some(4);
+    let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;
+    let results = runner.test_collect(filter).await.suite_results;
+
+    let (status, (runs, _, _)) = fuzz_outcome!(results, FUZZ_WITH_REJECTS, FUZZ_WITH_REJECTS_TEST);
+    assert_eq!(status, TestStatus::Success);
+    assert_eq!(runs, 1000);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_fuzz_parallel_workers_report_failure() {
+    let filter = SolidityTestFilter::new(".*", ".*", ".*fuzz/FuzzFailurePersist.t.sol");
+    let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
+    config.fuzz.runs = 1000;
+    config.fuzz.workers = Some(4);
+    let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;
+    let results = runner.test_collect(filter).await.suite_results;
+
+    let result = results
+        .get(FUZZ_FAILURE_PERSIST)
+        .unwrap()
+        .test_results
+        .get(FUZZ_FAILURE_PERSIST_TEST)
+        .unwrap();
+    assert_eq!(result.status, TestStatus::Failure);
+    assert!(matches!(
+        result.counterexample,
+        Some(CounterExample::Single(_))
+    ));
+    let (_, (runs, _, _)) = fuzz_outcome!(results, FUZZ_FAILURE_PERSIST, FUZZ_FAILURE_PERSIST_TEST);
+    assert!(runs <= 1000, "{runs}");
+}
+
+/// The same seed and worker count must produce the same inputs on every run.
+/// The fixture's gas depends on the input, so equal gas statistics mean equal
+/// inputs; a different seed must produce different ones.
+#[tokio::test(flavor = "multi_thread")]
+async fn test_fuzz_parallel_workers_are_deterministic() {
+    let filter = SolidityTestFilter::new(".*", ".*", ".*fuzz/FuzzGasByInput.t.sol");
+    let mut outcomes = Vec::new();
+    for seed in [1234u32, 1234, 4321] {
+        let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
+        config.fuzz.runs = 512;
+        config.fuzz.seed = Some(U256::from(seed));
+        config.fuzz.workers = Some(2);
+        let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;
+        let results = runner.test_collect(filter.clone()).await.suite_results;
+        outcomes.push(fuzz_outcome!(
+            results,
+            "default/fuzz/FuzzGasByInput.t.sol:FuzzGasByInputTest",
+            "testFuzz_gasByInput(uint256)"
+        ));
+    }
+    assert_eq!(outcomes[0].0, TestStatus::Success);
+    assert_eq!(outcomes[0].1 .0, 512);
+    assert_eq!(outcomes[0], outcomes[1]);
+    assert_ne!(outcomes[0], outcomes[2]);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_fuzz_zero_runs() {
+    let filter = SolidityTestFilter::new(".*", ".*", ".*fuzz/FuzzFailurePersist.t.sol");
+    let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
+    config.fuzz.runs = 0;
+    let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;
+    let results = runner.test_collect(filter).await.suite_results;
+
+    let (status, (runs, _, _)) =
+        fuzz_outcome!(results, FUZZ_FAILURE_PERSIST, FUZZ_FAILURE_PERSIST_TEST);
+    assert_eq!(status, TestStatus::Success);
+    assert_eq!(runs, 0);
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -400,7 +918,7 @@ async fn test_fuzz_function_overrides() {
     let filter = SolidityTestFilter::new(".*", ".*", ".*fuzz/FuzzConfigOverride.t.sol");
     let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
     config.fuzz.runs = 100;
-    config.fuzz.max_test_rejects = 0;
+    config.fuzz.max_test_rejects = 1;
 
     // Per-function overrides come from inline `forge-config:` directives in
     // `fuzz/FuzzConfigOverride.t.sol`.
@@ -431,7 +949,7 @@ async fn test_fuzz_function_overrides() {
                 (
                     "testFuzz_NoOverrideRejects(uint256)",
                     false,
-                    Some("`vm.assume` rejected too many inputs (0 allowed)".into()),
+                    Some("`vm.assume` rejected too many inputs (1 allowed)".into()),
                     None,
                     None,
                 ),
@@ -493,7 +1011,6 @@ async fn test_fuzz_profile_overrides() {
         let filter = SolidityTestFilter::new(".*", ".*", ".*fuzz/FuzzProfileOverride.t.sol");
         let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
         config.fuzz.runs = u32::try_from(GLOBAL_RUNS).expect("runs fit in u32");
-        config.fuzz.max_test_rejects = 0;
         config.inline_config_profiles =
             InlineConfigProfiles::new(selected, ["ci".to_owned()]).expect("valid profiles");
 

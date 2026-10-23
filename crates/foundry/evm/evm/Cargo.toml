@@ -28,6 +28,7 @@ eyre = "0.6"
 hex.workspace = true
 parking_lot.workspace = true
 proptest.workspace = true
+rayon = "1"
 serde.workspace = true
 serde_json.workspace = true
 uuid.workspace = true
