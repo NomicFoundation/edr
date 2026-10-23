@@ -349,12 +349,18 @@ where
             hardhat::handle_drop_transaction(data, transaction_hash)
                 .and_then(to_json::<_, ChainSpecT, TimerT>)
         }
+        MethodInvocation::DumpState(()) => {
+            hardhat::handle_dump_state(data).and_then(to_json::<_, ChainSpecT, TimerT>)
+        }
         MethodInvocation::GetAutomine(()) => {
             hardhat::handle_get_automine_request(data).and_then(to_json::<_, ChainSpecT, TimerT>)
         }
         MethodInvocation::ImpersonateAccount(address) => {
             hardhat::handle_impersonate_account_request(data, *address)
                 .and_then(to_json::<_, ChainSpecT, TimerT>)
+        }
+        MethodInvocation::LoadState(state_dump) => {
+            hardhat::handle_load_state(data, state_dump).and_then(to_json::<_, ChainSpecT, TimerT>)
         }
         MethodInvocation::Metadata(()) => {
             hardhat::handle_metadata_request(data).and_then(to_json::<_, ChainSpecT, TimerT>)
