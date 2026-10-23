@@ -15,6 +15,7 @@ use std::{
 use crossbeam_channel::{Receiver, Sender};
 use edr_chain_spec::TransactionValidation;
 use edr_chain_spec_provider::ProviderChainSpec;
+use edr_solidity::config::IncludeTraces;
 use edr_transaction::{IsEip155, IsEip4844, TransactionMut, TransactionType};
 
 use crate::{
@@ -90,6 +91,11 @@ pub(crate) enum Message<ChainSpecT: ProviderChainSpec> {
     },
     /// Set whether traces include the full stack and memory.
     SetVerboseTracing { enabled: bool, ack: Sender<()> },
+    /// Set which transactions' call traces responses include.
+    SetIncludeCallTraces {
+        include_call_traces: IncludeTraces,
+        ack: Sender<()>,
+    },
     /// Log a failed request deserialization through the provider's logger.
     /// Not acknowledged, so a caller on the JS main thread is never blocked.
     LogFailedDeserialization {
@@ -168,6 +174,12 @@ pub(crate) fn run<ChainSpecT, TimerT>(
                 }
                 Ok(Message::SetVerboseTracing { enabled, ack }) => {
                     data.set_verbose_tracing(enabled);
+
+                    // Ignore the error: the caller may have stopped waiting.
+                    let _ = ack.send(());
+                }
+                Ok(Message::SetIncludeCallTraces { include_call_traces, ack }) => {
+                    data.set_include_call_traces(include_call_traces);
 
                     // Ignore the error: the caller may have stopped waiting.
                     let _ = ack.send(());
