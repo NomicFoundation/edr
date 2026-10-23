@@ -2,6 +2,11 @@ use std::{convert::Infallible, io, thread::JoinHandle};
 
 use crossbeam_channel::{bounded, Receiver, Sender};
 
+/// The longest thread name that survives on every supported platform. Linux
+/// truncates to 15 bytes, silently collapsing longer names into a shared
+/// prefix.
+pub const MAX_THREAD_NAME_LEN: usize = 15;
+
 /// Owns a dedicated OS thread together with a cancellation channel used to
 /// shut it down. The closure passed to [`Self::spawn`] receives the receiving
 /// end of that channel and should treat its disconnection as the signal to
@@ -40,6 +45,9 @@ impl CancellableThread {
     /// See the "Shutdown via channel disconnection" section of
     /// [`CancellableThread`]'s docs for why this channel is parameterized
     /// with `Infallible` and signalled by sender-drop.
+    ///
+    /// A `name` longer than [`MAX_THREAD_NAME_LEN`] reaches the OS truncated,
+    /// so it collides with any other name sharing its first bytes.
     pub fn spawn<F>(name: String, f: F) -> io::Result<Self>
     where
         F: FnOnce(Receiver<Infallible>) + Send + 'static,
