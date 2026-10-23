@@ -1,5 +1,33 @@
 # @nomicfoundation/edr
 
+## 0.25.0
+
+### Minor Changes
+
+- e676f90: - Fixed EIP-8037 state gas accounting not being enabled in Solidity tests running on the Amsterdam hardfork, including isolated calls and creates, so `Vm.Gas.gasStateUsed` is now reported. `Vm.Gas.gasTotalUsed` excludes state gas that spilled past the reservoir.
+  - Fixed isolated Solidity test calls and creates paying a flat 21000 intrinsic gas instead of the transaction's real intrinsic gas, which ignored calldata, access lists, authorizations and init code on every hardfork.
+  - Changed `Vm.Gas.gasTotalUsed` for isolated frames to report the transaction's regular gas before refunds, with `gasRefunded` reported separately.
+  - Changed `snapshotGasLastCall`, `snapshotGasLastFrame` and `startSnapshotGas`/`stopSnapshotGas` to report the receipt gas of an isolated frame's transaction, so the value no longer depends on the gas forwarded to the call or on refunds.
+  - Fixed isolated frames whose intrinsic gas or calldata floor exceeded the forwarded gas reporting zero gas and returning the forwarded gas to the caller. They now consume their whole budget.
+  - Fixed isolated calls reverting when the gas forwarded to them is below their calldata's EIP-7623 floor, while the same call succeeds without isolation.
+  - Fixed consecutive `startSnapshotGas` regions in one function including the previous region's cheatcode overhead in their value.
+  - Changed isolated frames to no longer be validated against the transaction gas cap and the block gas limit, which the enclosing test transaction already satisfied.
+- 034998c: Added `Response::traces` method with a raw trace format compatible with EthereumJS' VM. A failed create reports no `contractAddress`, unlike EthereumJS.
+- a05a1c2: Changed `defaultTransactionGasLimit` in the provider config to be optional.
+
+  When it is omitted, a request without `gas` uses the bound of its block. That bound is `2^32 - 1` from Amsterdam (EIP-8037), `2^24` from Osaka (EIP-7825), and the block gas limit before. The block gas limit caps each of these. Before Amsterdam, a configured `transactionGasCap` replaces the hardfork's bound.
+
+  When the derived value is the block gas limit, a transaction without `gas` reserves the whole block. With manual or interval mining, a block then fits fewer such transactions. Their senders also need a larger upfront balance.
+
+- a05a1c2: Changed provider creation to fail when `defaultTransactionGasLimit` exceeds the transaction gas bound of the configured hardfork and transaction gas cap. Before, every request without `gas` failed instead. A configured value is used as is. A request at a block whose bound is lower fails like a request with an explicit `gas` above that bound.
+
+### Patch Changes
+
+- 8b6dff5: Fixed cheatcodes added in forge-std v1.17.0 being reported by their raw selector instead of their name when they are not yet supported
+- 9a0dbc0: Removed the Amsterdam hardfork activation on Hoodi, because the upgrade was postponed without a new date
+- c16de2d: Fixed a crash on macOS when the native addon is loaded from two different paths in one process.
+- a05a1c2: Fixed calls and gas estimates at remote blocks of a forked blockchain being checked against the provider's transaction gas cap. Remote blocks are the fork block and the blocks before it. Those requests now use the cap of the remote chain's hardfork at that block. For example, an Osaka provider no longer rejects an explicit `gas` above `2^24` at a pre-Osaka remote block. A Prague provider now enforces that cap at an Osaka remote block. Replays by `debug_traceCall` and `debug_traceTransaction` at remote blocks also use the gas cap of their block.
+
 ## 0.24.0
 
 ### Minor Changes
