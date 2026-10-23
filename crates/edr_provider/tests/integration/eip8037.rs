@@ -760,24 +760,35 @@ async fn estimate_gas_accepts_gas_above_cap_from_amsterdam() -> anyhow::Result<(
     Ok(())
 }
 
-/// Provider on `hardfork` with the slot-creating contract at genesis and the
-/// protocol's gas cap. Requests without `gas` get their block's bound, so from
-/// Amsterdam they carry a state gas reservoir.
-fn new_slot_creator_provider(
+/// Provider on `hardfork` with `contracts` at genesis and the protocol's gas
+/// cap. Requests without `gas` get their block's bound, so from Amsterdam they
+/// carry a state gas reservoir.
+fn new_provider_with_contracts(
     hardfork: edr_chain_l1::Hardfork,
+    contracts: impl IntoIterator<Item = (Address, Bytes)>,
 ) -> anyhow::Result<Provider<L1ChainSpec>> {
-    new_provider_with_config(|config| {
+    let contracts: Vec<_> = contracts.into_iter().collect();
+    new_provider_with_config(move |config| {
         config.hardfork = hardfork;
         config.transaction_gas_cap = ConfigOption::Default;
         config.default_transaction_gas_limit = None;
-        config.genesis_state.insert(
-            SLOT_CREATOR,
-            AccountOverride {
-                code: Some(Bytecode::new_raw(slot_creator_code())),
-                ..AccountOverride::default()
-            },
-        );
+        for (address, code) in contracts {
+            config.genesis_state.insert(
+                address,
+                AccountOverride {
+                    code: Some(Bytecode::new_raw(code)),
+                    ..AccountOverride::default()
+                },
+            );
+        }
     })
+}
+
+/// Provider on `hardfork` with the slot-creating contract at genesis.
+fn new_slot_creator_provider(
+    hardfork: edr_chain_l1::Hardfork,
+) -> anyhow::Result<Provider<L1ChainSpec>> {
+    new_provider_with_contracts(hardfork, [(SLOT_CREATOR, slot_creator_code())])
 }
 
 /// This EIP makes state creation more expensive, so the same slot-creating
@@ -838,13 +849,26 @@ async fn estimate_gas_covers_state_gas() -> anyhow::Result<()> {
 /// State gas of one fresh slot.
 const SLOT_CREATION_STATE_GAS: u64 = SSTORE_SET_BYTES * CPSB_GLAMSTERDAM;
 
-/// Mines a slot-creating transaction and returns its hash.
-fn send_slot_creation(provider: &Provider<L1ChainSpec>) -> anyhow::Result<B256> {
+/// The EIP-8037 fields of a default or `callTracer` frame.
+const FRAME_FIELDS: [&str; 3] = ["executionGasUsed", "stateGasUsed", "gasRefund"];
+
+/// Asserts that `frame` reports none of the EIP-8037 fields.
+fn assert_no_gas_dimensions(frame: &serde_json::Value) {
+    for field in FRAME_FIELDS {
+        assert!(
+            frame.get(field).is_none(),
+            "unexpected `{field}` in {frame}"
+        );
+    }
+}
+
+/// Mines a transaction calling `to` without data and returns its hash.
+fn send_to(provider: &Provider<L1ChainSpec>, to: Address) -> anyhow::Result<B256> {
     send_transaction(
         provider,
         TransactionRequest {
             from: caller(provider),
-            to: Some(SLOT_CREATOR),
+            to: Some(to),
             ..TransactionRequest::default()
         },
     )
@@ -866,6 +890,14 @@ fn debug_trace(
     let response: ResponseWithCallTraces =
         provider.handle_request(ProviderRequest::with_single(method))?;
     Ok(response.deserialize_result()?)
+}
+
+/// The `stateGasCost` a struct log reports: positive for a state charge,
+/// negative for a refill. Panics if the step reports none.
+fn state_gas_cost(log: &serde_json::Value) -> i64 {
+    log["stateGasCost"]
+        .as_i64()
+        .unwrap_or_else(|| panic!("the step reports no state gas cost: {log}"))
 }
 
 /// The EIP-8037 gas dimensions a default or `callTracer` frame reports.
@@ -922,7 +954,7 @@ fn assert_slot_creation_gas_dimensions(
 #[tokio::test(flavor = "multi_thread")]
 async fn debug_trace_transaction_reports_gas_dimensions_from_amsterdam() -> anyhow::Result<()> {
     let provider = new_slot_creator_provider(edr_chain_l1::Hardfork::Amsterdam)?;
-    let transaction_hash = send_slot_creation(&provider)?;
+    let transaction_hash = send_to(&provider, SLOT_CREATOR)?;
 
     let trace = debug_trace(
         &provider,
@@ -964,17 +996,12 @@ async fn debug_trace_transaction_reports_gas_dimensions_from_amsterdam() -> anyh
     let expected_reservoirs: Vec<u64> = (0..u64::from(FRESH_SLOTS))
         .map(|created| initial_reservoir - created * SLOT_CREATION_STATE_GAS)
         .collect();
-    let reservoirs: Vec<u64> = sstores.iter().map(|log| reservoir(log)).collect();
+    let reservoirs: Vec<u64> = sstores.iter().copied().map(reservoir).collect();
     assert_eq!(reservoirs, expected_reservoirs);
 
     // Every slot is fresh, so every SSTORE costs the same state gas.
-    let expected_costs = vec![SLOT_CREATION_STATE_GAS; sstores.len()];
-    let state_gas_cost = |log: &serde_json::Value| -> u64 {
-        log["stateGasCost"]
-            .as_u64()
-            .unwrap_or_else(|| panic!("an SSTORE reports its state gas cost: {log}"))
-    };
-    let costs: Vec<u64> = sstores.iter().map(|log| state_gas_cost(log)).collect();
+    let expected_costs = vec![i64::try_from(SLOT_CREATION_STATE_GAS)?; sstores.len()];
+    let costs: Vec<i64> = sstores.iter().copied().map(state_gas_cost).collect();
     assert_eq!(costs, expected_costs);
 
     Ok(())
@@ -985,7 +1012,7 @@ async fn debug_trace_transaction_reports_gas_dimensions_from_amsterdam() -> anyh
 async fn debug_trace_transaction_call_tracer_reports_gas_dimensions_from_amsterdam(
 ) -> anyhow::Result<()> {
     let provider = new_slot_creator_provider(edr_chain_l1::Hardfork::Amsterdam)?;
-    let transaction_hash = send_slot_creation(&provider)?;
+    let transaction_hash = send_to(&provider, SLOT_CREATOR)?;
 
     let frame = debug_trace(
         &provider,
@@ -1019,11 +1046,10 @@ async fn debug_trace_call_reports_gas_dimensions_from_amsterdam() -> anyhow::Res
 /// none of the EIP-8037 fields are present.
 #[tokio::test(flavor = "multi_thread")]
 async fn debug_trace_omits_gas_dimensions_before_amsterdam() -> anyhow::Result<()> {
-    const FRAME_FIELDS: [&str; 3] = ["executionGasUsed", "stateGasUsed", "gasRefund"];
     const STEP_FIELDS: [&str; 2] = ["stateGasCost", "stateGasReservoir"];
 
     let provider = new_slot_creator_provider(edr_chain_l1::Hardfork::Osaka)?;
-    let transaction_hash = send_slot_creation(&provider)?;
+    let transaction_hash = send_to(&provider, SLOT_CREATOR)?;
 
     let default_trace = debug_trace(
         &provider,
@@ -1040,14 +1066,22 @@ async fn debug_trace_omits_gas_dimensions_before_amsterdam() -> anyhow::Result<(
         &provider,
         MethodInvocation::DebugTraceCall(slot_creation_call(&provider), None, None),
     )?;
+    let call_trace_call_frame = debug_trace(
+        &provider,
+        MethodInvocation::DebugTraceCall(
+            slot_creation_call(&provider),
+            None,
+            Some(GethDebugTracingOptions::call_tracer(CallConfig::default())),
+        ),
+    )?;
 
-    for frame in [&default_trace, &call_frame, &call_trace] {
-        for field in FRAME_FIELDS {
-            assert!(
-                frame.get(field).is_none(),
-                "unexpected `{field}` in {frame}"
-            );
-        }
+    for frame in [
+        &default_trace,
+        &call_frame,
+        &call_trace,
+        &call_trace_call_frame,
+    ] {
+        assert_no_gas_dimensions(frame);
     }
     // The step that creates state is the one that would carry the fields.
     let sstore = default_trace["structLogs"]
@@ -1062,6 +1096,186 @@ async fn debug_trace_omits_gas_dimensions_before_amsterdam() -> anyhow::Result<(
             "unexpected `{field}` in {sstore}"
         );
     }
+
+    Ok(())
+}
+
+/// From Amsterdam, the `stateGasTracer` reports the transaction's gas in both
+/// dimensions.
+#[tokio::test(flavor = "multi_thread")]
+async fn debug_trace_transaction_state_gas_tracer_reports_gas_dimensions_from_amsterdam(
+) -> anyhow::Result<()> {
+    let provider = new_slot_creator_provider(edr_chain_l1::Hardfork::Amsterdam)?;
+    let transaction_hash = send_to(&provider, SLOT_CREATOR)?;
+
+    let trace = debug_trace(
+        &provider,
+        MethodInvocation::DebugTraceTransaction(
+            transaction_hash,
+            Some(GethDebugTracingOptions::state_gas_tracer()),
+        ),
+    )?;
+
+    assert_slot_creation_gas_dimensions(&trace, "gasUsed")?;
+
+    Ok(())
+}
+
+/// Before Amsterdam, the `stateGasTracer` still answers, with no state gas:
+/// all the gas before refunds is execution gas.
+#[tokio::test(flavor = "multi_thread")]
+async fn debug_trace_transaction_state_gas_tracer_reports_no_state_gas_before_amsterdam(
+) -> anyhow::Result<()> {
+    let provider = new_slot_creator_provider(edr_chain_l1::Hardfork::Osaka)?;
+    let transaction_hash = send_to(&provider, SLOT_CREATOR)?;
+
+    let trace = debug_trace(
+        &provider,
+        MethodInvocation::DebugTraceTransaction(
+            transaction_hash,
+            Some(GethDebugTracingOptions::state_gas_tracer()),
+        ),
+    )?;
+
+    let dimensions = gas_dimensions(&trace, "gasUsed")?;
+    assert_eq!(
+        dimensions.state_gas_used, 0,
+        "no state gas before Amsterdam: {trace}"
+    );
+    assert_eq!(
+        dimensions.execution_gas_used,
+        dimensions.gas_used + dimensions.gas_refund,
+        "all the gas before refunds is execution gas before Amsterdam: {trace}"
+    );
+
+    Ok(())
+}
+
+/// Contract writing one fresh slot and clearing it again in the same
+/// transaction.
+const SLOT_RESTORER: Address = address!("0x0000000000000000000000000000000000000f0f");
+
+/// `PUSH1 1; PUSH1 1; SSTORE; PUSH1 0; PUSH1 1; SSTORE`.
+fn slot_restorer_code() -> Bytes {
+    let mut code = BytecodeBuilder::default();
+    code.push1(1).push1(1).opcode(opcode::SSTORE);
+    code.push1(0).push1(1).opcode(opcode::SSTORE);
+    code.opcode(opcode::STOP);
+    code.runtime()
+}
+
+/// Clearing a slot created in the same transaction refills its state gas: the
+/// step reports a negative `stateGasCost`, the transaction's `stateGasUsed`
+/// nets to zero and the clear earns a refund.
+#[tokio::test(flavor = "multi_thread")]
+async fn debug_trace_transaction_reports_state_gas_refill_from_amsterdam() -> anyhow::Result<()> {
+    let provider = new_provider_with_contracts(
+        edr_chain_l1::Hardfork::Amsterdam,
+        [(SLOT_RESTORER, slot_restorer_code())],
+    )?;
+    let transaction_hash = send_to(&provider, SLOT_RESTORER)?;
+
+    let trace = debug_trace(
+        &provider,
+        MethodInvocation::DebugTraceTransaction(transaction_hash, None),
+    )?;
+
+    let slot_creation_state_gas = i64::try_from(SLOT_CREATION_STATE_GAS)?;
+    let state_gas_costs: Vec<i64> = trace["structLogs"]
+        .as_array()
+        .expect("structLogs is an array")
+        .iter()
+        .filter(|log| log["op"] == "SSTORE")
+        .map(state_gas_cost)
+        .collect();
+
+    assert_eq!(
+        state_gas_costs,
+        [slot_creation_state_gas, -slot_creation_state_gas],
+        "creating the slot costs its state gas and clearing it refills it"
+    );
+
+    let dimensions = gas_dimensions(&trace, "gas")?;
+    assert_eq!(
+        dimensions.state_gas_used, 0,
+        "the refill nets the transaction's state gas to zero: {trace}"
+    );
+    assert!(
+        dimensions.gas_refund > 0,
+        "clearing the slot earns a refund: {trace}"
+    );
+
+    Ok(())
+}
+
+/// From Amsterdam, `debug_traceCall` with the `callTracer` reports both
+/// dimensions on the root frame, like `debug_traceTransaction` does.
+#[tokio::test(flavor = "multi_thread")]
+async fn debug_trace_call_call_tracer_reports_gas_dimensions_from_amsterdam() -> anyhow::Result<()>
+{
+    let provider = new_slot_creator_provider(edr_chain_l1::Hardfork::Amsterdam)?;
+
+    let frame = debug_trace(
+        &provider,
+        MethodInvocation::DebugTraceCall(
+            slot_creation_call(&provider),
+            None,
+            Some(GethDebugTracingOptions::call_tracer(CallConfig::default())),
+        ),
+    )?;
+
+    assert_slot_creation_gas_dimensions(&frame, "gasUsed")?;
+
+    Ok(())
+}
+
+/// Contract forwarding all its gas to [`SLOT_CREATOR`] in a nested `CALL`.
+const SLOT_CREATOR_CALLER: Address = address!("0x000000000000000000000000000000000000ca11");
+
+/// `CALL` into [`SLOT_CREATOR`] with all remaining gas, no value and no data.
+fn slot_creator_caller_code() -> Bytes {
+    let mut code = BytecodeBuilder::default();
+    // retSize, retOffset, argsSize, argsOffset, value
+    code.push1(0).push1(0).push1(0).push1(0).push1(0);
+    code.opcode(opcode::PUSH20);
+    for byte in SLOT_CREATOR {
+        code.opcode(byte);
+    }
+    code.opcode(opcode::GAS)
+        .opcode(opcode::CALL)
+        .opcode(opcode::POP);
+    code.opcode(opcode::STOP);
+    code.runtime()
+}
+
+/// The `callTracer` reports the dimensions on the root frame only.
+#[tokio::test(flavor = "multi_thread")]
+async fn call_tracer_reports_gas_dimensions_on_root_frame_only() -> anyhow::Result<()> {
+    let provider = new_provider_with_contracts(
+        edr_chain_l1::Hardfork::Amsterdam,
+        [
+            (SLOT_CREATOR, slot_creator_code()),
+            (SLOT_CREATOR_CALLER, slot_creator_caller_code()),
+        ],
+    )?;
+    let transaction_hash = send_to(&provider, SLOT_CREATOR_CALLER)?;
+
+    let root = debug_trace(
+        &provider,
+        MethodInvocation::DebugTraceTransaction(
+            transaction_hash,
+            Some(GethDebugTracingOptions::call_tracer(CallConfig::default())),
+        ),
+    )?;
+
+    assert_slot_creation_gas_dimensions(&root, "gasUsed")?;
+
+    let child = root["calls"]
+        .as_array()
+        .and_then(|calls| calls.first())
+        .expect("the caller makes a call");
+
+    assert_no_gas_dimensions(child);
 
     Ok(())
 }
