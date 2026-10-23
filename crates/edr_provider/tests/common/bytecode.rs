@@ -1,5 +1,4 @@
 //! Tiny EVM assembler for hand-built test contracts.
-#![cfg(feature = "test-utils")]
 
 pub use edr_primitives::bytecode::opcode;
 use edr_primitives::Bytes;
