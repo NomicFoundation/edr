@@ -1185,7 +1185,7 @@ mod tests {
             // The panic-emitting REVERT for `0x12` (divide by zero).
             let pc = match compiler {
                 Compiler::Solx => 0x26,
-                Compiler::Slang => 0x42,
+                Compiler::Slang => 0x47,
             };
             let inst = instructions
                 .iter()
@@ -1236,7 +1236,7 @@ mod tests {
 
             let pc = match compiler {
                 Compiler::Solx => 0x36,
-                Compiler::Slang => 0x52,
+                Compiler::Slang => 0x57,
             };
             let inst = instructions
                 .iter()

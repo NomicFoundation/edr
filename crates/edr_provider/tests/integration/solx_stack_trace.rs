@@ -72,14 +72,26 @@ enum Compiler {
 }
 
 /// Registers each test once per compiler, as `solx::<test>` and
-/// `slang::<test>`.
+/// `slang::<test>`. Tests after `slang_only:` are registered for slang alone;
+/// tests after `slang_ignored:` are registered for both, with the slang one
+/// ignored for the given reason.
 macro_rules! test_each_compiler {
-    ($($test:ident),* $(,)?) => {
+    (
+        $($test:ident),* $(,)?;
+        slang_only: $($slang_test:ident),* $(,)?;
+        slang_ignored: $($ignored_test:ident = $reason:literal),* $(,)?
+    ) => {
         mod solx {
             $(
                 #[tokio::test(flavor = "multi_thread")]
                 async fn $test() -> anyhow::Result<()> {
                     super::$test(super::Compiler::Solx).await
+                }
+            )*
+            $(
+                #[tokio::test(flavor = "multi_thread")]
+                async fn $ignored_test() -> anyhow::Result<()> {
+                    super::$ignored_test(super::Compiler::Solx).await
                 }
             )*
         }
@@ -89,6 +101,19 @@ macro_rules! test_each_compiler {
                 #[tokio::test(flavor = "multi_thread")]
                 async fn $test() -> anyhow::Result<()> {
                     super::$test(super::Compiler::Slang).await
+                }
+            )*
+            $(
+                #[tokio::test(flavor = "multi_thread")]
+                async fn $slang_test() -> anyhow::Result<()> {
+                    super::$slang_test(super::Compiler::Slang).await
+                }
+            )*
+            $(
+                #[tokio::test(flavor = "multi_thread")]
+                #[ignore = $reason]
+                async fn $ignored_test() -> anyhow::Result<()> {
+                    super::$ignored_test(super::Compiler::Slang).await
                 }
             )*
         }
@@ -278,6 +303,24 @@ fn deploy_stack_trace_scenario(
         from,
         creation_bytes(output, STACK_TRACE_SCENARIOS_SOURCE, contract)?,
     )
+}
+
+fn deploy_linked_stack_trace_scenario(
+    provider: &Provider<L1ChainSpec>,
+    from: Address,
+    output: &CompilerOutput<SolxBytecode>,
+    contract: &str,
+    library: Address,
+) -> anyhow::Result<Address> {
+    let unlinked = &output
+        .contracts
+        .get(STACK_TRACE_SCENARIOS_SOURCE)
+        .and_then(|m| m.get(contract))
+        .with_context(|| format!("fixture missing {contract}"))?
+        .evm
+        .bytecode;
+    let linked = link_library(unlinked, library)?;
+    deploy_contract(provider, from, Bytes::from(hex::decode(&linked)?))
 }
 
 /// Substitutes the deployed library address at every `linkReferences`
@@ -983,16 +1026,8 @@ async fn linked_external_library_revert_points_into_library(
 ) -> anyhow::Result<()> {
     let (provider, from, output) = stack_trace_scenarios_provider(compiler)?;
     let library = deploy_stack_trace_scenario(&provider, from, &output, "ExternalLib")?;
-
-    let unlinked = &output
-        .contracts
-        .get(STACK_TRACE_SCENARIOS_SOURCE)
-        .and_then(|m| m.get("UsesExternalLib"))
-        .context("fixture missing UsesExternalLib")?
-        .evm
-        .bytecode;
-    let linked = link_library(unlinked, library)?;
-    let user = deploy_contract(&provider, from, Bytes::from(hex::decode(&linked)?))?;
+    let user =
+        deploy_linked_stack_trace_scenario(&provider, from, &output, "UsesExternalLib", library)?;
 
     let stack_trace = expect_failed_call_stack_trace(&provider, from, user, call("go()"));
     assert_revert_at_line(&stack_trace, 53, "external lib boom");
@@ -1002,6 +1037,48 @@ async fn linked_external_library_revert_points_into_library(
             "CallstackEntry project/contracts/StackTraceScenarios.sol:59 (UsesExternalLib.go)",
             "RevertError project/contracts/StackTraceScenarios.sol:53 (ExternalLib.fail)",
         ],
+    );
+    Ok(())
+}
+
+/// A library function that writes state checks its own address on entry, so
+/// its deployed code differs from the compiler output wherever that address
+/// sits.
+async fn stateful_external_library_revert_points_into_library(
+    compiler: Compiler,
+) -> anyhow::Result<()> {
+    let (provider, from, output) = stack_trace_scenarios_provider(compiler)?;
+    let library = deploy_stack_trace_scenario(&provider, from, &output, "StatefulLib")?;
+    let user =
+        deploy_linked_stack_trace_scenario(&provider, from, &output, "UsesStatefulLib", library)?;
+
+    let stack_trace = expect_failed_call_stack_trace(&provider, from, user, call("go()"));
+    assert_revert_at_line(&stack_trace, 349, "stateful lib boom");
+    assert_trace_shape(
+        &stack_trace,
+        &[
+            "CallstackEntry project/contracts/StackTraceScenarios.sol:356 (UsesStatefulLib.go)",
+            "RevertError project/contracts/StackTraceScenarios.sol:349 (StatefulLib.hit)",
+        ],
+    );
+    Ok(())
+}
+
+/// The deployed code holds the immutable's value where the compiler output
+/// has zeros. Slang only: solx 0.1.x emits an empty `immutableReferences`.
+async fn immutable_holder_revert_points_at_its_require(compiler: Compiler) -> anyhow::Result<()> {
+    let (provider, from, output) = stack_trace_scenarios_provider(compiler)?;
+    let addr = deploy_stack_trace_scenario(&provider, from, &output, "HoldsImmutable")?;
+    let stack_trace = expect_failed_call_stack_trace(
+        &provider,
+        from,
+        addr,
+        encode_call_u256("check(uint256)", 2),
+    );
+    assert_revert_at_line(&stack_trace, 341, "over limit");
+    assert_trace_shape(
+        &stack_trace,
+        &["RevertError project/contracts/StackTraceScenarios.sol:341 (HoldsImmutable.check)"],
     );
     Ok(())
 }
@@ -1286,6 +1363,11 @@ test_each_compiler!(
     returndata_size_error_surfaces_at_call_site,
     noncontract_account_call_surfaces_as_returndata_size_error,
     mode3_nested_modifier_revert_walks_back_to_the_failing_require,
-    mode3_cross_contract_modifier_revert_keeps_called_function_frame,
     mode3_bare_modifier_revert_recovers_the_failing_function,
+    stateful_external_library_revert_points_into_library;
+    slang_only:
+    immutable_holder_revert_points_at_its_require;
+    slang_ignored:
+    mode3_cross_contract_modifier_revert_keeps_called_function_frame =
+        "slang -O3 output repeats the caller frame (solx #895)",
 );
