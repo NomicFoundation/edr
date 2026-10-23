@@ -3654,6 +3654,192 @@ mod tests {
         Ok(())
     }
 
+    mod nested_storage_read {
+        use edr_chain_l1::rpc::call::L1CallRequest;
+        use edr_chain_spec_evm::TransactionError;
+        use edr_database_components::DatabaseComponentError;
+        use edr_primitives::{address, bytecode::opcode};
+        use edr_runtime::overrides::AccountOverride;
+        use edr_state_api::{account::AccountInfo, State, StateError};
+
+        use super::*;
+        use crate::{
+            observability::{observe_execution, ObservedExecution},
+            requests::eth::resolve_call_request,
+        };
+
+        /// The action named by the injected storage error.
+        const FAILING_READ_ACTION: &str = "read the failing storage slot";
+        const INNER_CONTRACT: Address = address!("0x1111111111111111111111111111111111111111");
+        const OUTER_CONTRACT: Address = address!("0x2222222222222222222222222222222222222222");
+        const FAILING_SLOT_INDEX: u8 = 0;
+        /// Reads the failing slot.
+        const INNER_CODE: [u8; 4] = [
+            opcode::PUSH1,
+            FAILING_SLOT_INDEX,
+            opcode::SLOAD,
+            opcode::STOP,
+        ];
+        /// The return range, argument range and value of the nested call.
+        const ZERO_CALL_ARGUMENT_COUNT: usize = 5;
+        /// The depth of the frame that the outer contract's call enters.
+        const NESTED_CALL_DEPTH: usize = 1;
+
+        /// Calls `INNER_CONTRACT` with all remaining gas, no value and empty
+        /// ranges.
+        fn outer_code() -> Vec<u8> {
+            let mut code = [opcode::PUSH1, 0].repeat(ZERO_CALL_ARGUMENT_COUNT);
+            code.push(opcode::PUSH20);
+            code.extend_from_slice(INNER_CONTRACT.as_slice());
+            code.extend_from_slice(&[opcode::GAS, opcode::CALL, opcode::STOP]);
+            code
+        }
+
+        /// A state whose read of the failing slot at `INNER_CONTRACT` fails
+        /// while `fail_read` is set.
+        struct FailingStorageState<StateT> {
+            inner: StateT,
+            fail_read: bool,
+        }
+
+        impl<StateT: State<Error = StateError>> State for FailingStorageState<StateT> {
+            type Error = StateError;
+
+            fn basic(&self, address: Address) -> Result<Option<AccountInfo>, StateError> {
+                self.inner.basic(address)
+            }
+
+            fn code_by_hash(&self, code_hash: B256) -> Result<Bytecode, StateError> {
+                self.inner.code_by_hash(code_hash)
+            }
+
+            fn storage(&self, address: Address, index: U256) -> Result<U256, StateError> {
+                if self.fail_read
+                    && address == INNER_CONTRACT
+                    && index == U256::from(FAILING_SLOT_INDEX)
+                {
+                    Err(StateError::Unsupported {
+                        action: FAILING_READ_ACTION.to_owned(),
+                        details: None,
+                    })
+                } else {
+                    self.inner.storage(address, index)
+                }
+            }
+        }
+
+        type ObservedCall =
+            ObservedExecution<ExecutionResultWithMetadata<edr_chain_l1::HaltReason>>;
+
+        /// Returns the observed `eth_call` of `OUTER_CONTRACT`, or the error
+        /// that failed it. Replays the path of `run_call_impl` with a state
+        /// whose read of the failing slot fails if `fail_read` is set.
+        fn call_outer_contract(
+            fail_read: bool,
+        ) -> anyhow::Result<Result<ObservedCall, ProviderErrorForChainSpec<L1ChainSpec>>> {
+            let code_override = |code: Vec<u8>| AccountOverride {
+                balance: None,
+                nonce: None,
+                code: Some(Bytecode::new_raw(code.into())),
+                storage: None,
+            };
+            let state_overrides = StateOverrides::new(HashMap::from_iter([
+                (INNER_CONTRACT, code_override(INNER_CODE.to_vec())),
+                (OUTER_CONTRACT, code_override(outer_code())),
+            ]));
+
+            let mut fixture = ProviderTestFixture::<L1ChainSpec>::new_local()?;
+            let data = &mut fixture.provider_data;
+            let block_spec = BlockSpec::latest();
+            let request = L1CallRequest {
+                to: Some(OUTER_CONTRACT),
+                ..L1CallRequest::default()
+            };
+            let transaction = resolve_call_request(data, request, &block_spec, &state_overrides)?;
+            let cfg_env = data.create_evm_config_at_block_spec(&block_spec)?;
+            let observer_config =
+                EvmObserverConfig::new(&data.observability, data.contract_decoder.clone());
+            let custom_precompiles = data.precompile_overrides.clone();
+            let scheduled_blob_params = data.scheduled_blob_params().cloned();
+
+            let result =
+                data.execute_in_block_context(Some(&block_spec), |blockchain, block, state| {
+                    let state = FailingStorageState {
+                        inner: StateRefOverrider::new(&state_overrides, state.as_ref()),
+                        fail_read,
+                    };
+                    observe_execution(&observer_config, |observer| {
+                        let block_env =
+                            <L1ChainSpec as edr_chain_spec::BlockEnvChainSpec>::BlockEnv::new_block_env(
+                                block.block_header(),
+                                cfg_env.spec,
+                                scheduled_blob_params.as_ref(),
+                            );
+                        call::run_call::<L1ChainSpec, _, _, _>(
+                            blockchain,
+                            block_env,
+                            state,
+                            cfg_env,
+                            transaction,
+                            &custom_precompiles,
+                            observer,
+                        )
+                    })
+                })?;
+
+            Ok(result)
+        }
+
+        /// A failed storage read in a nested call makes revm return an error,
+        /// so `eth_call` fails before a call trace is collected.
+        #[test]
+        fn failed_storage_read_in_nested_call_fails_without_call_traces() -> anyhow::Result<()> {
+            let error = match call_outer_contract(true)? {
+                Ok(observed) => panic!(
+                    "the failed storage read should fail the request, got: {:?}",
+                    observed.result()
+                ),
+                Err(error) => error,
+            };
+
+            assert!(
+                matches!(
+                    &error,
+                    ProviderError::RunTransaction(TransactionError::Database(
+                        DatabaseComponentError::State(StateError::Unsupported { action, .. })
+                    )) if action == FAILING_READ_ACTION
+                ),
+                "expected the injected storage error without call traces, got: {error:?}"
+            );
+
+            Ok(())
+        }
+
+        /// Without the failure, the same call succeeds and traces the storage
+        /// read in a nested frame.
+        #[test]
+        fn storage_read_in_nested_call_is_traced_at_depth_one() -> anyhow::Result<()> {
+            let observed = call_outer_contract(false)??;
+            assert!(
+                observed.result().is_success(),
+                "the call should succeed, got: {:?}",
+                observed.result()
+            );
+
+            let has_nested_inner_frame = observed
+                .evm_observed_data
+                .call_trace_arena
+                .nodes()
+                .iter()
+                .any(|node| {
+                    node.trace.address == INNER_CONTRACT && node.trace.depth == NESTED_CALL_DEPTH
+                });
+            assert!(has_nested_inner_frame);
+
+            Ok(())
+        }
+    }
+
     #[test]
     fn console_log_run_call() -> anyhow::Result<()> {
         let mut fixture = ProviderTestFixture::<L1ChainSpec>::new_local()?;
