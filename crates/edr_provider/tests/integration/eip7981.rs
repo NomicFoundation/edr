@@ -14,6 +14,13 @@ use edr_chain_l1::{rpc::TransactionRequest, L1ChainSpec};
 use edr_eip2930::AccessListItem;
 use edr_primitives::{address, Address, Bytes, B256};
 use edr_provider::Provider;
+use revm_primitives::{
+    eip2780::TX_BASE_COST as EIP2780_TX_BASE_COST,
+    eip8038::{
+        ACCESS_LIST_ADDRESS_COST as EIP8038_ACCESS_LIST_ADDRESS_COST,
+        ACCESS_LIST_STORAGE_KEY_COST as EIP8038_ACCESS_LIST_STORAGE_KEY_COST,
+    },
+};
 
 use crate::common::provider::{gas_used, new_provider, send_transaction};
 
@@ -33,18 +40,9 @@ fn assert_transaction_gas_usage(
 
 const TX_BASE_COST: u64 = 21_000;
 
-/// EIP-2780 base cost from Amsterdam onward. The fixtures are self-transfers,
-/// which pay neither the `to`- nor the value-based charge on top of it.
-const EIP2780_TX_BASE_COST: u64 = 12_000;
-
 /// EIP-2930 per-item access list costs, unchanged by EIP-7981.
 const ACCESS_LIST_ADDRESS_COST: u64 = 2_400;
 const ACCESS_LIST_STORAGE_KEY_COST: u64 = 1_900;
-
-/// EIP-8038 per-item access list costs from Amsterdam onward (cold account
-/// and cold storage access less the warm access still charged at first use).
-const EIP8038_ACCESS_LIST_ADDRESS_COST: u64 = 2_900;
-const EIP8038_ACCESS_LIST_STORAGE_KEY_COST: u64 = 2_000;
 
 /// Intrinsic cost of a nonzero calldata byte (EIP-2028).
 const NONZERO_CALLDATA_BYTE_COST: u64 = 16;
