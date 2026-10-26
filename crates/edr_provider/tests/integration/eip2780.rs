@@ -36,17 +36,54 @@ const CONTRACT_ADDRESS: Address = address!("0x0000000000000000000000000000000000
 
 /// Flat intrinsic gas of a transaction before Amsterdam.
 const PRE_AMSTERDAM_INTRINSIC_GAS: u64 = 21_000;
+// The decomposed charges of a value transfer add up to the flat cost they
+// replace.
+const _: () =
+    assert!(TX_BASE_COST + COLD_ACCOUNT_ACCESS + TX_VALUE_COST == PRE_AMSTERDAM_INTRINSIC_GAS);
+/// Flat intrinsic gas of a contract creation before Amsterdam: the
+/// transaction's plus the creation's.
+const PRE_AMSTERDAM_CREATE_INTRINSIC_GAS: u64 = PRE_AMSTERDAM_INTRINSIC_GAS + 32_000;
+/// One zero calldata byte (`4`) plus one EIP-3860 init code word (`2`) of
+/// [`empty_contract_init_code`].
+const INIT_CODE_INTRINSIC_GAS: u64 = 4 + 2;
 
 /// EIP-8037: state gas of a new account.
 const NEW_ACCOUNT_STATE_GAS: u64 = NEW_ACCOUNT_BYTES * CPSB_GLAMSTERDAM;
 
+/// A single `STOP`, which returns no runtime code.
+fn empty_contract_init_code() -> Bytes {
+    let mut code = BytecodeBuilder::default();
+    code.opcode(opcode::STOP);
+    code.runtime()
+}
+
 /// A transfer of `value` from [`SENDER`] to `to`.
-fn transfer(to: Address, value: U256) -> TransactionRequest {
+fn transfer_request(to: Address, value: U256) -> TransactionRequest {
     TransactionRequest {
         from: SENDER,
         to: Some(to),
         value: Some(value),
         ..TransactionRequest::default()
+    }
+}
+
+/// A contract creation by [`SENDER`] sending `value` to the new contract.
+fn create_request(value: U256) -> TransactionRequest {
+    TransactionRequest {
+        from: SENDER,
+        data: Some(empty_contract_init_code()),
+        value: Some(value),
+        ..TransactionRequest::default()
+    }
+}
+
+fn as_call_request(request: &TransactionRequest) -> L1CallRequest {
+    L1CallRequest {
+        from: Some(request.from),
+        to: request.to,
+        value: request.value,
+        data: request.data.clone(),
+        ..L1CallRequest::default()
     }
 }
 
@@ -62,7 +99,7 @@ fn gas_used_by_sending(
 
 #[tokio::test(flavor = "multi_thread")]
 async fn self_transfer_pays_only_the_base_cost_from_amsterdam() -> anyhow::Result<()> {
-    let request = transfer(SENDER, U256::from(1));
+    let request = transfer_request(SENDER, U256::from(1));
 
     let osaka_provider = new_provider(edr_chain_l1::Hardfork::Osaka)?;
     assert_eq!(
@@ -83,7 +120,7 @@ async fn self_transfer_pays_only_the_base_cost_from_amsterdam() -> anyhow::Resul
 #[tokio::test(flavor = "multi_thread")]
 async fn zero_value_call_pays_base_cost_and_recipient_access_from_amsterdam() -> anyhow::Result<()>
 {
-    let request = transfer(RECIPIENT, U256::ZERO);
+    let request = transfer_request(RECIPIENT, U256::ZERO);
 
     let osaka_provider = new_provider(edr_chain_l1::Hardfork::Osaka)?;
     assert_eq!(
@@ -103,7 +140,7 @@ async fn zero_value_call_pays_base_cost_and_recipient_access_from_amsterdam() ->
 #[tokio::test(flavor = "multi_thread")]
 async fn value_transfer_pays_base_cost_recipient_access_and_value_charge_from_amsterdam(
 ) -> anyhow::Result<()> {
-    let request = transfer(RECIPIENT, U256::from(1));
+    let request = transfer_request(RECIPIENT, U256::from(1));
 
     let osaka_provider = new_provider(edr_chain_l1::Hardfork::Osaka)?;
     // The first transfer creates the recipient; pre-Amsterdam that costs nothing
@@ -124,11 +161,38 @@ async fn value_transfer_pays_base_cost_recipient_access_and_value_charge_from_am
         gas_used_by_sending(&amsterdam_provider, request.clone())?,
         TX_BASE_COST + COLD_ACCOUNT_ACCESS + TX_VALUE_COST + NEW_ACCOUNT_STATE_GAS
     );
-    // To an existing account, the decomposed charges add up to the flat
-    // pre-Amsterdam cost.
+    // To an existing account, only the decomposed charges are paid.
     assert_eq!(
         gas_used_by_sending(&amsterdam_provider, request)?,
         TX_BASE_COST + COLD_ACCOUNT_ACCESS + TX_VALUE_COST
+    );
+
+    Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn create_pays_base_cost_and_creation_access_regardless_of_value_from_amsterdam(
+) -> anyhow::Result<()> {
+    let request = create_request(U256::from(1));
+
+    let osaka_provider = new_provider(edr_chain_l1::Hardfork::Osaka)?;
+    assert_eq!(
+        gas_used_by_sending(&osaka_provider, request.clone())?,
+        PRE_AMSTERDAM_CREATE_INTRINSIC_GAS + INIT_CODE_INTRINSIC_GAS
+    );
+
+    let amsterdam_provider = new_provider(edr_chain_l1::Hardfork::Amsterdam)?;
+    // The new contract's EIP-8037 state gas is charged on top.
+    let with_value = gas_used_by_sending(&amsterdam_provider, request)?;
+    assert_eq!(
+        with_value,
+        TX_BASE_COST + CREATE_ACCESS + INIT_CODE_INTRINSIC_GAS + NEW_ACCOUNT_STATE_GAS
+    );
+    // With no `TX_VALUE_COST` term, unlike a call with value, a creation
+    // without value costs the same.
+    assert_eq!(
+        gas_used_by_sending(&amsterdam_provider, create_request(U256::ZERO))?,
+        with_value
     );
 
     Ok(())
@@ -232,28 +296,80 @@ async fn transaction_funding_only_the_intrinsic_gas_is_included_and_halts_from_a
     Ok(())
 }
 
+#[tokio::test(flavor = "multi_thread")]
+async fn estimate_gas_of_a_value_transfer_keeps_the_flat_cost_from_amsterdam() -> anyhow::Result<()>
+{
+    let request = as_call_request(&transfer_request(RECIPIENT, U256::from(1)));
+
+    let osaka_provider = new_provider(edr_chain_l1::Hardfork::Osaka)?;
+    // `eth_estimateGas` never returns less than the intrinsic cost plus one.
+    assert_eq!(
+        estimate_gas(&osaka_provider, request.clone()),
+        PRE_AMSTERDAM_INTRINSIC_GAS + 1
+    );
+
+    let amsterdam_provider = new_provider(edr_chain_l1::Hardfork::Amsterdam)?;
+    // Creating the recipient costs state gas, which lifts the estimate above
+    // that minimum.
+    assert_eq!(
+        estimate_gas(&amsterdam_provider, request.clone()),
+        PRE_AMSTERDAM_INTRINSIC_GAS + NEW_ACCOUNT_STATE_GAS
+    );
+
+    // Once the recipient exists, only the intrinsic gas remains.
+    send_transaction(
+        &amsterdam_provider,
+        transfer_request(RECIPIENT, U256::from(1)),
+    )?;
+    assert_eq!(
+        estimate_gas(&amsterdam_provider, request),
+        PRE_AMSTERDAM_INTRINSIC_GAS + 1
+    );
+
+    Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn estimate_gas_of_a_plain_transfer_pays_only_the_reduced_intrinsic_cost_from_amsterdam(
+) -> anyhow::Result<()> {
+    let osaka_provider = new_provider(edr_chain_l1::Hardfork::Osaka)?;
+    let amsterdam_provider = new_provider(edr_chain_l1::Hardfork::Amsterdam)?;
+
+    // A transfer runs no code, so its estimate is the floor: the intrinsic
+    // cost plus one. A self-transfer's is the base cost alone.
+    let self_transfer = as_call_request(&transfer_request(SENDER, U256::from(1)));
+    assert_eq!(
+        estimate_gas(&osaka_provider, self_transfer.clone()),
+        PRE_AMSTERDAM_INTRINSIC_GAS + 1
+    );
+    assert_eq!(
+        estimate_gas(&amsterdam_provider, self_transfer),
+        TX_BASE_COST + 1
+    );
+
+    // The base cost plus the recipient's cold access, without a value charge.
+    let zero_value_call = as_call_request(&transfer_request(RECIPIENT, U256::ZERO));
+    assert_eq!(
+        estimate_gas(&osaka_provider, zero_value_call.clone()),
+        PRE_AMSTERDAM_INTRINSIC_GAS + 1
+    );
+    assert_eq!(
+        estimate_gas(&amsterdam_provider, zero_value_call),
+        TX_BASE_COST + COLD_ACCOUNT_ACCESS + 1
+    );
+
+    Ok(())
+}
+
 // The estimate must clear the Amsterdam create intrinsic cost, not the flat
 // pre-Amsterdam one, and fund the state gas of the new contract account.
 #[tokio::test(flavor = "multi_thread")]
 async fn estimate_gas_covers_a_contract_creation_from_amsterdam() -> anyhow::Result<()> {
-    /// `STOP`: deploys an empty contract.
-    fn init_code() -> Bytes {
-        let mut code = BytecodeBuilder::default();
-        code.opcode(opcode::STOP);
-        code.runtime()
-    }
-    /// One zero calldata byte (`4`) plus one EIP-3860 init code word (`2`).
-    const INIT_CODE_INTRINSIC_GAS: u64 = 4 + 2;
-
     let amsterdam_provider = new_provider(edr_chain_l1::Hardfork::Amsterdam)?;
 
     let estimate = estimate_gas(
         &amsterdam_provider,
-        L1CallRequest {
-            from: Some(SENDER),
-            data: Some(init_code()),
-            ..L1CallRequest::default()
-        },
+        as_call_request(&create_request(U256::ZERO)),
     );
     assert_eq!(
         estimate,
@@ -264,10 +380,8 @@ async fn estimate_gas_covers_a_contract_creation_from_amsterdam() -> anyhow::Res
     let transaction_hash = send_transaction(
         &amsterdam_provider,
         TransactionRequest {
-            from: SENDER,
-            data: Some(init_code()),
             gas: Some(estimate),
-            ..TransactionRequest::default()
+            ..create_request(U256::ZERO)
         },
     )?;
     let receipt = transaction_receipt(&amsterdam_provider, transaction_hash)?;
