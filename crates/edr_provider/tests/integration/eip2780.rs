@@ -170,8 +170,8 @@ async fn value_transfer_pays_base_cost_recipient_access_and_value_charge_from_am
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn create_with_value_pays_base_cost_and_creation_access_from_amsterdam() -> anyhow::Result<()>
-{
+async fn create_pays_base_cost_and_creation_access_regardless_of_value_from_amsterdam(
+) -> anyhow::Result<()> {
     let request = create_request(U256::from(1));
 
     let osaka_provider = new_provider(edr_chain_l1::Hardfork::Osaka)?;
@@ -181,11 +181,17 @@ async fn create_with_value_pays_base_cost_and_creation_access_from_amsterdam() -
     );
 
     let amsterdam_provider = new_provider(edr_chain_l1::Hardfork::Amsterdam)?;
-    // No `TX_VALUE_COST` term, unlike a call with value; the new contract's
-    // EIP-8037 state gas is charged on top.
+    // The new contract's EIP-8037 state gas is charged on top.
+    let with_value = gas_used_by_sending(&amsterdam_provider, request)?;
     assert_eq!(
-        gas_used_by_sending(&amsterdam_provider, request)?,
+        with_value,
         TX_BASE_COST + CREATE_ACCESS + INIT_CODE_INTRINSIC_GAS + NEW_ACCOUNT_STATE_GAS
+    );
+    // With no `TX_VALUE_COST` term, unlike a call with value, a creation
+    // without value costs the same.
+    assert_eq!(
+        gas_used_by_sending(&amsterdam_provider, create_request(U256::ZERO))?,
+        with_value
     );
 
     Ok(())
