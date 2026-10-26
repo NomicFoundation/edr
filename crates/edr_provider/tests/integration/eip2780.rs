@@ -35,6 +35,10 @@ const CONTRACT_ADDRESS: Address = address!("0x0000000000000000000000000000000000
 
 /// Flat intrinsic gas of a transaction before Amsterdam.
 const PRE_AMSTERDAM_INTRINSIC_GAS: u64 = 21_000;
+// The decomposed charges of a value transfer add up to the flat cost they
+// replace.
+const _: () =
+    assert!(TX_BASE_COST + COLD_ACCOUNT_ACCESS + TX_VALUE_COST == PRE_AMSTERDAM_INTRINSIC_GAS);
 /// Flat intrinsic gas of a contract creation before Amsterdam: the
 /// transaction's plus the creation's.
 const PRE_AMSTERDAM_CREATE_INTRINSIC_GAS: u64 = PRE_AMSTERDAM_INTRINSIC_GAS + 32_000;
@@ -69,6 +73,16 @@ fn create_request(value: U256) -> TransactionRequest {
         data: Some(empty_contract_init_code()),
         value: Some(value),
         ..TransactionRequest::default()
+    }
+}
+
+fn as_call_request(request: &TransactionRequest) -> L1CallRequest {
+    L1CallRequest {
+        from: Some(request.from),
+        to: request.to,
+        value: request.value,
+        data: request.data.clone(),
+        ..L1CallRequest::default()
     }
 }
 
@@ -155,18 +169,6 @@ async fn value_transfer_pays_base_cost_recipient_access_and_value_charge_from_am
     Ok(())
 }
 
-// The decomposed charges of a value transfer add up to the flat cost they
-// replace.
-#[test]
-fn value_transfer_charges_add_up_to_the_flat_pre_amsterdam_cost() {
-    assert_eq!(
-        TX_BASE_COST + COLD_ACCOUNT_ACCESS + TX_VALUE_COST,
-        PRE_AMSTERDAM_INTRINSIC_GAS
-    );
-}
-
-// Unlike a call, a creation with value pays no value charge: the sum has no
-// `TX_VALUE_COST` term.
 #[tokio::test(flavor = "multi_thread")]
 async fn create_with_value_pays_base_cost_and_creation_access_from_amsterdam() -> anyhow::Result<()>
 {
@@ -179,7 +181,8 @@ async fn create_with_value_pays_base_cost_and_creation_access_from_amsterdam() -
     );
 
     let amsterdam_provider = new_provider(edr_chain_l1::Hardfork::Amsterdam)?;
-    // The new contract's EIP-8037 state gas is charged on top.
+    // No `TX_VALUE_COST` term, unlike a call with value; the new contract's
+    // EIP-8037 state gas is charged on top.
     assert_eq!(
         gas_used_by_sending(&amsterdam_provider, request)?,
         TX_BASE_COST + CREATE_ACCESS + INIT_CODE_INTRINSIC_GAS + NEW_ACCOUNT_STATE_GAS
@@ -286,17 +289,10 @@ async fn transaction_funding_only_the_intrinsic_gas_is_included_and_halts_from_a
     Ok(())
 }
 
-// Amsterdam does not change the estimate of a value transfer, except for the
-// recipient's state gas while the transfer creates it.
 #[tokio::test(flavor = "multi_thread")]
 async fn estimate_gas_of_a_value_transfer_keeps_the_flat_cost_from_amsterdam() -> anyhow::Result<()>
 {
-    let request = L1CallRequest {
-        from: Some(SENDER),
-        to: Some(RECIPIENT),
-        value: Some(U256::from(1)),
-        ..L1CallRequest::default()
-    };
+    let request = as_call_request(&transfer_request(RECIPIENT, U256::from(1)));
 
     let osaka_provider = new_provider(edr_chain_l1::Hardfork::Osaka)?;
     // `eth_estimateGas` never returns less than the intrinsic cost plus one.
@@ -326,6 +322,38 @@ async fn estimate_gas_of_a_value_transfer_keeps_the_flat_cost_from_amsterdam() -
     Ok(())
 }
 
+#[tokio::test(flavor = "multi_thread")]
+async fn estimate_gas_of_a_plain_transfer_pays_only_the_reduced_intrinsic_cost_from_amsterdam(
+) -> anyhow::Result<()> {
+    let osaka_provider = new_provider(edr_chain_l1::Hardfork::Osaka)?;
+    let amsterdam_provider = new_provider(edr_chain_l1::Hardfork::Amsterdam)?;
+
+    // A transfer runs no code, so its estimate is the floor: the intrinsic
+    // cost plus one. A self-transfer's is the base cost alone.
+    let self_transfer = as_call_request(&transfer_request(SENDER, U256::from(1)));
+    assert_eq!(
+        estimate_gas(&osaka_provider, self_transfer.clone()),
+        PRE_AMSTERDAM_INTRINSIC_GAS + 1
+    );
+    assert_eq!(
+        estimate_gas(&amsterdam_provider, self_transfer),
+        TX_BASE_COST + 1
+    );
+
+    // The base cost plus the recipient's cold access, without a value charge.
+    let zero_value_call = as_call_request(&transfer_request(RECIPIENT, U256::ZERO));
+    assert_eq!(
+        estimate_gas(&osaka_provider, zero_value_call.clone()),
+        PRE_AMSTERDAM_INTRINSIC_GAS + 1
+    );
+    assert_eq!(
+        estimate_gas(&amsterdam_provider, zero_value_call),
+        TX_BASE_COST + COLD_ACCOUNT_ACCESS + 1
+    );
+
+    Ok(())
+}
+
 // The estimate must clear the Amsterdam create intrinsic cost, not the flat
 // pre-Amsterdam one, and fund the state gas of the new contract account.
 #[tokio::test(flavor = "multi_thread")]
@@ -334,11 +362,7 @@ async fn estimate_gas_covers_a_contract_creation_from_amsterdam() -> anyhow::Res
 
     let estimate = estimate_gas(
         &amsterdam_provider,
-        L1CallRequest {
-            from: Some(SENDER),
-            data: Some(empty_contract_init_code()),
-            ..L1CallRequest::default()
-        },
+        as_call_request(&create_request(U256::ZERO)),
     );
     assert_eq!(
         estimate,
