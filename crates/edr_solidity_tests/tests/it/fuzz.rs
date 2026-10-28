@@ -1,6 +1,6 @@
 //! Fuzz tests.
 
-use std::{collections::BTreeMap, num::NonZeroU32};
+use std::{collections::BTreeMap, num::NonZeroU32, time::Duration};
 
 use alloy_json_abi::Function;
 use alloy_primitives::{Bytes, Selector, U256};
@@ -636,20 +636,33 @@ async fn test_fuzz_failure_logs_without_show_logs() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_fuzz_timeout() {
+    const RUNS: u32 = 100_000;
+
     let filter = SolidityTestFilter::new(".*", ".*", ".*fuzz/FuzzTimeout.t.sol");
     let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
-    // Disable the reject limit so that the test can only end by timing out.
+    // Disable the reject limit and request more runs than fit in the timeout,
+    // so that the test can only end by timing out.
     config.fuzz.max_test_rejects = 0;
+    config.fuzz.runs = RUNS;
     config.fuzz.timeout = Some(1u32);
     let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;
     let results = runner.test_collect(filter).await.suite_results;
 
-    assert_multiple(
-        &results,
-        BTreeMap::from([(
-            "default/fuzz/FuzzTimeout.t.sol:FuzzTimeoutTest",
-            vec![("test_fuzz_bound(uint256)", true, None, None, None)],
-        )]),
+    let result = results
+        .get("default/fuzz/FuzzTimeout.t.sol:FuzzTimeoutTest")
+        .unwrap()
+        .test_results
+        .get("test_fuzz_bound(uint256)")
+        .unwrap();
+    assert_eq!(result.status, TestStatus::Success, "{:?}", result.reason);
+    let TestKind::Fuzz { runs, .. } = result.kind else {
+        panic!("not a fuzz test: {:?}", result.kind);
+    };
+    assert!(runs < RUNS as usize, "{runs}");
+    assert!(
+        result.duration >= Duration::from_secs(1),
+        "{:?}",
+        result.duration
     );
 }
 
