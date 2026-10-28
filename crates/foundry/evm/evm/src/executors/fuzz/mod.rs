@@ -5,7 +5,6 @@ use std::{
         atomic::{AtomicU32, Ordering},
         OnceLock,
     },
-    time::{SystemTime, UNIX_EPOCH},
 };
 
 use alloy_dyn_abi::JsonAbiExt;
@@ -96,10 +95,10 @@ struct WorkerState<
     failure: Option<TestCaseError>,
     /// Fuzz run that produced the failure.
     failure_run: Option<FuzzRunMetadata>,
-    /// Last run timestamp in milliseconds.
+    /// Global run number of this worker's last run.
     ///
     /// Used to identify which worker ran last and collect its traces.
-    last_run_timestamp: u128,
+    last_run: u32,
 }
 
 impl<
@@ -401,8 +400,6 @@ impl<
         }
 
         let mut worker = WorkerState::new(WORKER_ID);
-        worker.last_run_timestamp = unix_timestamp_millis();
-
         // Reseed `vm.random*` as in the run that produced the counterexample.
         // Counterexamples persisted before the run was recorded fall back to
         // the first run of the first worker under the configured seed.
@@ -424,7 +421,7 @@ impl<
                 exit_reason: status,
                 counterexample: outcome,
             })) => {
-                shared_state.increment_runs();
+                worker.last_run = shared_state.increment_runs();
                 worker.runs += 1;
 
                 let reason = rd.maybe_decode(&outcome.call.result, status);
@@ -536,10 +533,10 @@ impl<
                     "worker runs were not distributed correctly"
                 );
                 worker.runs += 1;
+                worker.last_run = total_runs;
                 total_runs
             };
 
-            worker.last_run_timestamp = unix_timestamp_millis();
             let failure_run = self.config.seed.map(|seed| {
                 FuzzRunMetadata::new(
                     Some(seed),
@@ -658,7 +655,7 @@ impl<
         let last_run_worker_idx = workers
             .iter()
             .enumerate()
-            .max_by_key(|(_, worker)| worker.last_run_timestamp)
+            .max_by_key(|(_, worker)| worker.last_run)
             .map_or(0, |(idx, _)| idx);
 
         let failed_worker_id = shared_state.failed_worker_id.get().copied();
@@ -837,13 +834,6 @@ impl<
             }))
         }
     }
-}
-
-/// Milliseconds since the UNIX epoch; `0` if the clock is before the epoch.
-fn unix_timestamp_millis() -> u128 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map_or(0, |elapsed| elapsed.as_millis())
 }
 
 /// Determines the number of workers a fuzz test with `runs` runs is split
