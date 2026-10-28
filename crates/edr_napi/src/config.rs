@@ -254,6 +254,27 @@ impl TryFrom<LocalConfig> for edr_provider::config::Local {
     }
 }
 
+/// How much of the stack each step of a raw trace records.
+#[napi]
+pub enum StackSnapshotType {
+    /// No stack entries.
+    None,
+    /// The full stack.
+    Full,
+    /// Only the top entry of the stack.
+    Top,
+}
+
+impl From<StackSnapshotType> for edr_provider::observability::StackSnapshotType {
+    fn from(value: StackSnapshotType) -> Self {
+        match value {
+            StackSnapshotType::None => Self::None,
+            StackSnapshotType::Full => Self::Full,
+            StackSnapshotType::Top => Self::Top,
+        }
+    }
+}
+
 /// Configuration for runtime observability.
 #[napi(object)]
 pub struct ObservabilityConfig<'env> {
@@ -266,6 +287,13 @@ pub struct ObservabilityConfig<'env> {
     ///
     /// Defaults to `IncludeTraces.None`.
     pub include_call_traces: Option<IncludeTraces>,
+    /// How much of the stack each step of `Response.traces()` records.
+    ///
+    /// This will be overridden if `Provider.setVerboseTracing(true)` is called,
+    /// which records the full stack until it is disabled again.
+    ///
+    /// Defaults to `StackSnapshotType.None`.
+    pub record_stack: Option<StackSnapshotType>,
 }
 
 /// Configuration for a provider.
@@ -292,9 +320,23 @@ pub struct ProviderConfig<'env> {
     pub chain_id: BigInt,
     /// The address of the coinbase
     pub coinbase: Uint8Array,
-    /// The default transaction gas limit to use for RPC call and transaction
-    /// requests that do not specify a `gas` value.
-    pub default_transaction_gas_limit: BigInt,
+    /// The gas limit of RPC call and transaction requests that do not specify
+    /// a `gas` value.
+    ///
+    /// When set, it is used as is. Creating the provider fails when it exceeds
+    /// the transaction gas bound of the configured hardfork and transaction gas
+    /// cap. A request at a block whose bound is lower fails like a request with
+    /// an explicit `gas` above that bound.
+    ///
+    /// When not set, it is derived from the hardfork of the request's block.
+    /// It is `2^32 - 1` from Amsterdam ([EIP-8037]), `2^24` from Osaka
+    /// ([EIP-7825]), and the block gas limit before. The block gas limit caps
+    /// each of these. Before Amsterdam, a configured `transactionGasCap`
+    /// replaces the hardfork's bound.
+    ///
+    /// [EIP-7825]: https://eips.ethereum.org/EIPS/eip-7825
+    /// [EIP-8037]: https://eips.ethereum.org/EIPS/eip-8037
+    pub default_transaction_gas_limit: Option<BigInt>,
     /// The gas estimation mode to use for `eth_estimateGas`. Defaults to
     /// `GasEstimationMode::TopLevelSuccess` if not set.
     pub gas_estimation_mode: Option<GasEstimationMode>,
@@ -656,6 +698,9 @@ impl ObservabilityConfig<'_> {
             ),
             on_collected_coverage_fn,
             on_collected_gas_report_fn,
+            record_stack: self
+                .record_stack
+                .map_or(default_config.record_stack, Into::into),
             verbose_raw_tracing: default_config.verbose_raw_tracing,
         })
     }
@@ -729,16 +774,19 @@ impl ProviderConfig<'_> {
             base_fee_params,
             chain_id: self.chain_id.try_cast()?,
             coinbase: self.coinbase.try_cast()?,
-            default_transaction_gas_limit: self.default_transaction_gas_limit.try_cast().and_then(
-                |default_transaction_gas_limit| {
-                    NonZeroU64::new(default_transaction_gas_limit).ok_or_else(|| {
-                        napi::Error::new(
-                            napi::Status::GenericFailure,
-                            "Default transaction gas limit must not be zero",
-                        )
+            default_transaction_gas_limit: self
+                .default_transaction_gas_limit
+                .map(|limit| {
+                    limit.try_cast().and_then(|limit: u64| {
+                        NonZeroU64::new(limit).ok_or_else(|| {
+                            napi::Error::new(
+                                napi::Status::GenericFailure,
+                                "Default transaction gas limit must not be zero",
+                            )
+                        })
                     })
-                },
-            )?,
+                })
+                .transpose()?,
             gas_estimation_mode: self.gas_estimation_mode.map(Into::into),
             genesis_state,
             hardfork: self.hardfork,

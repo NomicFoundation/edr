@@ -18,7 +18,6 @@ edr_common.workspace = true
 edr_decoder_revert.workspace = true
 edr_defaults.workspace = true
 edr_primitives.workspace = true
-edr_tracing.workspace = true
 foundry-compilers.workspace = true
 foundry-evm-core.workspace = true
 foundry-evm-traces.workspace = true
@@ -41,6 +40,7 @@ itertools = "0.15.0"
 
 [dev-dependencies]
 criterion = "0.8"
+gungraun = "0.19.4"
 
 [features]
 tracing = ["edr_chain_spec_evm/tracing"]
@@ -48,6 +48,17 @@ tracing = ["edr_chain_spec_evm/tracing"]
 [[bench]]
 name = "contracts_identifier"
 harness = false
+
+[[bench]]
+name = "dwarf_decode"
+harness = false
+
+# Needs valgrind and gungraun-runner, so `--all-targets` must skip it; run it
+# with `--bench solx_build_info`.
+[[bench]]
+name = "solx_build_info"
+harness = false
+bench = false
 
 [lints]
 workspace = true

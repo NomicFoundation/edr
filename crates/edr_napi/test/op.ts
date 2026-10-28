@@ -1,6 +1,7 @@
 import { toBytes } from "@nomicfoundation/ethereumjs-util";
 import chai, { assert } from "chai";
 import chaiAsPromised from "chai-as-promised";
+import { Interface } from "ethers";
 
 import {
   AccountOverride,
@@ -11,11 +12,14 @@ import {
   l1HardforkToString,
   l1ProviderFactory,
   MineOrdering,
+  Provider,
   SubscriptionEvent,
   // HACK: There is no way to exclude tsc type checking for a file from the
   // CLI, so we ignore the error here to allow `pnpm testNoBuild` to pass.
   // @ts-ignore op exports are absent in the testNoBuild build
   OP_CHAIN_TYPE,
+  // @ts-ignore op exports are absent in the testNoBuild build
+  OpHardfork,
   // @ts-ignore op exports are absent in the testNoBuild build
   opGenesisState,
   // @ts-ignore op exports are absent in the testNoBuild build
@@ -32,10 +36,32 @@ import {
 } from "..";
 import {
   ALCHEMY_URL,
+  DEFAULT_GENESIS_ADDRESS,
   loadContract,
   runAllSolidityTests,
   toBuffer,
+  transactionGasLimitWithoutGas,
 } from "./helpers";
+
+const L1_BLOCK_ADDRESS = "0x4200000000000000000000000000000000000015";
+const L1_BLOCK_INTERFACE = new Interface([
+  "function number() view returns (uint64)",
+  "function timestamp() view returns (uint64)",
+  "function basefee() view returns (uint256)",
+  "function blobBaseFee() view returns (uint256)",
+  "function sequenceNumber() view returns (uint64)",
+  "function blobBaseFeeScalar() view returns (uint32)",
+  "function baseFeeScalar() view returns (uint32)",
+]);
+const GAS_PRICE_ORACLE_ADDRESS = "0x420000000000000000000000000000000000000F";
+const GAS_PRICE_ORACLE_INTERFACE = new Interface([
+  "function isEcotone() view returns (bool)",
+  "function isFjord() view returns (bool)",
+  "function isIsthmus() view returns (bool)",
+]);
+// The scalars written to L1Block's slot 3 by the OP genesis state.
+const L1_BLOCK_BASE_FEE_SCALAR = 5227n;
+const L1_BLOCK_BLOB_BASE_FEE_SCALAR = 1014213n;
 
 chai.use(chaiAsPromised);
 
@@ -69,7 +95,6 @@ describe("Multi-chain", () => {
     coinbase: new Uint8Array(
       Buffer.from("0000000000000000000000000000000000000000", "hex")
     ),
-    defaultTransactionGasLimit: 300_000_000n,
     genesisState,
     hardfork: opHardforkToString(opLatestHardfork()),
     initialParentBeaconBlockRoot: new Uint8Array(
@@ -205,14 +230,70 @@ describe("Multi-chain", () => {
       await assert.isFulfilled(block);
     });
 
+    it("uses the block gas limit for a transaction without `gas` when defaultTransactionGasLimit is omitted", async function () {
+      // Pre-Osaka, so no transaction gas cap applies.
+      const hardfork = OpHardfork.Isthmus;
+      const provider = await context.createProvider(
+        OP_CHAIN_TYPE,
+        {
+          ...providerConfig,
+          defaultTransactionGasLimit: undefined,
+          hardfork: opHardforkToString(hardfork),
+          genesisState: providerConfig.genesisState.concat(
+            opGenesisState(hardfork)
+          ),
+        },
+        loggerConfig,
+        {
+          subscriptionCallback: (_event: SubscriptionEvent) => {},
+        },
+        new ContractDecoder()
+      );
+
+      assert.equal(
+        await transactionGasLimitWithoutGas(provider),
+        providerConfig.mining.blockGasLimit
+      );
+    });
+
     describe("Predeploys", () => {
-      it("should have the GasPriceOracle predeploy", async function () {
-        const provider = await context.createProvider(
+      // Slot 0 of GasPriceOracle packs the `isEcotone`, `isFjord` and
+      // `isIsthmus` bools; each hardfork's bytecode only has the getters up to
+      // its own flag.
+      it("should set the GasPriceOracle hardfork flags", async function () {
+        const flagsByHardfork: Array<[string, string[]]> = [
+          ["ecotone", ["isEcotone"]],
+          ["fjord", ["isEcotone", "isFjord"]],
+          ["isthmus", ["isEcotone", "isFjord", "isIsthmus"]],
+        ];
+
+        for (const [hardfork, flags] of flagsByHardfork) {
+          const provider = await createOpProvider(hardfork);
+
+          for (const flag of flags) {
+            const result = await request(provider, "eth_call", [
+              {
+                to: GAS_PRICE_ORACLE_ADDRESS,
+                data: GAS_PRICE_ORACLE_INTERFACE.encodeFunctionData(flag),
+              },
+            ]);
+            const [value] = GAS_PRICE_ORACLE_INTERFACE.decodeFunctionResult(
+              flag,
+              result
+            );
+            assert.isTrue(value, `${flag}() at ${hardfork}`);
+          }
+        }
+      });
+
+      function createOpProvider(hardfork = providerConfig.hardfork) {
+        return context.createProvider(
           OP_CHAIN_TYPE,
           {
             ...providerConfig,
+            hardfork,
             genesisState: providerConfig.genesisState.concat(
-              opGenesisState(opHardforkFromString(providerConfig.hardfork))
+              opGenesisState(opHardforkFromString(hardfork))
             ),
           },
           loggerConfig,
@@ -221,63 +302,75 @@ describe("Multi-chain", () => {
           },
           new ContractDecoder()
         );
+      }
 
+      async function request(
+        provider: Provider,
+        method: string,
+        params: any[]
+      ): Promise<any> {
         const response = await provider.handleRequest(
-          JSON.stringify({
-            id: 1,
-            jsonrpc: "2.0",
-            method: "eth_call",
-            params: [
-              {
-                to: "0x420000000000000000000000000000000000000F",
-                data: "0x960e3a23", // isFjord()
-              },
-            ],
-          })
+          JSON.stringify({ id: 1, jsonrpc: "2.0", method, params })
         );
-        const responseData = JSON.parse(response.data);
+        return JSON.parse(response.data).result;
+      }
 
+      // Reading every initialized slot of L1Block through its getters checks
+      // the genesis storage against the layout the bytecode expects. Slot 0
+      // packs `number` and `timestamp` (uint64); slot 3 packs `sequenceNumber`
+      // (uint64), `blobBaseFeeScalar` (uint32) and `baseFeeScalar` (uint32).
+      it("should initialize the L1Block storage in the contract's layout", async function () {
+        const provider = await createOpProvider();
+
+        const callGetter = async (name: string): Promise<bigint> => {
+          const result = await request(provider, "eth_call", [
+            {
+              to: L1_BLOCK_ADDRESS,
+              data: L1_BLOCK_INTERFACE.encodeFunctionData(name),
+            },
+          ]);
+          const [value] = L1_BLOCK_INTERFACE.decodeFunctionResult(name, result);
+          return value;
+        };
+
+        assert.equal(await callGetter("number"), 1n);
+        assert.equal(await callGetter("timestamp"), 1n);
+        assert.equal(await callGetter("basefee"), 10_000_000_000n); // 10 gwei
+        assert.equal(await callGetter("blobBaseFee"), 10_000_000_000n); // 10 gwei
+        assert.equal(await callGetter("sequenceNumber"), 0n);
         assert.equal(
-          responseData.result,
-          "0x0000000000000000000000000000000000000000000000000000000000000001"
+          await callGetter("blobBaseFeeScalar"),
+          L1_BLOCK_BLOB_BASE_FEE_SCALAR
+        );
+        assert.equal(
+          await callGetter("baseFeeScalar"),
+          L1_BLOCK_BASE_FEE_SCALAR
         );
       });
 
-      it("should have the L1Block predeploy", async function () {
-        const provider = await context.createProvider(
-          OP_CHAIN_TYPE,
-          {
-            ...providerConfig,
-            genesisState: providerConfig.genesisState.concat(
-              opGenesisState(opHardforkFromString(providerConfig.hardfork))
-            ),
-          },
-          loggerConfig,
-          {
-            subscriptionCallback: (_event: SubscriptionEvent) => {},
-          },
-          new ContractDecoder()
-        );
+      it("should charge the L1 data fee with the genesis L1Block scalars", async function () {
+        const provider = await createOpProvider();
 
-        const response = await provider.handleRequest(
-          JSON.stringify({
-            id: 1,
-            jsonrpc: "2.0",
-            method: "eth_call",
-            params: [
-              {
-                to: "0x4200000000000000000000000000000000000015",
-                data: "0x5cf24969", // basefee()
-              },
-            ],
-          })
-        );
-        const responseData = JSON.parse(response.data);
+        // Receipts only carry L1 block info for typed (non-legacy)
+        // transactions, so leave the gas price unset to get an EIP-1559 one.
+        const transactionHash = await request(provider, "eth_sendTransaction", [
+          {
+            from: DEFAULT_GENESIS_ADDRESS,
+            to: "0x000000000000000000000000000000000000dEaD",
+            data: `0x${"ab".repeat(2000)}`,
+            gas: "0x249f0",
+          },
+        ]);
+        const receipt = await request(provider, "eth_getTransactionReceipt", [
+          transactionHash,
+        ]);
 
+        assert.equal(BigInt(receipt.l1BaseFeeScalar), L1_BLOCK_BASE_FEE_SCALAR);
         assert.equal(
-          responseData.result,
-          "0x00000000000000000000000000000000000000000000000000000002540be400"
-        ); // 10 gwei
+          BigInt(receipt.l1BlobBaseFeeScalar),
+          L1_BLOCK_BLOB_BASE_FEE_SCALAR
+        );
+        assert.notEqual(BigInt(receipt.l1Fee), 0n);
       });
 
       it("should stub unimplemented predeploys", async function () {

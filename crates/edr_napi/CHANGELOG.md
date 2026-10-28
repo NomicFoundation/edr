@@ -1,5 +1,62 @@
 # @nomicfoundation/edr
 
+## 0.25.0
+
+### Minor Changes
+
+- e676f90:
+  - Fixed EIP-8037 state gas accounting not being enabled in Solidity tests running on the Amsterdam hardfork, including isolated calls and creates, so `Vm.Gas.gasStateUsed` is now reported. `Vm.Gas.gasTotalUsed` excludes state gas that spilled past the reservoir.
+  - Fixed isolated Solidity test calls and creates paying a flat 21000 intrinsic gas instead of the transaction's real intrinsic gas, which ignored calldata, access lists, authorizations and init code on every hardfork.
+  - Changed `Vm.Gas.gasTotalUsed` for isolated frames to report the transaction's regular gas before refunds, with `gasRefunded` reported separately.
+  - Changed `snapshotGasLastCall`, `snapshotGasLastFrame` and `startSnapshotGas`/`stopSnapshotGas` to report the receipt gas of an isolated frame's transaction, so the value no longer depends on the gas forwarded to the call or on refunds.
+  - Fixed isolated frames whose intrinsic gas or calldata floor exceeded the forwarded gas reporting zero gas and returning the forwarded gas to the caller. They now consume their whole budget.
+  - Fixed isolated calls reverting when the gas forwarded to them is below their calldata's EIP-7623 floor, while the same call succeeds without isolation.
+  - Fixed consecutive `startSnapshotGas` regions in one function including the previous region's cheatcode overhead in their value.
+  - Changed isolated frames to no longer be validated against the transaction gas cap and the block gas limit, which the enclosing test transaction already satisfied.
+- 034998c: Added `Response::traces` method with a raw trace format compatible with EthereumJS' VM. A failed create reports no `contractAddress`, unlike EthereumJS.
+- a05a1c2: Changed `defaultTransactionGasLimit` in the provider config to be optional.
+
+  When it is omitted, a request without `gas` uses the bound of its block. That bound is `2^32 - 1` from Amsterdam (EIP-8037), `2^24` from Osaka (EIP-7825), and the block gas limit before. The block gas limit caps each of these. Before Amsterdam, a configured `transactionGasCap` replaces the hardfork's bound.
+
+  When the derived value is the block gas limit, a transaction without `gas` reserves the whole block. With manual or interval mining, a block then fits fewer such transactions. Their senders also need a larger upfront balance.
+
+- a05a1c2: Changed provider creation to fail when `defaultTransactionGasLimit` exceeds the transaction gas bound of the configured hardfork and transaction gas cap. Before, every request without `gas` failed instead. A configured value is used as is. A request at a block whose bound is lower fails like a request with an explicit `gas` above that bound.
+
+### Patch Changes
+
+- 8b6dff5: Fixed cheatcodes added in forge-std v1.17.0 being reported by their raw selector instead of their name when they are not yet supported
+- 9a0dbc0: Removed the Amsterdam hardfork activation on Hoodi, because the upgrade was postponed without a new date
+- c16de2d: Fixed a crash on macOS when the native addon is loaded from two different paths in one process.
+- a05a1c2: Fixed calls and gas estimates at remote blocks of a forked blockchain being checked against the provider's transaction gas cap. Remote blocks are the fork block and the blocks before it. Those requests now use the cap of the remote chain's hardfork at that block. For example, an Osaka provider no longer rejects an explicit `gas` above `2^24` at a pre-Osaka remote block. A Prague provider now enforces that cap at an Osaka remote block. Replays by `debug_traceCall` and `debug_traceTransaction` at remote blocks also use the gas cap of their block.
+
+## 0.24.0
+
+### Minor Changes
+
+- 1da28b2: Added Solidity stack traces for build infos with `compilerType: "slang"`. The compiler output must include the per-source `debugSymbols` output selection; without it, the build info contributes no contracts to stack traces and a warning is logged.
+
+### Patch Changes
+
+- 5ce1648: Added the Amsterdam hardfork activation on Hoodi, so EDR infers it from the block timestamp when forking
+- 87bb637: Added experimental EIP-7954 support: from the Amsterdam hardfork, deployment transactions may carry up to 128 KiB of init code and deploy up to 64 KiB of contract code.
+- a83d0a1: Fixed `GASLIMIT` returning `1_000_000` while a block is mined with the block gas limit disabled. It now returns the parent block's gas limit, which the mined block's header already carried.
+- bc64432: Fixed simulated OP networks not charging the L1 data fee: the `L1Block` predeploy's genesis storage now sets `baseFeeScalar` and `blobBaseFeeScalar`, so transactions pay the fee and receipts report it.
+
+## 0.23.0
+
+### Minor Changes
+
+- c50b85f: Added the `lastFrameGas` and `snapshotGasLastFrame` cheatcodes, which also record CREATE and CREATE2 frames, and deprecated `lastCallGas` and `snapshotGasLastCall` in their favour. The `Vm.Gas` struct gained a sixth field, `int64 gasStateUsed`; the field is always zero for now, as EIP-8037 state gas is not supported yet.
+- 994eba4: Fixed Solidity stack traces after a precompile call. A call that follows a precompile call in the same function is now attributed to the right line. A failing precompile call now produces a `PRECOMPILE_ERROR` entry instead of an unrecognized-contract error. JSON-RPC call traces therefore include calls to precompiles, as Solidity test call traces already did.
+
+### Patch Changes
+
+- 4906ddf: Fixed the default gas limit of Solidity test transactions being lowered to the EIP-7825 cap from the Amsterdam hardfork, where the cap bounds execution gas only.
+- e577740: Added support for EIP-8246 to the Amsterdam hardfork: a contract that self-destructs in the transaction that created it keeps its balance instead of burning it.
+- d1666ba: Fixed Solidity stack-trace construction to recognise `console.log` calls by the Hardhat console address.
+- 40ebe1b: Fixed the transaction `Value` shown in the node logs dropping the leading zeros of the fractional part (e.g. 0.01 ETH was logged as `0.1 ETH`), and whole amounts being logged with a trailing dot (e.g. `1. ETH`).
+- 2b0fc35: Added experimental EIP-2780 support: from the Amsterdam hardfork, intrinsic transaction gas is priced per resource instead of a flat 21,000
+
 ## 0.22.2
 
 ### Patch Changes

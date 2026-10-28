@@ -33,10 +33,13 @@ use foundry_evm_coverage::HitMaps;
 use foundry_evm_traces::{SparsedTraceArena, TracingMode};
 use revm::{
     bytecode::Bytecode,
-    context::result::{ExecutionResult, HaltReason, HaltReasonTr, ResultAndState},
-    context_interface::result::Output,
+    context::{
+        result::{ExecutionResult, HaltReason, HaltReasonTr, ResultAndState},
+        CfgEnv,
+    },
+    context_interface::{cfg::gas_params::Eip2780TxInfo, result::Output, Cfg as _},
     database::{DatabaseCommit, DatabaseRef},
-    interpreter::{return_ok, InstructionResult},
+    interpreter::{gas::InitialAndFloorGas, return_ok, InstructionResult},
 };
 
 use crate::inspectors::{Cheatcodes, InspectorData, InspectorStack};
@@ -226,7 +229,7 @@ impl<
 
     /// Sets the EVM spec ID.
     pub fn set_spec_id(&mut self, spec_id: HardforkT) {
-        self.env.cfg.spec = spec_id;
+        foundry_evm_core::set_cfg_spec_id(&mut self.env.cfg, spec_id);
     }
 
     /// Returns the gas limit for calls and deployments.
@@ -929,8 +932,7 @@ impl<
         data: Bytes,
         value: U256,
     ) -> EvmEnv<BlockT, TxT, HardforkT> {
-        let mut cfg = self.env.cfg.clone();
-        cfg.spec = self.spec_id();
+        let cfg = self.env.cfg.clone();
 
         let mut block = self.env.block.clone();
         // We always set the gas price to 0 so we can execute the transaction regardless
@@ -1736,14 +1738,7 @@ fn convert_executed_result<
             (reason.into(), 0_u64, gas.tx_gas_used(), None, logs)
         }
     };
-    let gas = revm::interpreter::gas::calculate_initial_tx_gas(
-        env.cfg.spec.into(),
-        env.tx.input(),
-        env.tx.kind().is_create(),
-        env.tx.access_list().map_or(0, Iterator::count).try_into()?,
-        0,
-        0,
-    );
+    let stipend = calculate_stipend(&env.tx, &env.cfg);
 
     let result = match &out {
         Some(Output::Call(data)) => data.clone(),
@@ -1771,7 +1766,7 @@ fn convert_executed_result<
         result,
         gas_used,
         gas_refunded,
-        stipend: gas.initial_total_gas(),
+        stipend,
         logs,
         labels,
         call_trace_arena,
@@ -1803,5 +1798,67 @@ impl FuzzTestTimer {
     pub fn is_timed_out(&self) -> bool {
         self.inner
             .is_some_and(|(start, duration)| start.elapsed() > duration)
+    }
+}
+
+/// The intrinsic gas of `tx` under `cfg`, i.e. the gas spent before the first
+/// opcode executes.
+///
+/// Shared with the isolated-execution path so that both charge the same
+/// stipend.
+pub(crate) fn calculate_stipend<HardforkT: HardforkTr>(
+    tx: &impl TransactionEnvTr,
+    cfg: &CfgEnv<HardforkT>,
+) -> u64 {
+    calculate_initial_gas(tx, cfg).initial_total_gas()
+}
+
+/// The intrinsic gas of `tx` under `cfg`, split into regular gas, EIP-8037
+/// state gas and the EIP-7623 calldata floor.
+pub(crate) fn calculate_initial_gas<HardforkT: HardforkTr>(
+    tx: &impl TransactionEnvTr,
+    cfg: &CfgEnv<HardforkT>,
+) -> InitialAndFloorGas {
+    let eip2780 = cfg.is_amsterdam_eip2780_enabled().then(|| Eip2780TxInfo {
+        value: tx.value(),
+        is_self_transfer: matches!(tx.kind(), TxKind::Call(to) if to == tx.caller()),
+    });
+    cfg.gas_params().initial_tx_gas_for_tx(tx, eip2780)
+}
+
+#[cfg(test)]
+mod tests {
+    use revm::{
+        context::TxEnv,
+        context_interface::cfg::GasParams,
+        primitives::{eip2780, eip8038, hardfork::SpecId},
+    };
+
+    use super::*;
+
+    #[test]
+    fn calculate_stipend_uses_eip2780_transaction_context() {
+        let caller = Address::repeat_byte(0x11);
+        let recipient = Address::repeat_byte(0x22);
+        let mut tx = TxEnv {
+            caller,
+            kind: TxKind::Call(recipient),
+            ..Default::default()
+        };
+        let cfg = CfgEnv::<SpecId>::new_with_spec(SpecId::AMSTERDAM);
+
+        assert_eq!(
+            calculate_stipend(&tx, &cfg),
+            eip2780::TX_BASE_COST + eip8038::COLD_ACCOUNT_ACCESS
+        );
+        let cfg = cfg.with_enable_amsterdam_eip2780(false);
+        assert_eq!(
+            calculate_stipend(&tx, &cfg),
+            GasParams::new_spec(SpecId::AMSTERDAM).tx_base_stipend()
+        );
+
+        tx.kind = TxKind::Call(caller);
+        let cfg = cfg.with_enable_amsterdam_eip2780(true);
+        assert_eq!(calculate_stipend(&tx, &cfg), eip2780::TX_BASE_COST);
     }
 }

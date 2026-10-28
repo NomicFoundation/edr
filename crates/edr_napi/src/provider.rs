@@ -8,8 +8,10 @@ use std::sync::{
 };
 
 use edr_napi_core::provider::SyncProvider;
+use edr_provider::observability::{recorded_stack, StackSnapshotType};
 use edr_solidity::artifacts::{
-    solc::extract_solc_contract_metadata, solx::extract_solx_contract_metadata, to_compiler_type,
+    slang::extract_slang_contract_metadata, solc::extract_solc_contract_metadata,
+    solx::extract_solx_contract_metadata, to_compiler_type,
 };
 use napi::{
     bindgen_prelude::{FnArgs, Function, Object, Promise, Uint8Array},
@@ -33,9 +35,12 @@ pub struct Provider {
     provider: Arc<dyn SyncProvider>,
     runtime: runtime::Handle,
     dropped_provider_sender: AsyncDeallocatorSender<Arc<dyn SyncProvider>>,
+    /// The configured stack snapshots, which verbose tracing overrides while
+    /// enabled.
+    record_stack: StackSnapshotType,
     /// What a response reports to V8 for each call trace arena it carries.
-    /// Follows `verbose_raw_tracing`, which [`Self::set_verbose_tracing`]
-    /// toggles.
+    /// Follows the recorded stack snapshots, which
+    /// [`Self::set_verbose_tracing`] changes.
     call_trace_external_mem_size: AtomicI64,
     #[cfg(feature = "scenarios")]
     scenario_file: Option<Arc<napi::tokio::sync::Mutex<napi::tokio::fs::File>>>,
@@ -46,11 +51,15 @@ impl Provider {
     ///
     /// Hand the result to JavaScript as a [`GcProvider`], so V8 learns of the
     /// OS thread it now owns.
+    ///
+    /// `record_stack` must match the provider's configuration, which starts
+    /// with verbose tracing disabled.
     pub(crate) fn new(
         provider: Arc<dyn SyncProvider>,
         runtime: runtime::Handle,
         contract_decoder: Arc<RwLock<edr_solidity::contract_decoder::ContractDecoder>>,
         dropped_provider_sender: AsyncDeallocatorSender<Arc<dyn SyncProvider>>,
+        record_stack: StackSnapshotType,
         #[cfg(feature = "scenarios")] scenario_file: Option<
             napi::tokio::sync::Mutex<napi::tokio::fs::File>,
         >,
@@ -60,9 +69,10 @@ impl Provider {
             provider,
             runtime,
             dropped_provider_sender,
-            // `verbose_raw_tracing` is not exposed in the provider config, so
-            // it starts disabled.
-            call_trace_external_mem_size: AtomicI64::new(call_trace_external_mem_size(false)),
+            record_stack,
+            call_trace_external_mem_size: AtomicI64::new(call_trace_external_mem_size(
+                record_stack,
+            )),
             #[cfg(feature = "scenarios")]
             scenario_file: scenario_file.map(Arc::new),
         }
@@ -146,6 +156,20 @@ impl Provider {
                         } else {
                             Err(error)
                         })
+                        .map_err(|error| napi::Error::from_reason(error.to_string()))
+                    }),
+                    edr_solidity::artifacts::CompilerType::Slang => serde_json::from_value::<
+                        edr_solidity::artifacts::CompilerOutput<
+                            edr_solidity::artifacts::SolxBytecode,
+                        >,
+                    >(remainder)
+                    .map_err(|error| napi::Error::from_reason(error.to_string()))
+                    .and_then(|compiler_output| {
+                        extract_slang_contract_metadata(
+                            solc_version,
+                            compiler_input,
+                            compiler_output,
+                        )
                         .map_err(|error| napi::Error::from_reason(error.to_string()))
                     }),
                 }?;
@@ -283,7 +307,7 @@ impl Provider {
     pub async fn set_verbose_tracing(&self, verbose_tracing: bool) -> napi::Result<()> {
         // Responses made from here on report the figure for this setting.
         self.call_trace_external_mem_size.store(
-            call_trace_external_mem_size(verbose_tracing),
+            call_trace_external_mem_size(recorded_stack(self.record_stack, verbose_tracing)),
             atomic::Ordering::Relaxed,
         );
 

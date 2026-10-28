@@ -30,6 +30,8 @@ pub mod ethernity;
 pub mod fraxtal;
 /// Chain configuration module for `funki`
 pub mod funki;
+/// Chain configuration module for `giwa`
+pub mod giwa;
 /// Chain configuration module for `hashkeychain`
 pub mod hashkeychain;
 /// Chain configuration module for `ink`
@@ -102,6 +104,7 @@ pub(super) fn chain_configs() -> HashMap<u64, ChainConfig<Hardfork>> {
         (fraxtal::MAINNET_CHAIN_ID, fraxtal::mainnet_config()),
         (funki::MAINNET_CHAIN_ID, funki::mainnet_config()),
         (funki::SEPOLIA_CHAIN_ID, funki::sepolia_config()),
+        (giwa::SEPOLIA_CHAIN_ID, giwa::sepolia_config()),
         (
             hashkeychain::MAINNET_CHAIN_ID,
             hashkeychain::mainnet_config(),

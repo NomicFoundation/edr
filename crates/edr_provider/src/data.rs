@@ -251,6 +251,33 @@ pub type ExecutionResultAndObservedData<'provider, HaltReasonT> = (
     &'provider EvmObservedData,
 );
 
+/// Returns the protocol's transaction gas bounds for `hardfork`, with the
+/// configured transaction gas cap applied.
+fn transaction_gas_bounds_for_hardfork<HardforkT: Into<EvmSpecId>>(
+    transaction_gas_cap: &ConfigOption<u64>,
+    hardfork: HardforkT,
+) -> TransactionGasBounds {
+    match transaction_gas_cap {
+        ConfigOption::Default => TransactionGasBounds::for_hardfork(hardfork),
+        ConfigOption::Custom(transaction_gas_cap) => {
+            TransactionGasBounds::custom(hardfork, *transaction_gas_cap)
+        }
+        ConfigOption::Disable => TransactionGasBounds::disabled(hardfork),
+    }
+}
+
+/// Returns `block_gas_limit`, capped by the bound on a transaction's gas limit
+/// in a block with the given hardfork.
+fn transaction_gas_limit_within_bound<HardforkT: Into<EvmSpecId>>(
+    block_gas_limit: u64,
+    transaction_gas_cap: &ConfigOption<u64>,
+    hardfork: HardforkT,
+) -> u64 {
+    transaction_gas_bounds_for_hardfork(transaction_gas_cap, hardfork)
+        .total_transaction_gas
+        .map_or(block_gas_limit, |bound| block_gas_limit.min(bound))
+}
+
 pub struct ProviderData<
     ChainSpecT: ProviderSpec<TimerT>,
     TimerT: Clone + TimeSinceEpoch = CurrentTime,
@@ -261,10 +288,10 @@ pub struct ProviderData<
     /// Whether to return an `Err` when a `eth_sendTransaction` fails
     bail_on_transaction_failure: bool,
     beneficiary: Address,
-    transaction_gas_bounds: TransactionGasBounds,
+    transaction_gas_cap: ConfigOption<u64>,
     blockchain: Box<dyn SyncBlockchainForChainSpec<ChainSpecT>>,
     block_config: BlockConfig<ChainSpecT::ProtocolHardfork>,
-    default_transaction_gas_limit: NonZeroU64,
+    default_transaction_gas_limit: Option<NonZeroU64>,
     gas_estimation_mode: GasEstimationMode,
     is_auto_mining: bool,
     interval_config: Option<IntervalConfig>,
@@ -360,11 +387,6 @@ where
             .next()
             .copied()
             .unwrap_or(Address::ZERO)
-    }
-
-    /// Returns the default transaction gas limit.
-    pub fn default_transaction_gas_limit(&self) -> u64 {
-        self.default_transaction_gas_limit.get()
     }
 
     /// Returns the metadata of the forked blockchain, if it exists.
@@ -478,10 +500,19 @@ where
         std::mem::take(&mut self.interval_reconfigured)
     }
 
-    /// Returns the bound on the gas a transaction may spend on execution, if
-    /// any.
+    /// Returns the bound on the gas a transaction may spend on execution in a
+    /// block with the given hardfork, if any.
+    pub fn transaction_execution_gas_bound_at_hardfork<HardforkT: Into<EvmSpecId>>(
+        &self,
+        hardfork: HardforkT,
+    ) -> Option<u64> {
+        transaction_gas_bounds_for_hardfork(&self.transaction_gas_cap, hardfork).execution_gas
+    }
+
+    /// Returns the bound on the gas a transaction may spend on execution for
+    /// the local hardfork, if any.
     pub fn transaction_execution_gas_bound(&self) -> Option<u64> {
-        self.transaction_gas_bounds.execution_gas
+        self.transaction_execution_gas_bound_at_hardfork(self.blockchain.hardfork())
     }
 
     fn add_state_to_cache(&mut self, state: Box<dyn DynState>, block_number: u64) -> StateId {
@@ -715,6 +746,22 @@ where
         contract_decoder: Arc<RwLock<ContractDecoder>>,
         timer: TimerT,
     ) -> Result<Self, CreationErrorForChainSpec<ChainSpecT>> {
+        let transaction_gas_bounds = transaction_gas_bounds_for_hardfork(
+            &config.transaction_gas_cap,
+            config.hardfork.clone(),
+        );
+        if let Some(default_transaction_gas_limit) = config.default_transaction_gas_limit
+            && let Some(bound) = transaction_gas_bounds.total_transaction_gas
+            && default_transaction_gas_limit.get() > bound
+        {
+            return Err(CreationError::DefaultTransactionGasLimitExceedsBound {
+                default_transaction_gas_limit: default_transaction_gas_limit.get(),
+                bound,
+                hardfork: config.hardfork,
+                transaction_gas_cap: config.transaction_gas_cap,
+            });
+        }
+
         let BlockchainAndState {
             blockchain,
             block_config,
@@ -772,14 +819,6 @@ where
             transaction_gas_cap,
         } = config;
 
-        let transaction_gas_bounds = match transaction_gas_cap {
-            ConfigOption::Default => TransactionGasBounds::for_hardfork(blockchain.hardfork()),
-            ConfigOption::Custom(transaction_gas_cap) => {
-                TransactionGasBounds::custom(blockchain.hardfork(), transaction_gas_cap)
-            }
-            ConfigOption::Disable => TransactionGasBounds::disabled(blockchain.hardfork()),
-        };
-
         let local_accounts = owned_accounts
             .iter()
             .map(|secret_key| {
@@ -809,7 +848,7 @@ where
             bail_on_transaction_failure,
             base_fee_params,
             beneficiary,
-            transaction_gas_bounds,
+            transaction_gas_cap,
             blockchain,
             block_config,
             default_transaction_gas_limit,
@@ -902,6 +941,34 @@ where
             Filter::new_log_filter(criteria, logs, IS_SUBSCRIPTION),
         );
         Ok(filter_id)
+    }
+
+    /// Returns the gas limit of a request without a `gas` value, executing in
+    /// the block at `block_spec`.
+    pub fn default_transaction_gas_limit(
+        &self,
+        block_spec: &BlockSpec,
+    ) -> Result<u64, ProviderErrorForChainSpec<ChainSpecT>> {
+        if let Some(default_transaction_gas_limit) = self.default_transaction_gas_limit {
+            return Ok(default_transaction_gas_limit.get());
+        }
+
+        let (block_gas_limit, hardfork) =
+            if let Some(block) = self.block_by_block_spec(block_spec)? {
+                let header = block.block_header();
+                (
+                    header.gas_limit,
+                    self.blockchain.spec_at_block_number(header.number)?,
+                )
+            } else {
+                (self.next_block_gas_limit()?, self.blockchain.hardfork())
+            };
+
+        Ok(transaction_gas_limit_within_bound(
+            block_gas_limit,
+            &self.transaction_gas_cap,
+            hardfork,
+        ))
     }
 
     /// Fetch a block by block spec.
@@ -1392,8 +1459,13 @@ where
         Ok(block_number)
     }
 
-    /// Creates an [`EvmConfig`] with the provided chain id
-    fn create_evm_config(&self, chain_id: u64) -> EvmConfig {
+    /// Creates an [`EvmConfig`] with the provided chain id and transaction
+    /// execution gas bound. `None` disables the bound.
+    fn create_evm_config(
+        &self,
+        chain_id: u64,
+        transaction_execution_gas_bound: Option<u64>,
+    ) -> EvmConfig {
         EvmConfig {
             chain_id,
             disable_block_gas_limit: self.mem_pool.block_gas_limit().is_none(),
@@ -1405,7 +1477,7 @@ where
             },
             // revm falls back to the spec's cap when `None`; `u64::MAX` disables it.
             transaction_execution_gas_bound: Some(
-                self.transaction_execution_gas_bound().unwrap_or(u64::MAX),
+                transaction_execution_gas_bound.unwrap_or(u64::MAX),
             ),
         }
     }
@@ -1440,7 +1512,12 @@ where
             self.blockchain.chain_id()
         };
 
-        Ok(self.create_evm_config(chain_id).to_cfg_env(hardfork))
+        let transaction_execution_gas_bound =
+            self.transaction_execution_gas_bound_at_hardfork(hardfork.clone());
+
+        Ok(self
+            .create_evm_config(chain_id, transaction_execution_gas_bound)
+            .to_cfg_env(hardfork))
     }
 
     /// Retrieves the hardfork at the provided block spec, if it exists.
@@ -1591,11 +1668,14 @@ where
     > {
         options.base_fee = options.base_fee.or(self.next_block_base_fee_per_gas);
         options.beneficiary = Some(options.beneficiary.unwrap_or(self.beneficiary));
-        options.gas_limit = options
-            .gas_limit
-            .or_else(|| self.mem_pool.block_gas_limit().map(NonZeroU64::get));
+        if options.gas_limit.is_none() {
+            options.gas_limit = Some(self.next_block_gas_limit()?);
+        }
 
-        let evm_config = self.create_evm_config(self.blockchain.chain_id());
+        let evm_config = self.create_evm_config(
+            self.blockchain.chain_id(),
+            self.transaction_execution_gas_bound(),
+        );
 
         let evm_spec_id: EvmSpecId = self.blockchain.hardfork().into();
         if options.mix_hash.is_none() && evm_spec_id >= EvmSpecId::MERGE {
@@ -1839,6 +1919,15 @@ where
                 Ok,
             )
             .map(Some)
+    }
+
+    /// Returns the gas limit of the next block to be mined: the block gas
+    /// limit, or the parent's gas limit when the block gas limit is disabled.
+    fn next_block_gas_limit(&self) -> Result<u64, DynBlockchainError> {
+        match self.mem_pool.block_gas_limit() {
+            Some(block_gas_limit) => Ok(block_gas_limit.get()),
+            None => Ok(self.last_block()?.block_header().gas_limit),
+        }
     }
 
     /// Calculates the next block's base fee per blob gas.
@@ -2803,9 +2892,13 @@ where
         let cfg_env = self.create_evm_config_at_block_spec(block_spec)?;
         // Minimum gas cost that is required for transaction to be included in
         // a block
-        let minimum_cost =
-            transaction::calculate_initial_tx_gas_for_tx(&transaction, self.evm_spec_id())
-                .initial_total_gas();
+        let spec_id = self.evm_spec_id();
+        let minimum_cost = transaction::calculate_initial_tx_gas_for_tx(
+            &transaction,
+            spec_id,
+            edr_eip2780::transaction_intrinsic_gas_info_for_hardfork(&transaction, spec_id),
+        )
+        .initial_total_gas();
 
         let custom_precompiles = self.precompile_overrides.clone();
         let observer_config =
@@ -3561,6 +3654,192 @@ mod tests {
         Ok(())
     }
 
+    mod nested_storage_read {
+        use edr_chain_l1::rpc::call::L1CallRequest;
+        use edr_chain_spec_evm::TransactionError;
+        use edr_database_components::DatabaseComponentError;
+        use edr_primitives::{address, bytecode::opcode};
+        use edr_runtime::overrides::AccountOverride;
+        use edr_state_api::{account::AccountInfo, State, StateError};
+
+        use super::*;
+        use crate::{
+            observability::{observe_execution, ObservedExecution},
+            requests::eth::resolve_call_request,
+        };
+
+        /// The action named by the injected storage error.
+        const FAILING_READ_ACTION: &str = "read the failing storage slot";
+        const INNER_CONTRACT: Address = address!("0x1111111111111111111111111111111111111111");
+        const OUTER_CONTRACT: Address = address!("0x2222222222222222222222222222222222222222");
+        const FAILING_SLOT_INDEX: u8 = 0;
+        /// Reads the failing slot.
+        const INNER_CODE: [u8; 4] = [
+            opcode::PUSH1,
+            FAILING_SLOT_INDEX,
+            opcode::SLOAD,
+            opcode::STOP,
+        ];
+        /// The return range, argument range and value of the nested call.
+        const ZERO_CALL_ARGUMENT_COUNT: usize = 5;
+        /// The depth of the frame that the outer contract's call enters.
+        const NESTED_CALL_DEPTH: usize = 1;
+
+        /// Calls `INNER_CONTRACT` with all remaining gas, no value and empty
+        /// ranges.
+        fn outer_code() -> Vec<u8> {
+            let mut code = [opcode::PUSH1, 0].repeat(ZERO_CALL_ARGUMENT_COUNT);
+            code.push(opcode::PUSH20);
+            code.extend_from_slice(INNER_CONTRACT.as_slice());
+            code.extend_from_slice(&[opcode::GAS, opcode::CALL, opcode::STOP]);
+            code
+        }
+
+        /// A state whose read of the failing slot at `INNER_CONTRACT` fails
+        /// while `fail_read` is set.
+        struct FailingStorageState<StateT> {
+            inner: StateT,
+            fail_read: bool,
+        }
+
+        impl<StateT: State<Error = StateError>> State for FailingStorageState<StateT> {
+            type Error = StateError;
+
+            fn basic(&self, address: Address) -> Result<Option<AccountInfo>, StateError> {
+                self.inner.basic(address)
+            }
+
+            fn code_by_hash(&self, code_hash: B256) -> Result<Bytecode, StateError> {
+                self.inner.code_by_hash(code_hash)
+            }
+
+            fn storage(&self, address: Address, index: U256) -> Result<U256, StateError> {
+                if self.fail_read
+                    && address == INNER_CONTRACT
+                    && index == U256::from(FAILING_SLOT_INDEX)
+                {
+                    Err(StateError::Unsupported {
+                        action: FAILING_READ_ACTION.to_owned(),
+                        details: None,
+                    })
+                } else {
+                    self.inner.storage(address, index)
+                }
+            }
+        }
+
+        type ObservedCall =
+            ObservedExecution<ExecutionResultWithMetadata<edr_chain_l1::HaltReason>>;
+
+        /// Returns the observed `eth_call` of `OUTER_CONTRACT`, or the error
+        /// that failed it. Replays the path of `run_call_impl` with a state
+        /// whose read of the failing slot fails if `fail_read` is set.
+        fn call_outer_contract(
+            fail_read: bool,
+        ) -> anyhow::Result<Result<ObservedCall, ProviderErrorForChainSpec<L1ChainSpec>>> {
+            let code_override = |code: Vec<u8>| AccountOverride {
+                balance: None,
+                nonce: None,
+                code: Some(Bytecode::new_raw(code.into())),
+                storage: None,
+            };
+            let state_overrides = StateOverrides::new(HashMap::from_iter([
+                (INNER_CONTRACT, code_override(INNER_CODE.to_vec())),
+                (OUTER_CONTRACT, code_override(outer_code())),
+            ]));
+
+            let mut fixture = ProviderTestFixture::<L1ChainSpec>::new_local()?;
+            let data = &mut fixture.provider_data;
+            let block_spec = BlockSpec::latest();
+            let request = L1CallRequest {
+                to: Some(OUTER_CONTRACT),
+                ..L1CallRequest::default()
+            };
+            let transaction = resolve_call_request(data, request, &block_spec, &state_overrides)?;
+            let cfg_env = data.create_evm_config_at_block_spec(&block_spec)?;
+            let observer_config =
+                EvmObserverConfig::new(&data.observability, data.contract_decoder.clone());
+            let custom_precompiles = data.precompile_overrides.clone();
+            let scheduled_blob_params = data.scheduled_blob_params().cloned();
+
+            let result =
+                data.execute_in_block_context(Some(&block_spec), |blockchain, block, state| {
+                    let state = FailingStorageState {
+                        inner: StateRefOverrider::new(&state_overrides, state.as_ref()),
+                        fail_read,
+                    };
+                    observe_execution(&observer_config, |observer| {
+                        let block_env =
+                            <L1ChainSpec as edr_chain_spec::BlockEnvChainSpec>::BlockEnv::new_block_env(
+                                block.block_header(),
+                                cfg_env.spec,
+                                scheduled_blob_params.as_ref(),
+                            );
+                        call::run_call::<L1ChainSpec, _, _, _>(
+                            blockchain,
+                            block_env,
+                            state,
+                            cfg_env,
+                            transaction,
+                            &custom_precompiles,
+                            observer,
+                        )
+                    })
+                })?;
+
+            Ok(result)
+        }
+
+        /// A failed storage read in a nested call makes revm return an error,
+        /// so `eth_call` fails before a call trace is collected.
+        #[test]
+        fn failed_storage_read_in_nested_call_fails_without_call_traces() -> anyhow::Result<()> {
+            let error = match call_outer_contract(true)? {
+                Ok(observed) => panic!(
+                    "the failed storage read should fail the request, got: {:?}",
+                    observed.result()
+                ),
+                Err(error) => error,
+            };
+
+            assert!(
+                matches!(
+                    &error,
+                    ProviderError::RunTransaction(TransactionError::Database(
+                        DatabaseComponentError::State(StateError::Unsupported { action, .. })
+                    )) if action == FAILING_READ_ACTION
+                ),
+                "expected the injected storage error without call traces, got: {error:?}"
+            );
+
+            Ok(())
+        }
+
+        /// Without the failure, the same call succeeds and traces the storage
+        /// read in a nested frame.
+        #[test]
+        fn storage_read_in_nested_call_is_traced_at_depth_one() -> anyhow::Result<()> {
+            let observed = call_outer_contract(false)??;
+            assert!(
+                observed.result().is_success(),
+                "the call should succeed, got: {:?}",
+                observed.result()
+            );
+
+            let has_nested_inner_frame = observed
+                .evm_observed_data
+                .call_trace_arena
+                .nodes()
+                .iter()
+                .any(|node| {
+                    node.trace.address == INNER_CONTRACT && node.trace.depth == NESTED_CALL_DEPTH
+                });
+            assert!(has_nested_inner_frame);
+
+            Ok(())
+        }
+    }
+
     #[test]
     fn console_log_run_call() -> anyhow::Result<()> {
         let mut fixture = ProviderTestFixture::<L1ChainSpec>::new_local()?;
@@ -4249,6 +4528,98 @@ mod tests {
         Ok(())
     }
 
+    #[test]
+    fn transaction_gas_bound_caps_gas_limit() {
+        /// Above every hardfork's transaction gas bound.
+        const LARGE_GAS_LIMIT: u64 = 1 << 40;
+        /// Below every hardfork's transaction gas bound.
+        const SMALL_GAS_LIMIT: u64 = 1_000_000;
+        /// Below the Osaka cap and above `SMALL_GAS_LIMIT`.
+        const CUSTOM_CAP: u64 = 5_000_000;
+
+        let osaka_cap = edr_eip7825::OSAKA_TRANSACTION_GAS_CAP;
+        let amsterdam_cap = edr_eip8037::TX_MAX_TOTAL_GAS_LIMIT;
+
+        for (hardfork, transaction_gas_cap, block_gas_limit, expected, reason) in [
+            (
+                EvmSpecId::PRAGUE,
+                ConfigOption::Default,
+                LARGE_GAS_LIMIT,
+                LARGE_GAS_LIMIT,
+                "Prague has no transaction gas bound",
+            ),
+            (
+                EvmSpecId::PRAGUE,
+                ConfigOption::Custom(CUSTOM_CAP),
+                LARGE_GAS_LIMIT,
+                CUSTOM_CAP,
+                "before Amsterdam a custom cap is the transaction gas bound",
+            ),
+            (
+                EvmSpecId::OSAKA,
+                ConfigOption::Default,
+                LARGE_GAS_LIMIT,
+                osaka_cap,
+                "the EIP-7825 cap is the bound from Osaka",
+            ),
+            (
+                EvmSpecId::OSAKA,
+                ConfigOption::Default,
+                SMALL_GAS_LIMIT,
+                SMALL_GAS_LIMIT,
+                "a gas limit below the bound is kept",
+            ),
+            (
+                EvmSpecId::OSAKA,
+                ConfigOption::Custom(CUSTOM_CAP),
+                LARGE_GAS_LIMIT,
+                CUSTOM_CAP,
+                "before Amsterdam a custom cap replaces the EIP-7825 cap",
+            ),
+            (
+                EvmSpecId::OSAKA,
+                ConfigOption::Disable,
+                LARGE_GAS_LIMIT,
+                LARGE_GAS_LIMIT,
+                "disabling the cap removes the bound before Amsterdam",
+            ),
+            (
+                EvmSpecId::AMSTERDAM,
+                ConfigOption::Default,
+                LARGE_GAS_LIMIT,
+                amsterdam_cap,
+                "the EIP-8037 total gas limit is the bound from Amsterdam",
+            ),
+            (
+                EvmSpecId::AMSTERDAM,
+                ConfigOption::Default,
+                SMALL_GAS_LIMIT,
+                SMALL_GAS_LIMIT,
+                "a gas limit below the bound is kept",
+            ),
+            (
+                EvmSpecId::AMSTERDAM,
+                ConfigOption::Custom(CUSTOM_CAP),
+                LARGE_GAS_LIMIT,
+                amsterdam_cap,
+                "from Amsterdam a custom cap bounds execution gas only, not the total",
+            ),
+            (
+                EvmSpecId::AMSTERDAM,
+                ConfigOption::Disable,
+                LARGE_GAS_LIMIT,
+                amsterdam_cap,
+                "from Amsterdam disabling the cap lifts the execution bound only, not the total",
+            ),
+        ] {
+            assert_eq!(
+                transaction_gas_limit_within_bound(block_gas_limit, &transaction_gas_cap, hardfork),
+                expected,
+                "hardfork {hardfork:?}, cap {transaction_gas_cap:?}, block gas limit {block_gas_limit}: {reason}"
+            );
+        }
+    }
+
     #[cfg(feature = "test-remote")]
     mod alchemy {
         use edr_chain_l1::L1ChainSpec;
@@ -4325,7 +4696,9 @@ mod tests {
 
             let config = ProviderConfig {
                 // SAFETY: literal is non-zero
-                default_transaction_gas_limit: unsafe { NonZeroU64::new_unchecked(1_000_000) },
+                default_transaction_gas_limit: Some(unsafe {
+                    NonZeroU64::new_unchecked(1_000_000)
+                }),
                 chain_id: 1,
                 coinbase: Address::ZERO,
                 hardfork: edr_chain_l1::Hardfork::London,

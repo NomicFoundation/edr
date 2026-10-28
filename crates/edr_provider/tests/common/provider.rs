@@ -1,13 +1,14 @@
 //! Helpers for constructing an L1 test provider and issuing common requests.
 #![cfg(feature = "test-utils")]
 
-use std::sync::Arc;
+use std::{num::NonZeroU64, sync::Arc};
 
 use edr_chain_l1::{
     rpc::{call::L1CallRequest, receipt::L1RpcTransactionReceipt, TransactionRequest},
     L1ChainSpec,
 };
-use edr_primitives::{B256, U64};
+use edr_eth::PreEip1898BlockSpec;
+use edr_primitives::{Address, Bytes, B256, U256, U64};
 use edr_provider::{
     config::ProviderConfig, test_utils::create_test_config, time::CurrentTime, MethodInvocation,
     NoopLogger, Provider, ProviderRequest,
@@ -94,4 +95,103 @@ pub fn send_transaction(
     ))?;
 
     Ok(response.deserialize_result()?)
+}
+
+/// Parses the quantity `field` of a JSON-RPC object.
+pub fn quantity_field(object: &serde_json::Value, field: &str) -> anyhow::Result<u64> {
+    let quantity = object
+        .get(field)
+        .ok_or_else(|| anyhow::anyhow!("object should have a `{field}` field"))?;
+    let quantity: U64 = serde_json::from_value(quantity.clone())?;
+
+    Ok(quantity.to())
+}
+
+/// Returns the gas limit of the block at `block_spec`.
+pub fn block_gas_limit(
+    provider: &Provider<L1ChainSpec>,
+    block_spec: PreEip1898BlockSpec,
+) -> anyhow::Result<u64> {
+    let response = provider.handle_request(ProviderRequest::with_single(
+        MethodInvocation::GetBlockByNumber(block_spec, false),
+    ))?;
+
+    let block: Option<serde_json::Value> = response.deserialize_result()?;
+    let block = block.ok_or_else(|| anyhow::anyhow!("block should exist"))?;
+
+    quantity_field(&block, "gasLimit")
+}
+
+/// Returns the account's balance via `eth_getBalance`.
+pub fn balance_at(provider: &Provider<L1ChainSpec>, address: Address) -> anyhow::Result<U256> {
+    let response = provider.handle_request(ProviderRequest::with_single(
+        MethodInvocation::GetBalance(address, None),
+    ))?;
+
+    Ok(response.deserialize_result()?)
+}
+
+/// Returns the account's code via `eth_getCode`.
+pub fn code_at(provider: &Provider<L1ChainSpec>, address: Address) -> anyhow::Result<Bytes> {
+    let response = provider.handle_request(ProviderRequest::with_single(
+        MethodInvocation::GetCode(address, None),
+    ))?;
+
+    Ok(response.deserialize_result()?)
+}
+
+/// Returns the account's nonce via `eth_getTransactionCount`.
+pub fn nonce_at(provider: &Provider<L1ChainSpec>, address: Address) -> anyhow::Result<U64> {
+    let response = provider.handle_request(ProviderRequest::with_single(
+        MethodInvocation::GetTransactionCount(address, None),
+    ))?;
+
+    Ok(response.deserialize_result()?)
+}
+
+/// Returns the account's storage slot via `eth_getStorageAt`.
+pub fn storage_at(
+    provider: &Provider<L1ChainSpec>,
+    address: Address,
+    index: U256,
+) -> anyhow::Result<U256> {
+    let response = provider.handle_request(ProviderRequest::with_single(
+        MethodInvocation::GetStorageAt(address, index, None),
+    ))?;
+
+    Ok(response.deserialize_result()?)
+}
+
+/// Above the Osaka cap, but within the Amsterdam bound and the default block
+/// gas limit.
+pub const DEFAULT_TRANSACTION_GAS_LIMIT_ABOVE_OSAKA_CAP: NonZeroU64 =
+    NonZeroU64::new(30_000_000).expect("gas limit should be non-zero");
+
+/// A mainnet block before the Osaka activation, with a gas limit of at least
+/// 30M.
+#[cfg(feature = "test-remote")]
+pub const PRAGUE_MAINNET_BLOCK_NUMBER: u64 = 23_000_000;
+
+/// A mainnet block after the Osaka activation.
+#[cfg(feature = "test-remote")]
+pub const OSAKA_MAINNET_BLOCK_NUMBER: u64 = 24_000_000;
+
+/// Returns the test config with accounts, forking Ethereum mainnet at
+/// `block_number`.
+#[cfg(feature = "test-remote")]
+pub fn mainnet_fork_config(block_number: u64) -> ProviderConfig<edr_chain_l1::Hardfork> {
+    use edr_primitives::HashMap;
+    use edr_provider::{
+        config::ForkConfig,
+        test_utils::{create_test_config_with, MinimalProviderConfig},
+    };
+    use edr_test_utils::env::json_rpc_url_provider;
+
+    create_test_config_with(MinimalProviderConfig::fork_with_accounts(ForkConfig {
+        block_number: Some(block_number),
+        cache_dir: edr_defaults::CACHE_DIR.into(),
+        chain_overrides: HashMap::default(),
+        http_headers: None,
+        url: json_rpc_url_provider::ethereum_mainnet(),
+    }))
 }

@@ -1,7 +1,7 @@
 use edr_chain_l1::rpc::{call::L1CallRequest, TransactionRequest};
 use edr_chain_spec::{EvmSpecId, ExecutableTransaction};
 use edr_eth::{Blob, BlockSpec, BlockTag, PreEip1898BlockSpec};
-use edr_primitives::{Address, Bytes, B256, MAX_INITCODE_SIZE};
+use edr_primitives::{eip3860, eip7954, Address, Bytes, B256};
 
 use crate::{
     data::ProviderData, error::ProviderErrorForChainSpec, spec::HardforkValidationData,
@@ -152,7 +152,7 @@ pub fn validate_send_transaction_request<
     }
 
     if let Some(request_data) = &request.data {
-        validate_eip3860_max_initcode_size::<ChainSpecT, TimerT>(
+        validate_max_initcode_size::<ChainSpecT, TimerT>(
             data.hardfork(),
             data.allow_unlimited_initcode_size(),
             request.to.as_ref(),
@@ -324,29 +324,43 @@ You can use them by running Hardhat Network with 'hardfork' {minimum_hardfork:?}
     })
 }
 
-pub(crate) fn validate_eip3860_max_initcode_size<
+/// Validates the init code size of a deployment transaction against the
+/// hardfork's limit.
+pub(crate) fn validate_max_initcode_size<
     ChainSpecT: ProviderSpec<TimerT>,
     TimerT: Clone + TimeSinceEpoch,
 >(
     hardfork: ChainSpecT::ProtocolHardfork,
-    allow_unlimited_contract_code_size: bool,
+    allow_unlimited_initcode_size: bool,
     to: Option<&Address>,
     data: &Bytes,
 ) -> Result<(), ProviderErrorForChainSpec<ChainSpecT>> {
-    let evm_spec_id: EvmSpecId = hardfork.into();
-
-    if evm_spec_id < EvmSpecId::SHANGHAI || to.is_some() || allow_unlimited_contract_code_size {
+    if to.is_some() || allow_unlimited_initcode_size {
         return Ok(());
     }
 
-    if data.len() > MAX_INITCODE_SIZE {
+    if let Some(max_initcode_size) = max_initcode_size_for_hardfork(hardfork.into())
+        && data.len() > max_initcode_size
+    {
         return Err(ProviderError::InvalidArgument(format!("
-Trying to send a deployment transaction whose init code length is {}. The max length allowed by EIP-3860 is {}.
+Trying to send a deployment transaction whose init code length is {}. The max length allowed by the current hardfork is {max_initcode_size}.
 
-Enable the 'allowUnlimitedContractSize' option to allow init codes of any length.", data.len(), MAX_INITCODE_SIZE)));
+Enable the 'allowUnlimitedContractSize' option to allow init codes of any length.", data.len())));
     }
 
     Ok(())
+}
+
+/// The init code size limit of the hardfork: EIP-3860's from Shanghai, raised
+/// by EIP-7954 at Amsterdam, or `None` before any limit existed.
+fn max_initcode_size_for_hardfork(evm_spec_id: EvmSpecId) -> Option<usize> {
+    if evm_spec_id >= EvmSpecId::AMSTERDAM {
+        Some(eip7954::MAX_INITCODE_SIZE)
+    } else if evm_spec_id >= EvmSpecId::SHANGHAI {
+        Some(eip3860::MAX_INITCODE_SIZE)
+    } else {
+        None
+    }
 }
 
 pub enum ValidationBlockSpec<'a> {
@@ -739,5 +753,22 @@ mod tests {
             ),
             Err(ProviderError::Eip7702TransactionWithoutAuthorizations)
         ));
+    }
+
+    #[test]
+    fn max_initcode_size_by_hardfork() {
+        assert_eq!(max_initcode_size_for_hardfork(EvmSpecId::MERGE), None);
+        assert_eq!(
+            max_initcode_size_for_hardfork(EvmSpecId::SHANGHAI),
+            Some(eip3860::MAX_INITCODE_SIZE)
+        );
+        assert_eq!(
+            max_initcode_size_for_hardfork(EvmSpecId::OSAKA),
+            Some(eip3860::MAX_INITCODE_SIZE)
+        );
+        assert_eq!(
+            max_initcode_size_for_hardfork(EvmSpecId::AMSTERDAM),
+            Some(eip7954::MAX_INITCODE_SIZE)
+        );
     }
 }

@@ -1,5 +1,5 @@
-//! DWARF debug-info parser for solx-built artifacts. Produces the same
-//! [`Instruction`] vector as
+//! DWARF debug-info parser for solx and slang compiler artifacts. Produces the
+//! same [`Instruction`] vector as
 //! [`crate::artifacts::solc::source_map::decode_instructions`] does
 //! for solc, so the rest of the stack-trace pipeline stays compiler-agnostic.
 
@@ -11,37 +11,41 @@ use gimli::{EndianRcSlice, Reader, RunTimeEndian};
 use object::{Endianness, Object, ObjectSection};
 
 use crate::{
-    artifacts::solx::SolxBuildModel,
-    build_model::{BuildModel as _, Instruction, JumpType, SourceLocation},
+    artifacts::dwarf_model::DwarfBuildModel,
+    build_model::{BuildModel as _, ContractFunction, Instruction, JumpType, SourceLocation},
 };
+
+mod decode_caches;
+
+use decode_caches::DecodeCaches;
 
 type DwarfReader = EndianRcSlice<RunTimeEndian>;
 
-/// Failure modes when decoding a solx DWARF blob. Replaces previous
+/// Failure modes when decoding a DWARF blob. Replaces previous
 /// `anyhow::Error` returns so callers (and tests) can match on the specific
 /// failure, as is the convention for reusable EDR crates.
 #[derive(Debug, thiserror::Error)]
 pub enum DwarfError {
     /// `evm.*.debugInfo` wasn't valid ASCII-hex.
-    #[error("failed to hex-decode solx evm.*.debugInfo: {0}")]
+    #[error("failed to hex-decode evm.*.debugInfo: {0}")]
     HexDecode(#[from] hex::FromHexError),
 
     /// The decoded bytes weren't a recognisable ELF container.
-    #[error("solx debugInfo blob is not a valid ELF (expected ELF32-MSB): {0}")]
+    #[error("debugInfo blob is not a valid ELF (expected ELF32-MSB): {0}")]
     ElfParse(#[from] object::Error),
 
-    /// A DWARF section is compressed — solx doesn't emit them today,
+    /// A DWARF section is compressed — neither compiler emits them today,
     /// so we surface this as an explicit unsupported case rather than
     /// silently producing empty traces.
     #[error("compressed DWARF section {0:?} is not supported by EDR yet")]
     CompressedSection(&'static str),
 
     /// EDR currently assumes one compilation unit per contract's
-    /// debugInfo blob (matching solx's output). Multi-CU blobs would
+    /// debugInfo blob (matching the compilers' output). Multi-CU blobs would
     /// share file-name / inlined-range tables across CUs, leading to
     /// wrong cross-CU resolution if processed naively.
     #[error(
-        "solx debugInfo blob contains {0}+ DWARF compilation units; \
+        "debugInfo blob contains {0}+ DWARF compilation units; \
          EDR only supports single-CU blobs (one CU per contract)"
     )]
     MultiCu(u32),
@@ -124,14 +128,14 @@ fn is_stack_shuffle(opcode: OpCode) -> bool {
     )
 }
 
-/// Decode a solx-emitted DWARF blob into the same
+/// Decode a compiler-emitted DWARF blob into the same
 /// [`Instruction`] vector that
 /// [`crate::artifacts::solc::source_map::decode_instructions`] produces for
 /// solc artifacts.
 pub fn decode_instructions(
     normalized_code: &[u8],
     debug_info_hex: &str,
-    build_model: &SolxBuildModel,
+    build_model: &DwarfBuildModel,
     _is_deployment: bool,
 ) -> Result<Vec<Instruction>, DwarfError> {
     // 1. Hex → ELF → gimli::Dwarf.
@@ -161,28 +165,32 @@ pub fn decode_instructions(
     // 3. Reuse BuildModel's lazy reverse index (built at most once per BuildModel).
     let name_to_file_id = build_model.name_to_file_id();
 
-    // 4. Per-file line-start caches, populated on demand.
-    let mut line_starts_by_file_id: HashMap<u32, Vec<usize>> = HashMap::new();
+    // 4. Per-decode memo caches, populated on demand.
+    let mut caches = DecodeCaches::default();
 
     // 5. Walk PCs, mirroring `source_map::decode_instructions` so PUSH operands are
     //    skipped consistently. PcOpcodes ends iteration as soon as it hits an
     //    invalid byte (CBOR metadata region), matching the previous `break`
     //    semantics.
+    let mut sweep = RangeSweep::new(&parsed.inlined_ranges);
     let mut instructions: Vec<Instruction> = PcOpcodes::new(normalized_code)
         .map(|step| {
+            let pc = step.pc as u64;
+            let containing = sweep.containing(pc);
             let location = parsed.user_visible_location_for_pc(
-                step.pc as u64,
+                pc,
+                &containing,
                 &parsed.file_names,
                 name_to_file_id,
                 build_model,
-                &mut line_starts_by_file_id,
+                &mut caches,
             );
-            let inline_call_sites = parsed.inline_call_sites_for_pc(
-                step.pc as u64,
+            let inline_call_sites = inline_call_sites_for_ranges(
+                &containing,
                 &parsed.file_names,
                 name_to_file_id,
                 build_model,
-                &mut line_starts_by_file_id,
+                &mut caches,
             );
             Instruction {
                 pc: step.pc as u32,
@@ -204,7 +212,7 @@ pub fn decode_instructions(
 /// Iterator over `(pc, opcode, push_data)` decoded from raw bytecode,
 /// skipping each PUSH's immediate operands so the next yielded PC is the
 /// next instruction (not an operand byte). Terminates on the first byte
-/// that isn't a valid opcode — solx's trailing CBOR metadata is delimited
+/// that isn't a valid opcode — the trailing CBOR metadata is delimited
 /// by such a byte, so this also serves as a natural end-of-code sentinel.
 struct PcOpcodes<'a> {
     bytecode: &'a [u8],
@@ -294,7 +302,58 @@ struct AbstractOriginMeta {
     decl_line: Option<u64>,
 }
 
-/// Per-CU view of a single solx DWARF blob.
+/// Sweep over the `low_pc`-sorted inlined ranges yielding the ranges
+/// containing each PC, for PCs visited in bytecode order (a linear walk over
+/// the code, not execution order, so jumps never move it backwards).
+struct RangeSweep<'a> {
+    /// Must be sorted by `low_pc`, as `ParsedDwarf::from_elf_bytes` produces.
+    ranges: &'a [InlinedRange],
+    /// Index of the first range not yet moved into `active`.
+    next: usize,
+    /// Entered but not yet expired ranges, in `low_pc` order, so depth ties
+    /// keep input order.
+    active: Vec<InlinedRange>,
+    prev_pc: u64,
+}
+
+impl<'a> RangeSweep<'a> {
+    fn new(ranges: &'a [InlinedRange]) -> Self {
+        debug_assert!(
+            ranges.is_sorted_by_key(|r| r.low_pc),
+            "RangeSweep requires ranges sorted by low_pc"
+        );
+        Self {
+            ranges,
+            next: 0,
+            active: Vec::new(),
+            prev_pc: 0,
+        }
+    }
+
+    /// Ranges containing `pc`, sorted innermost-first by DIE depth. (Width is
+    /// unreliable: a parent's `DW_AT_ranges` union can be wider than a
+    /// child's contiguous range.)
+    fn containing(&mut self, pc: u64) -> Vec<InlinedRange> {
+        debug_assert!(
+            pc >= self.prev_pc,
+            "RangeSweep requires PCs in bytecode order"
+        );
+        self.prev_pc = pc;
+        while let Some(range) = self.ranges.get(self.next) {
+            if range.low_pc > pc {
+                break;
+            }
+            self.active.push(*range);
+            self.next += 1;
+        }
+        self.active.retain(|r| pc < r.high_pc);
+        let mut containing = self.active.clone();
+        containing.sort_by_key(|r| std::cmp::Reverse(r.depth));
+        containing
+    }
+}
+
+/// Per-CU view of a single DWARF blob.
 struct ParsedDwarf {
     /// addr2line indexes the line program for `find_location(pc)`.
     context: Addr2lineContext<DwarfReader>,
@@ -316,7 +375,7 @@ impl ParsedDwarf {
             let Some(section) = file.section_by_name(id.name()) else {
                 return Ok(EndianRcSlice::new(Rc::from(Vec::new()), endian));
             };
-            // Bail on compressed sections so a future solx that emits them
+            // Bail on compressed sections so a future compiler that emits them
             // fails loudly instead of producing empty traces.
             let compressed = section
                 .compressed_file_range()
@@ -475,7 +534,7 @@ impl ParsedDwarf {
                         _ => {}
                     }
                 }
-                // Skip artificial concrete subprograms (solx's __entry
+                // Skip artificial concrete subprograms (the compiler's __entry
                 // dispatcher covers the whole bytecode — would classify
                 // every JUMP as IntoFunction).
                 if is_subprogram_with_pc && self_artificial {
@@ -534,20 +593,6 @@ impl ParsedDwarf {
         })
     }
 
-    /// Inlined-subroutine ranges containing `pc`, sorted innermost-first by
-    /// DIE depth. (Width is unreliable: a parent's `DW_AT_ranges` union can
-    /// be wider than a child's contiguous range.)
-    fn containing_ranges(&self, pc: u64) -> Vec<InlinedRange> {
-        let mut out: Vec<InlinedRange> = self
-            .inlined_ranges
-            .iter()
-            .filter(|r| r.low_pc <= pc && pc < r.high_pc)
-            .copied()
-            .collect();
-        out.sort_by_key(|r| std::cmp::Reverse(r.depth));
-        out
-    }
-
     /// Best-effort bottom-frame source location for `pc`, in order:
     /// 1. innermost artificial helper's `call_site` (if inside the user fn);
     /// 2. line-program row at `pc`;
@@ -555,12 +600,13 @@ impl ParsedDwarf {
     fn user_visible_location_for_pc(
         &self,
         pc: u64,
+        containing: &[InlinedRange],
         dwarf_file_names: &[String],
         name_to_file_id: &HashMap<String, u32>,
-        build_model: &SolxBuildModel,
-        line_starts_cache: &mut HashMap<u32, Vec<usize>>,
+        build_model: &DwarfBuildModel,
+        caches: &mut DecodeCaches,
     ) -> Option<SourceLocation> {
-        let containing = self.containing_ranges(pc);
+        let row_at_pc = self.location_for_pc(pc);
 
         // Innermost non-artificial range = the user fn body executing at this
         // PC. Innermost (not outermost) because under user-into-user inlining
@@ -570,30 +616,20 @@ impl ParsedDwarf {
 
         // Trusted anchor: AST function whose decl_line matches the inlined
         // subroutine's abstract origin.
-        let abstract_origin_func: Option<Arc<crate::build_model::ContractFunction>> =
+        let abstract_origin_func: Option<Arc<ContractFunction>> =
             innermost_user_range.and_then(|r| {
                 let (file_idx, decl_line) = (r.decl_file?, r.decl_line?);
                 let dwarf_name = dwarf_file_names.get(file_idx as usize)?.as_str();
-                let file_id = match_dwarf_to_build_model(dwarf_name, name_to_file_id)?;
-
-                let Some(file) = build_model.source_model_by_file_id(file_id) else {
-                    log::debug!(
-                        "DWARF decoder: no source file for file_id {file_id} (dwarf_name={dwarf_name})"
-                    );
-                    return None;
-                };
-
-                let file = file.read();
-                file.get_function_by_decl_line(u32::try_from(decl_line).ok()?)
-                    .cloned()
+                let file_id = caches.resolve_file_id(dwarf_name, name_to_file_id)?;
+                let decl_line = u32::try_from(decl_line).ok()?;
+                caches.function_by_decl_line(build_model, file_id, decl_line, dwarf_name)
             });
 
         // Modifiers fold into the enclosing function. Accept the line-program
         // row only when it's in the same contract as the abstract-origin
         // function (filters dispatcher PCs mapped to unrelated files).
-        let _ = dwarf_file_names; // unused on this path
-        let line_program_func: Option<Arc<crate::build_model::ContractFunction>> = self
-            .location_for_pc(pc)
+        let line_program_func: Option<Arc<ContractFunction>> = row_at_pc
+            .as_ref()
             .and_then(|row| {
                 let line = row.line?;
                 let (file_id, offset) = resolve_location_by_name(
@@ -602,19 +638,10 @@ impl ParsedDwarf {
                     row.column,
                     name_to_file_id,
                     build_model,
-                    line_starts_cache,
+                    caches,
                 )?;
 
-                let Some(source_file) = build_model.source_model_by_file_id(file_id) else {
-                    log::debug!(
-                        "DWARF decoder: no source file for file_id {file_id} (row.file={})",
-                        row.file
-                    );
-                    return None;
-                };
-
-                let probe = SourceLocation::new(source_file, offset as u32, 0);
-                probe.get_containing_function().ok().flatten()
+                caches.containing_function(build_model, file_id, offset as u32, &row.file)
             })
             .filter(|lp_func| match abstract_origin_func.as_ref() {
                 None => true,
@@ -640,7 +667,7 @@ impl ParsedDwarf {
         };
 
         // Pass 1: innermost artificial entry whose call_site is inside the user fn.
-        for r in &containing {
+        for r in containing {
             if !r.is_artificial {
                 continue;
             }
@@ -650,7 +677,7 @@ impl ParsedDwarf {
                 dwarf_file_names,
                 name_to_file_id,
                 build_model,
-                line_starts_cache,
+                caches,
             ) else {
                 continue;
             };
@@ -661,7 +688,7 @@ impl ParsedDwarf {
         }
 
         // Pass 2: line-program row, only when it lands inside the user fn.
-        if let Some(row) = self.location_for_pc(pc)
+        if let Some(row) = &row_at_pc
             && let Some(line) = row.line
             && let Some((file_id, offset)) = resolve_location_by_name(
                 &row.file,
@@ -669,12 +696,12 @@ impl ParsedDwarf {
                 row.column,
                 name_to_file_id,
                 build_model,
-                line_starts_cache,
+                caches,
             )
             && inside_user_func(offset as u32)
         {
-            let length = build_model
-                .smallest_enclosing_span(file_id, offset as u32)
+            let length = caches
+                .enclosing_span(build_model, file_id, offset as u32)
                 .map_or(0, |(_, len)| len);
 
             let Some(source_file) = build_model.source_model_by_file_id(file_id) else {
@@ -691,36 +718,6 @@ impl ParsedDwarf {
         // Pass 3: fall back to the user fn's own AST location — coarser, but
         // at least `get_containing_function` will name the right function.
         user_source_location.cloned()
-    }
-
-    /// Inlined call-site chain for `pc`, innermost-first. Non-artificial only;
-    /// artificial entries (Yul helpers) fold into the bottom-frame location.
-    /// Caller dedups consecutive same-function entries.
-    fn inline_call_sites_for_pc(
-        &self,
-        pc: u64,
-        dwarf_file_names: &[String],
-        name_to_file_id: &HashMap<String, u32>,
-        build_model: &SolxBuildModel,
-        line_starts_cache: &mut HashMap<u32, Vec<usize>>,
-    ) -> Box<[SourceLocation]> {
-        let containing = self.containing_ranges(pc);
-        let mut out: Vec<SourceLocation> = Vec::with_capacity(containing.len());
-        for r in containing {
-            if r.is_artificial {
-                continue;
-            }
-            if let Some(loc) = range_call_site_to_location(
-                &r,
-                dwarf_file_names,
-                name_to_file_id,
-                build_model,
-                line_starts_cache,
-            ) {
-                out.push(loc);
-            }
-        }
-        out.into_boxed_slice()
     }
 
     /// Smallest inlined-subroutine PC range that contains `pc`. Returns the
@@ -825,6 +822,30 @@ impl ParsedDwarf {
     }
 }
 
+/// Inlined call-site chain for a PC's containing ranges, innermost-first.
+/// Non-artificial only; artificial entries (Yul helpers) fold into the
+/// bottom-frame location. Caller dedups consecutive same-function entries.
+fn inline_call_sites_for_ranges(
+    containing: &[InlinedRange],
+    dwarf_file_names: &[String],
+    name_to_file_id: &HashMap<String, u32>,
+    build_model: &DwarfBuildModel,
+    caches: &mut DecodeCaches,
+) -> Box<[SourceLocation]> {
+    let mut out: Vec<SourceLocation> = Vec::with_capacity(containing.len());
+    for r in containing {
+        if r.is_artificial {
+            continue;
+        }
+        if let Some(loc) =
+            range_call_site_to_location(r, dwarf_file_names, name_to_file_id, build_model, caches)
+        {
+            out.push(loc);
+        }
+    }
+    out.into_boxed_slice()
+}
+
 /// Resolve an [`InlinedRange`]'s `call_*` attributes to a `SourceLocation`,
 /// or `None` if any required field is missing.
 ///
@@ -835,8 +856,8 @@ fn range_call_site_to_location(
     r: &InlinedRange,
     dwarf_file_names: &[String],
     name_to_file_id: &HashMap<String, u32>,
-    build_model: &SolxBuildModel,
-    line_starts_cache: &mut HashMap<u32, Vec<usize>>,
+    build_model: &DwarfBuildModel,
+    caches: &mut DecodeCaches,
 ) -> Option<SourceLocation> {
     // DWARF writes "no line" as 0, so both flavours of missing collapse to
     // `None`.
@@ -850,7 +871,7 @@ fn range_call_site_to_location(
         );
         return None;
     };
-    // solx's DWARF carries no `decl_column` (LLVM subprograms track only
+    // The DWARF carries no `decl_column` (LLVM subprograms track only
     // file and line), so a declaration anchor starts at the line start and
     // gets nudged past the indentation below.
     let column = if call_site.is_some() {
@@ -866,7 +887,7 @@ fn range_call_site_to_location(
         dwarf_file_names,
         name_to_file_id,
         build_model,
-        line_starts_cache,
+        caches,
     )?;
 
     let Some(source_file) = build_model.source_model_by_file_id(file_id) else {
@@ -884,8 +905,8 @@ fn range_call_site_to_location(
         }
     }
 
-    let length = build_model
-        .smallest_enclosing_span(file_id, offset as u32)
+    let length = caches
+        .enclosing_span(build_model, file_id, offset as u32)
         .map_or(0, |(_, len)| len);
 
     Some(SourceLocation::new(source_file, offset as u32, length))
@@ -899,8 +920,8 @@ fn resolve_location(
     column: u64,
     dwarf_file_names: &[String],
     name_to_file_id: &HashMap<String, u32>,
-    build_model: &SolxBuildModel,
-    line_starts_cache: &mut HashMap<u32, Vec<usize>>,
+    build_model: &DwarfBuildModel,
+    caches: &mut DecodeCaches,
 ) -> Option<(u32, usize)> {
     let dwarf_name = dwarf_file_names.get(dwarf_file_index as usize)?.as_str();
     resolve_location_by_name(
@@ -909,7 +930,7 @@ fn resolve_location(
         column,
         name_to_file_id,
         build_model,
-        line_starts_cache,
+        caches,
     )
 }
 
@@ -920,15 +941,12 @@ fn resolve_location_by_name(
     line: NonZeroU64,
     column: u64,
     name_to_file_id: &HashMap<String, u32>,
-    build_model: &SolxBuildModel,
-    line_starts_cache: &mut HashMap<u32, Vec<usize>>,
+    build_model: &DwarfBuildModel,
+    caches: &mut DecodeCaches,
 ) -> Option<(u32, usize)> {
-    let file_id = match_dwarf_to_build_model(dwarf_name, name_to_file_id)?;
-    let starts = line_starts_cache
-        .entry(file_id)
-        .or_insert_with(|| compute_line_starts(build_model, file_id));
+    let file_id = caches.resolve_file_id(dwarf_name, name_to_file_id)?;
     let line_idx = (line.get() - 1) as usize;
-    let line_start = starts.get(line_idx).copied()?;
+    let line_start = caches.line_start(build_model, file_id, line_idx)?;
     let column_offset = if column == 0 { 0 } else { column as usize - 1 };
     Some((file_id, line_start + column_offset))
 }
@@ -988,20 +1006,6 @@ fn pick_unambiguous(candidates: &[(&String, u32)], dwarf_name: &str) -> Option<u
     longest.first().map(|(_, id)| *id)
 }
 
-fn compute_line_starts(build_model: &SolxBuildModel, file_id: u32) -> Vec<usize> {
-    let Some(file) = build_model.source_model_by_file_id(file_id) else {
-        return Vec::new();
-    };
-    let content = file.read().content.clone();
-    let mut starts = vec![0usize];
-    for (i, b) in content.bytes().enumerate() {
-        if b == b'\n' {
-            starts.push(i + 1);
-        }
-    }
-    starts
-}
-
 #[cfg(test)]
 mod tests {
     use std::{rc::Rc, sync::Arc};
@@ -1010,9 +1014,42 @@ mod tests {
 
     use super::*;
     use crate::{
-        artifacts::{CompilerOutput, SolxBytecode},
+        artifacts::{
+            dwarf_model::DwarfBuildModel, slang::slang_build_model, solx::solx_build_model,
+            CompilerInput, CompilerOutput, SolxBytecode,
+        },
         build_model::SourceFile,
     };
+
+    #[derive(Clone, Copy, Debug)]
+    enum Compiler {
+        Solx,
+        Slang,
+    }
+
+    /// Registers each fixture-driven test once per compiler, as
+    /// `solx::<test>` and `slang::<test>`.
+    macro_rules! test_each_compiler {
+        ($($test:ident),* $(,)?) => {
+            mod solx {
+                $(
+                    #[test]
+                    fn $test() {
+                        super::$test(super::Compiler::Solx);
+                    }
+                )*
+            }
+
+            mod slang {
+                $(
+                    #[test]
+                    fn $test() {
+                        super::$test(super::Compiler::Slang);
+                    }
+                )*
+            }
+        };
+    }
 
     /// `ParsedDwarf` with only the given ranges and an empty Context — for
     /// range-logic tests that don't need a real line program.
@@ -1029,37 +1066,65 @@ mod tests {
         }
     }
 
-    /// Minimal `BuildModel` (Counter.sol only) for `(file, line, column)`
-    /// resolution tests.
-    fn make_build_model_for_counter() -> SolxBuildModel {
+    /// Counter.sol model for `(file, line, column)` resolution tests: sources
+    /// only for solx, the `debugSymbols` reader's model for slang.
+    fn make_build_model_for_counter(compiler: Compiler) -> DwarfBuildModel {
         let counter_src = include_str!("../../fixtures/sources/Counter.sol");
-        let file = SourceFile::new("Counter.sol".to_string(), counter_src.to_string());
+        match compiler {
+            Compiler::Solx => {
+                let file = SourceFile::new("Counter.sol".to_string(), counter_src.to_string());
 
-        let mut file_id_to_source_file = std::collections::HashMap::new();
-        file_id_to_source_file.insert(0u32, Arc::new(RwLock::new(file)));
+                let mut file_id_to_source_file = std::collections::HashMap::new();
+                file_id_to_source_file.insert(0u32, Arc::new(RwLock::new(file)));
 
-        SolxBuildModel::with_sources(file_id_to_source_file)
+                DwarfBuildModel::with_sources(file_id_to_source_file)
+            }
+            Compiler::Slang => {
+                let mut input: CompilerInput =
+                    serde_json::from_str(include_str!("../../fixtures/slang_compiler_input.json"))
+                        .unwrap();
+                input.sources.get_mut("Counter.sol").unwrap().content = counter_src.to_string();
+                slang_build_model(input, &load_counter_output(compiler))
+                    .expect("the slang Counter fixture has debugSymbols")
+            }
+        }
     }
 
-    fn load_solx_output() -> CompilerOutput<SolxBytecode> {
-        let s = include_str!("../../fixtures/solx_compiler_output.json");
+    fn load_counter_output(compiler: Compiler) -> CompilerOutput<SolxBytecode> {
+        let s = match compiler {
+            Compiler::Solx => include_str!("../../fixtures/solx_compiler_output.json"),
+            Compiler::Slang => include_str!("../../fixtures/slang_compiler_output.json"),
+        };
         serde_json::from_str(s).unwrap()
     }
 
-    fn load_stack_trace_scenarios_output() -> CompilerOutput<SolxBytecode> {
-        let s = include_str!("../../fixtures/solx_compiler_output_stack_trace_scenarios.json");
+    fn load_stack_trace_scenarios_output(compiler: Compiler) -> CompilerOutput<SolxBytecode> {
+        let s = match compiler {
+            Compiler::Solx => {
+                include_str!("../../fixtures/solx_compiler_output_stack_trace_scenarios.json")
+            }
+            Compiler::Slang => {
+                include_str!("../../fixtures/slang_compiler_output_stack_trace_scenarios.json")
+            }
+        };
         serde_json::from_str(s).unwrap()
     }
 
-    /// `BuildModel` for `StackTraceScenarios.sol`; the fixture pair is
-    /// regenerated by `edr_tool_cli`'s `gen-solx-fixtures` (see the
-    /// fixtures README). Line pins move with the sources, so prefer
-    /// appending.
-    fn make_build_model_for_stack_trace_scenarios() -> SolxBuildModel {
-        let mut input: crate::artifacts::CompilerInput = serde_json::from_str(include_str!(
-            "../../fixtures/solx_compiler_input_stack_trace_scenarios.json"
-        ))
-        .expect("solx_compiler_input_stack_trace_scenarios.json must parse");
+    /// `BuildModel` for `StackTraceScenarios.sol`; the fixture pairs are
+    /// regenerated by `edr_tool_cli`'s `gen-solx-fixtures` and
+    /// `gen-slang-fixtures` (see the fixtures README). Line pins move with
+    /// the sources, so prefer appending.
+    fn make_build_model_for_stack_trace_scenarios(compiler: Compiler) -> DwarfBuildModel {
+        let input_json = match compiler {
+            Compiler::Solx => {
+                include_str!("../../fixtures/solx_compiler_input_stack_trace_scenarios.json")
+            }
+            Compiler::Slang => {
+                include_str!("../../fixtures/slang_compiler_input_stack_trace_scenarios.json")
+            }
+        };
+        let mut input: CompilerInput =
+            serde_json::from_str(input_json).expect("the stack-trace-scenarios input must parse");
         input
             .sources
             .get_mut("project/contracts/StackTraceScenarios.sol")
@@ -1072,15 +1137,19 @@ mod tests {
             .content =
             include_str!("../../fixtures/sources/StackTraceScenariosBase.sol").to_string();
 
-        let output = load_stack_trace_scenarios_output();
-        SolxBuildModel::new(input, &output)
-            .expect("AST processor must accept the stack-trace-scenarios fixture")
+        let output = load_stack_trace_scenarios_output(compiler);
+        match compiler {
+            Compiler::Solx => solx_build_model(input, &output)
+                .expect("AST processor must accept the stack-trace-scenarios fixture"),
+            Compiler::Slang => slang_build_model(input, &output)
+                .expect("debugSymbols reader must accept the stack-trace-scenarios fixture"),
+        }
     }
 
     fn decode_deployed_for(
         output: &CompilerOutput<SolxBytecode>,
         contract: &str,
-        model: &SolxBuildModel,
+        model: &DwarfBuildModel,
     ) -> Vec<Instruction> {
         let bc = &output
             .contracts
@@ -1108,22 +1177,25 @@ mod tests {
         /// Panic 0x12 (div by zero): pin the bottom location to the divide
         /// expression (line 127), not the panic helper's contract-scope
         /// `call_line`.
-        #[test]
-        fn divide_by_zero_filters_out_panic_helper_decl_line() {
-            let output = load_stack_trace_scenarios_output();
-            let model = make_build_model_for_stack_trace_scenarios();
+        fn divide_by_zero_filters_out_panic_helper_decl_line(compiler: Compiler) {
+            let output = load_stack_trace_scenarios_output(compiler);
+            let model = make_build_model_for_stack_trace_scenarios(compiler);
             let instructions = decode_deployed_for(&output, "DividesByZero", &model);
 
-            // PC 0x26 is the panic-emitting REVERT for `0x12` (divide by zero).
+            // The panic-emitting REVERT for `0x12` (divide by zero).
+            let pc = match compiler {
+                Compiler::Solx => 0x26,
+                Compiler::Slang => 0x42,
+            };
             let inst = instructions
                 .iter()
-                .find(|i| i.pc == 0x26)
-                .expect("PC 0x26 should be present");
+                .find(|i| i.pc == pc)
+                .unwrap_or_else(|| panic!("PC {pc:#x} should be present"));
             let line = inst
                 .location
                 .as_ref()
                 .and_then(|loc| loc.get_starting_line_number().ok())
-                .expect("PC 0x26 must have a resolved location");
+                .unwrap_or_else(|| panic!("PC {pc:#x} must have a resolved location"));
             assert_eq!(
                 line, 127,
                 "expected line 127 (the divide expression `c = a / b`), got {line}. \
@@ -1136,10 +1208,9 @@ mod tests {
         /// line-program row pointing into a *different* contract; the
         /// contract-match check in `user_visible_location_for_pc` must pin
         /// it to its own statement line instead.
-        #[test]
-        fn invalid_opcode_does_not_leak_unrelated_contract_line() {
-            let output = load_stack_trace_scenarios_output();
-            let model = make_build_model_for_stack_trace_scenarios();
+        fn invalid_opcode_does_not_leak_unrelated_contract_line(compiler: Compiler) {
+            let output = load_stack_trace_scenarios_output(compiler);
+            let model = make_build_model_for_stack_trace_scenarios(compiler);
             let instructions = decode_deployed_for(&output, "InvalidOpcode", &model);
 
             // `die`'s `invalid()` is the only INVALID opcode with a
@@ -1158,30 +1229,32 @@ mod tests {
         /// Assembly reverts: solx (since 0.1.6) emits `.debug_line` rows for
         /// assembly opcodes, so the `revert` maps to its own statement line
         /// rather than falling back to the function's declaration.
-        #[test]
-        fn inline_assembly_revert_maps_to_statement_line() {
-            let output = load_stack_trace_scenarios_output();
-            let model = make_build_model_for_stack_trace_scenarios();
+        fn inline_assembly_revert_maps_to_statement_line(compiler: Compiler) {
+            let output = load_stack_trace_scenarios_output(compiler);
+            let model = make_build_model_for_stack_trace_scenarios(compiler);
             let instructions = decode_deployed_for(&output, "AssemblyReverts", &model);
 
+            let pc = match compiler {
+                Compiler::Solx => 0x36,
+                Compiler::Slang => 0x52,
+            };
             let inst = instructions
                 .iter()
-                .find(|i| i.pc == 0x36)
-                .expect("PC 0x36 (the assembly REVERT) should be present");
+                .find(|i| i.pc == pc)
+                .unwrap_or_else(|| panic!("PC {pc:#x} (the assembly REVERT) should be present"));
             let line = inst
                 .location
                 .as_ref()
                 .and_then(|loc| loc.get_starting_line_number().ok())
-                .expect("PC 0x36 must have a resolved location");
+                .unwrap_or_else(|| panic!("PC {pc:#x} must have a resolved location"));
             assert_eq!(
                 line, 314,
                 "expected the `revert(...)` statement line (314), got {line}."
             );
         }
 
-        #[test]
-        fn deployed_dwarf_maps_some_pc_to_require_line() {
-            let output = load_solx_output();
+        fn deployed_dwarf_maps_some_pc_to_require_line(compiler: Compiler) {
+            let output = load_counter_output(compiler);
             let bc = &output
                 .contracts
                 .get("Counter.sol")
@@ -1192,7 +1265,7 @@ mod tests {
                 .deployed_bytecode;
             let raw = hex::decode(&bc.object).expect("hex object");
 
-            let model = make_build_model_for_counter();
+            let model = make_build_model_for_counter(compiler);
             let instructions = decode_instructions(&raw, &bc.debug_info, &model, false)
                 .expect("DWARF decode should succeed for the Counter fixture");
             assert!(!instructions.is_empty());
@@ -1211,55 +1284,49 @@ mod tests {
         }
 
         /// `require(false, "boom")` — bottom at the require statement.
-        #[test]
-        fn pin_direct_require() {
-            let output = load_stack_trace_scenarios_output();
-            let model = make_build_model_for_stack_trace_scenarios();
+        fn pin_direct_require(compiler: Compiler) {
+            let output = load_stack_trace_scenarios_output(compiler);
+            let model = make_build_model_for_stack_trace_scenarios(compiler);
             let insts = decode_deployed_for(&output, "DirectRequire", &model);
             assert!(first_inst_at_line(&insts, 105).is_some());
         }
 
         /// `assert(false)` panic 0x01 — bottom at the assert statement.
-        #[test]
-        fn pin_assertion_failure() {
-            let output = load_stack_trace_scenarios_output();
-            let model = make_build_model_for_stack_trace_scenarios();
+        fn pin_assertion_failure(compiler: Compiler) {
+            let output = load_stack_trace_scenarios_output(compiler);
+            let model = make_build_model_for_stack_trace_scenarios(compiler);
             let insts = decode_deployed_for(&output, "AssertFails", &model);
             assert!(first_inst_at_line(&insts, 111).is_some());
         }
 
         /// Arithmetic overflow panic 0x11 — bottom at the `+` expression.
-        #[test]
-        fn pin_overflow() {
-            let output = load_stack_trace_scenarios_output();
-            let model = make_build_model_for_stack_trace_scenarios();
+        fn pin_overflow(compiler: Compiler) {
+            let output = load_stack_trace_scenarios_output(compiler);
+            let model = make_build_model_for_stack_trace_scenarios(compiler);
             let insts = decode_deployed_for(&output, "Overflows", &model);
             assert!(first_inst_at_line(&insts, 119).is_some());
         }
 
         /// Array OOB panic 0x32 — bottom at the indexing expression.
-        #[test]
-        fn pin_array_oob() {
-            let output = load_stack_trace_scenarios_output();
-            let model = make_build_model_for_stack_trace_scenarios();
+        fn pin_array_oob(compiler: Compiler) {
+            let output = load_stack_trace_scenarios_output(compiler);
+            let model = make_build_model_for_stack_trace_scenarios(compiler);
             let insts = decode_deployed_for(&output, "ArrayOutOfBounds", &model);
             assert!(first_inst_at_line(&insts, 135).is_some());
         }
 
         /// `revert MyError(...)` — bottom at the revert statement.
-        #[test]
-        fn pin_custom_error() {
-            let output = load_stack_trace_scenarios_output();
-            let model = make_build_model_for_stack_trace_scenarios();
+        fn pin_custom_error(compiler: Compiler) {
+            let output = load_stack_trace_scenarios_output(compiler);
+            let model = make_build_model_for_stack_trace_scenarios(compiler);
             let insts = decode_deployed_for(&output, "ThrowsCustomError", &model);
             assert!(first_inst_at_line(&insts, 166).is_some());
         }
 
         /// Constructor `require(false, ...)` — runs in CREATE bytecode.
-        #[test]
-        fn pin_constructor_revert() {
-            let output = load_stack_trace_scenarios_output();
-            let model = make_build_model_for_stack_trace_scenarios();
+        fn pin_constructor_revert(compiler: Compiler) {
+            let output = load_stack_trace_scenarios_output(compiler);
+            let model = make_build_model_for_stack_trace_scenarios(compiler);
             let bc = &output
                 .contracts
                 .get("project/contracts/StackTraceScenarios.sol")
@@ -1275,68 +1342,81 @@ mod tests {
 
         /// Cross-contract recursion — pin the innermost `recurse(0)`. The
         /// multi-level chain is reconstructed by the trace renderer.
-        #[test]
-        fn pin_deep_recursion_bottom() {
-            let output = load_stack_trace_scenarios_output();
-            let model = make_build_model_for_stack_trace_scenarios();
+        fn pin_deep_recursion_bottom(compiler: Compiler) {
+            let output = load_stack_trace_scenarios_output(compiler);
+            let model = make_build_model_for_stack_trace_scenarios(compiler);
             let insts = decode_deployed_for(&output, "DeepRecursion", &model);
             assert!(first_inst_at_line(&insts, 224).is_some());
         }
 
         /// Library-internal function reverts. solx emits the helper as a
         /// concrete subprogram; the require resolves directly.
-        #[test]
-        fn pin_library_revert() {
-            let output = load_stack_trace_scenarios_output();
-            let model = make_build_model_for_stack_trace_scenarios();
+        fn pin_library_revert(compiler: Compiler) {
+            let output = load_stack_trace_scenarios_output(compiler);
+            let model = make_build_model_for_stack_trace_scenarios(compiler);
             let insts = decode_deployed_for(&output, "UsesInternalLib", &model);
             assert!(first_inst_at_line(&insts, 260).is_some());
         }
 
         /// `fallback() { revert(...) }` on the target contract.
-        #[test]
-        fn pin_fallback_revert() {
-            let output = load_stack_trace_scenarios_output();
-            let model = make_build_model_for_stack_trace_scenarios();
+        fn pin_fallback_revert(compiler: Compiler) {
+            let output = load_stack_trace_scenarios_output(compiler);
+            let model = make_build_model_for_stack_trace_scenarios(compiler);
             let insts = decode_deployed_for(&output, "FallbackReverts", &model);
             assert!(first_inst_at_line(&insts, 272).is_some());
         }
 
         /// `receive() { revert(...) }` on the target contract.
-        #[test]
-        fn pin_receive_revert() {
-            let output = load_stack_trace_scenarios_output();
-            let model = make_build_model_for_stack_trace_scenarios();
+        fn pin_receive_revert(compiler: Compiler) {
+            let output = load_stack_trace_scenarios_output(compiler);
+            let model = make_build_model_for_stack_trace_scenarios(compiler);
             let insts = decode_deployed_for(&output, "ReceiveReverts", &model);
             assert!(first_inst_at_line(&insts, 278).is_some());
         }
 
         /// Two consecutive `require`s; the second fails.
-        #[test]
-        fn pin_multiple_requires() {
-            let output = load_stack_trace_scenarios_output();
-            let model = make_build_model_for_stack_trace_scenarios();
+        fn pin_multiple_requires(compiler: Compiler) {
+            let output = load_stack_trace_scenarios_output(compiler);
+            let model = make_build_model_for_stack_trace_scenarios(compiler);
             let insts = decode_deployed_for(&output, "MultipleRequires", &model);
             assert!(first_inst_at_line(&insts, 190).is_some());
         }
 
         /// Invalid enum cast panic 0x21 — anywhere inside the function body.
-        #[test]
-        fn pin_invalid_enum_cast() {
-            let output = load_stack_trace_scenarios_output();
-            let model = make_build_model_for_stack_trace_scenarios();
+        fn pin_invalid_enum_cast(compiler: Compiler) {
+            let output = load_stack_trace_scenarios_output(compiler);
+            let model = make_build_model_for_stack_trace_scenarios(compiler);
             let insts = decode_deployed_for(&output, "InvalidEnumCast", &model);
             assert!(first_inst_at_line(&insts, 149).is_some());
         }
 
         /// `arr.pop()` on empty array panics 0x31.
-        #[test]
-        fn pin_pop_empty_array() {
-            let output = load_stack_trace_scenarios_output();
-            let model = make_build_model_for_stack_trace_scenarios();
+        fn pin_pop_empty_array(compiler: Compiler) {
+            let output = load_stack_trace_scenarios_output(compiler);
+            let model = make_build_model_for_stack_trace_scenarios(compiler);
             let insts = decode_deployed_for(&output, "PopsEmptyArray", &model);
             assert!(first_inst_at_line(&insts, 158).is_some());
         }
+
+        test_each_compiler!(
+            divide_by_zero_filters_out_panic_helper_decl_line,
+            invalid_opcode_does_not_leak_unrelated_contract_line,
+            inline_assembly_revert_maps_to_statement_line,
+            deployed_dwarf_maps_some_pc_to_require_line,
+            pin_direct_require,
+            pin_assertion_failure,
+            pin_overflow,
+            pin_array_oob,
+            pin_custom_error,
+            pin_constructor_revert,
+            pin_deep_recursion_bottom,
+            pin_library_revert,
+            pin_fallback_revert,
+            pin_receive_revert,
+            pin_multiple_requires,
+            pin_invalid_enum_cast,
+            pin_pop_empty_array,
+        );
     }
 
     mod inline_call_sites {
@@ -1345,17 +1425,20 @@ mod tests {
         /// solx flattens a modifier into its enclosing function as a single
         /// inlined-subroutine — pin one frame (vs. solc's duplicate
         /// setIfPositive).
-        #[test]
-        fn modifier_revert_has_single_set_if_positive_inline_call_site() {
-            let output = load_stack_trace_scenarios_output();
-            let model = make_build_model_for_stack_trace_scenarios();
+        fn modifier_revert_has_single_set_if_positive_inline_call_site(compiler: Compiler) {
+            let output = load_stack_trace_scenarios_output(compiler);
+            let model = make_build_model_for_stack_trace_scenarios(compiler);
             let instructions = decode_deployed_for(&output, "ModifierGuard", &model);
 
-            // PC 0x87 is the modifier's `require(v > 0, ...)` revert.
+            // The modifier's `require(v > 0, ...)` revert.
+            let pc = match compiler {
+                Compiler::Solx => 0x87,
+                Compiler::Slang => 0x8f,
+            };
             let inst = instructions
                 .iter()
-                .find(|i| i.pc == 0x87)
-                .expect("PC 0x87 should be present");
+                .find(|i| i.pc == pc)
+                .unwrap_or_else(|| panic!("PC {pc:#x} should be present"));
             let call_site_lines: Vec<u32> = inst
                 .inline_call_sites
                 .iter()
@@ -1370,11 +1453,10 @@ mod tests {
             );
         }
 
-        #[test]
-        fn inline_call_sites_recover_caller_line_for_inlined_helpers() {
+        fn inline_call_sites_recover_caller_line_for_inlined_helpers(compiler: Compiler) {
             // PCs inside _checkPositive carry the caller line (Counter.sol:8)
             // via inline_call_sites — that's what gives EDR the middle frame.
-            let output = load_solx_output();
+            let output = load_counter_output(compiler);
             let bc = &output
                 .contracts
                 .get("Counter.sol")
@@ -1384,7 +1466,7 @@ mod tests {
                 .evm
                 .deployed_bytecode;
             let raw = hex::decode(&bc.object).unwrap();
-            let model = make_build_model_for_counter();
+            let model = make_build_model_for_counter(compiler);
             let instructions = decode_instructions(&raw, &bc.debug_info, &model, false).unwrap();
 
             // Pin: some PC at Counter.sol:13 (the require) has inline_call_sites
@@ -1408,10 +1490,9 @@ mod tests {
 
         /// Internal helper chain: `set` → `_checkPositive` reverts.
         /// `inline_call_sites` at the require PC carries the caller line.
-        #[test]
-        fn pin_internal_helper_chain_carries_caller_line() {
-            let output = load_stack_trace_scenarios_output();
-            let model = make_build_model_for_stack_trace_scenarios();
+        fn pin_internal_helper_chain_carries_caller_line(compiler: Compiler) {
+            let output = load_stack_trace_scenarios_output(compiler);
+            let model = make_build_model_for_stack_trace_scenarios(compiler);
             let insts = decode_deployed_for(&output, "InternalHelperChain", &model);
             let inst = first_inst_at_line(&insts, 254)
                 .expect("expected `_checkPositive`'s require at line 254");
@@ -1425,10 +1506,9 @@ mod tests {
 
         /// DWARF encodes "no source line" as line 0; solx ≥0.1.6 emits it
         /// for compiler-generated call sites like the `__entry` dispatch.
-        #[test]
-        fn line_zero_call_site_falls_back_to_the_function_declaration() {
-            let output = load_stack_trace_scenarios_output();
-            let model = make_build_model_for_stack_trace_scenarios();
+        fn line_zero_call_site_falls_back_to_the_function_declaration(compiler: Compiler) {
+            let output = load_stack_trace_scenarios_output(compiler);
+            let model = make_build_model_for_stack_trace_scenarios(compiler);
             let bc = &output
                 .contracts
                 .get("project/contracts/StackTraceScenarios.sol")
@@ -1456,10 +1536,9 @@ mod tests {
 
         /// Constructor → internal `_check` revert (CREATE). `inline_call_sites`
         /// at the require PC carries the constructor's call site.
-        #[test]
-        fn pin_helper_reverting_constructor_carries_caller_line() {
-            let output = load_stack_trace_scenarios_output();
-            let model = make_build_model_for_stack_trace_scenarios();
+        fn pin_helper_reverting_constructor_carries_caller_line(compiler: Compiler) {
+            let output = load_stack_trace_scenarios_output(compiler);
+            let model = make_build_model_for_stack_trace_scenarios(compiler);
             let bc = &output
                 .contracts
                 .get("project/contracts/StackTraceScenarios.sol")
@@ -1479,17 +1558,24 @@ mod tests {
                 .collect();
             assert!(lines.contains(&182), "got {lines:?}");
         }
+
+        test_each_compiler!(
+            modifier_revert_has_single_set_if_positive_inline_call_site,
+            inline_call_sites_recover_caller_line_for_inlined_helpers,
+            pin_internal_helper_chain_carries_caller_line,
+            line_zero_call_site_falls_back_to_the_function_declaration,
+            pin_helper_reverting_constructor_carries_caller_line,
+        );
     }
 
     mod jump_type_assignment {
         use super::*;
 
-        #[test]
-        fn every_jump_gets_a_non_default_jump_type() {
+        fn every_jump_gets_a_non_default_jump_type(compiler: Compiler) {
             // solx inlines helpers, so most JUMPs are dispatcher/abi-related and
             // stay inside a single range — we only require every JUMP/JUMPI to
             // get *some* non-default jump_type (not the NotJump placeholder).
-            let output = load_solx_output();
+            let output = load_counter_output(compiler);
             let bc = &output
                 .contracts
                 .get("Counter.sol")
@@ -1499,7 +1585,7 @@ mod tests {
                 .evm
                 .deployed_bytecode;
             let raw = hex::decode(&bc.object).unwrap();
-            let model = make_build_model_for_counter();
+            let model = make_build_model_for_counter(compiler);
             let instructions = decode_instructions(&raw, &bc.debug_info, &model, false).unwrap();
 
             for inst in &instructions {
@@ -1594,6 +1680,8 @@ mod tests {
             parsed.assign_jump_types(&mut instructions);
             assert_eq!(instructions[1].jump_type, JumpType::IntoFunction);
         }
+
+        test_each_compiler!(every_jump_gets_a_non_default_jump_type,);
     }
 
     mod dwarf_file_matching {
@@ -1689,10 +1777,9 @@ mod tests {
 
         /// Non-zero `SourceLocation.length` via `BuildModel.ast_spans` — pin
         /// that at least one resolved instruction gets a non-zero span.
-        #[test]
-        fn solx_instructions_carry_nonzero_source_length() {
-            let output = load_stack_trace_scenarios_output();
-            let model = make_build_model_for_stack_trace_scenarios();
+        fn instructions_carry_nonzero_source_length(compiler: Compiler) {
+            let output = load_stack_trace_scenarios_output(compiler);
+            let model = make_build_model_for_stack_trace_scenarios(compiler);
             let insts = decode_deployed_for(&output, "DirectRequire", &model);
 
             let any_with_length = insts
@@ -1705,37 +1792,67 @@ mod tests {
                  length > 0 once BuildModel.ast_spans is populated"
             );
         }
+
+        test_each_compiler!(instructions_carry_nonzero_source_length,);
     }
 
     mod edge_cases {
         use super::*;
+
+        fn r(depth: u32, low_pc: u64, high_pc: u64) -> InlinedRange {
+            InlinedRange {
+                low_pc,
+                high_pc,
+                call_file: None,
+                call_line: None,
+                call_column: None,
+                depth,
+                is_artificial: false,
+                decl_file: None,
+                decl_line: None,
+            }
+        }
+
+        /// The sweep is stateful (ranges enter at `low_pc`, expire at
+        /// `high_pc`), so pin its per-PC results against the naive filter
+        /// over a walk that enters, nests, and expires ranges.
+        #[test]
+        fn range_sweep_matches_filter_scan_across_increasing_pcs() {
+            let mut inlined = vec![r(1, 0, 100), r(2, 10, 30), r(2, 40, 60), r(3, 45, 50)];
+            inlined.sort_by_key(|r| r.low_pc);
+
+            let mut sweep = RangeSweep::new(&inlined);
+            for pc in [0, 5, 10, 29, 30, 44, 45, 49, 50, 99, 100, 150] {
+                let mut expected: Vec<InlinedRange> = inlined
+                    .iter()
+                    .filter(|r| r.low_pc <= pc && pc < r.high_pc)
+                    .copied()
+                    .collect();
+                expected.sort_by_key(|r| std::cmp::Reverse(r.depth));
+
+                let actual = sweep.containing(pc);
+                let key = |rs: &[InlinedRange]| -> Vec<(u32, u64, u64)> {
+                    rs.iter().map(|r| (r.depth, r.low_pc, r.high_pc)).collect()
+                };
+                assert_eq!(
+                    key(&actual),
+                    key(&expected),
+                    "sweep diverged from filter scan at pc={pc}"
+                );
+            }
+        }
 
         /// G1 — innermost-first by DIE depth, not range width.
         /// A parent's `DW_AT_ranges` union can be wider than a child's
         /// contiguous range; width-based sorting would invert or tie
         /// the chain.
         #[test]
-        fn containing_ranges_orders_by_die_depth_not_width() {
-            fn r(depth: u32, low_pc: u64, high_pc: u64) -> InlinedRange {
-                InlinedRange {
-                    low_pc,
-                    high_pc,
-                    call_file: None,
-                    call_line: None,
-                    call_column: None,
-                    depth,
-                    is_artificial: false,
-                    decl_file: None,
-                    decl_line: None,
-                }
-            }
-
+        fn range_sweep_orders_by_die_depth_not_width() {
             // Two ranges with **identical** PC span [10, 50). Width-based
             // sorting is unstable here. Depth-based must put depth=3 first.
             let mut inlined = vec![r(2, 10, 50), r(3, 10, 50)];
             inlined.sort_by_key(|r| r.low_pc);
-            let parsed = make_parsed_dwarf_with_ranges(inlined);
-            let chain = parsed.containing_ranges(20);
+            let chain = RangeSweep::new(&inlined).containing(20);
             assert_eq!(chain.len(), 2);
             assert_eq!(
                 chain[0].depth,
@@ -1755,10 +1872,9 @@ mod tests {
                 r(3, 0, 100), // child (width 100, broader than either parent segment)
             ];
             inlined.sort_by_key(|r| r.low_pc);
-            let parsed = make_parsed_dwarf_with_ranges(inlined);
             // PC 15 sits in parent's first segment AND inside the child's
             // contiguous range. Depth-3 (child) must still come first.
-            let chain = parsed.containing_ranges(15);
+            let chain = RangeSweep::new(&inlined).containing(15);
             assert!(chain
                 .iter()
                 .any(|r| r.depth == 3 && r.low_pc == 0 && r.high_pc == 100));
@@ -1779,7 +1895,7 @@ mod tests {
 
         #[test]
         fn hex_decode_error_on_invalid_hex() {
-            let model = make_build_model_for_counter();
+            let model = make_build_model_for_counter(Compiler::Solx);
             let err = decode_instructions(&[], "not-valid-hex", &model, false)
                 .expect_err("non-hex input must fail at hex::decode");
             assert!(
@@ -1794,7 +1910,7 @@ mod tests {
             // happens to be the right length for object::File::parse to
             // try to interpret).
             let bogus = hex::encode([0xDE, 0xAD, 0xBE, 0xEFu8].repeat(64));
-            let model = make_build_model_for_counter();
+            let model = make_build_model_for_counter(Compiler::Solx);
             let err = decode_instructions(&[], &bogus, &model, false)
                 .expect_err("non-ELF bytes must fail at object::File::parse");
             assert!(
@@ -1808,7 +1924,7 @@ mod tests {
         /// than the old test, which only checked the predicate by hand.
         #[test]
         fn range_escapes_bytecode_on_truncated_bytecode() {
-            let output = load_solx_output();
+            let output = load_counter_output(Compiler::Solx);
             let bc = &output
                 .contracts
                 .get("Counter.sol")
@@ -1819,7 +1935,7 @@ mod tests {
                 .deployed_bytecode;
             // 4 bytes — well short of any subprogram's high_pc.
             let truncated = [0u8; 4];
-            let model = make_build_model_for_counter();
+            let model = make_build_model_for_counter(Compiler::Solx);
             let err = decode_instructions(&truncated, &bc.debug_info, &model, false)
                 .expect_err("truncated bytecode must trigger the bounds check");
             assert!(

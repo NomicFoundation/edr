@@ -145,7 +145,7 @@ async fn binary_search_does_not_probe_above_transaction_gas_cap() -> anyhow::Res
         .expect("Osaka activates EIP-7825");
     config.transaction_gas_cap = ConfigOption::Custom(transaction_gas_cap);
     config.default_transaction_gas_limit =
-        NonZeroU64::new(transaction_gas_cap).expect("cap is non-zero");
+        Some(NonZeroU64::new(transaction_gas_cap).expect("cap is non-zero"));
 
     let fixture = Fixture::new(config, HIGH_GAS_REQUIRED_BYTECODE)?;
 

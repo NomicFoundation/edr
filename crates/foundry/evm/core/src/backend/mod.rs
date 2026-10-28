@@ -1135,7 +1135,7 @@ impl<
         &self,
         mut env: EvmEnvWithChainContext<BlockT, TxT, HardforkT, ChainContextT>,
     ) -> EvmEnvWithChainContext<BlockT, TxT, HardforkT, ChainContextT> {
-        env.cfg.spec = self.inner.spec_id;
+        crate::set_cfg_spec_id(&mut env.cfg, self.inner.spec_id);
         env
     }
 
@@ -2831,6 +2831,8 @@ mod tests {
             chain: None,
             block_env: env.block,
             hosts: BTreeSet::default(),
+            fork_hash: None,
+            source_id: None,
         };
 
         let db = BlockchainDb::new(
