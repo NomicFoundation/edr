@@ -31,7 +31,7 @@ pub mod invariant;
 pub mod strategies;
 
 mod fuzz_config;
-pub use fuzz_config::{FuzzConfig, FuzzDictionaryConfig};
+pub use fuzz_config::{FuzzConfig, FuzzDictionaryConfig, FAILURES_DIR};
 
 mod inspector;
 pub use inspector::Fuzzer;

@@ -5,7 +5,7 @@ use std::{collections::BTreeMap, num::NonZeroU32};
 use alloy_primitives::{Bytes, U256};
 use edr_gas_report::GasReportExecutionStatus;
 use edr_solidity_tests::{
-    fuzz::{BaseCounterExample, CounterExample},
+    fuzz::{BaseCounterExample, CounterExample, FAILURES_DIR},
     inline_config::InlineConfigProfiles,
     result::{SuiteResult, TestKind, TestStatus},
 };
@@ -180,7 +180,7 @@ async fn test_persist_fuzz_failure() {
 
     let failure_file = persist_dir
         .path()
-        .join("failures")
+        .join(FAILURES_DIR)
         .join("FuzzFailurePersistTest")
         .join("test_persist_fuzzed_failure");
     let persisted: BaseCounterExample =
@@ -209,7 +209,7 @@ async fn test_persist_fuzz_failure() {
     assert_ne!(initial_calldata, new_calldata);
     assert!(new_persist_dir
         .path()
-        .join("failures")
+        .join(FAILURES_DIR)
         .join("FuzzFailurePersistTest")
         .join("test_persist_fuzzed_failure")
         .is_file());
@@ -231,7 +231,10 @@ async fn test_persist_fuzz_failure_overloaded_tests() {
     config.fuzz.runs = 10;
     config.fuzz.failure_persist_dir = Some(persist_dir.path().to_path_buf());
 
-    let failure_dir = persist_dir.path().join("failures").join("FuzzOverloadTest");
+    let failure_dir = persist_dir
+        .path()
+        .join(FAILURES_DIR)
+        .join("FuzzOverloadTest");
     let qualified_name = |signature: &str| {
         let selector = &alloy_primitives::keccak256(signature)[..4];
         format!(
@@ -310,7 +313,7 @@ async fn test_persist_fuzz_failure_overloaded_tests() {
 async fn test_persist_fuzz_failure_replaces_legacy_seed_file() {
     let filter = SolidityTestFilter::new(".*", ".*", ".*fuzz/FuzzFailurePersist.t.sol");
     let persist_dir = tempfile::tempdir().unwrap();
-    let legacy_file = persist_dir.path().join("failures");
+    let legacy_file = persist_dir.path().join(FAILURES_DIR);
     std::fs::write(
         &legacy_file,
         "# Seeds for failure cases proptest has generated in the past.\n\
@@ -348,7 +351,7 @@ async fn test_persist_fuzz_failure_errors_on_unremovable_legacy_seed_file() {
     use std::{os::unix::fs::PermissionsExt, sync::Arc};
 
     let persist_dir = tempfile::tempdir().unwrap();
-    let legacy_file = persist_dir.path().join("failures");
+    let legacy_file = persist_dir.path().join(FAILURES_DIR);
     std::fs::write(&legacy_file, "").unwrap();
     // Removing a file needs write permission on its directory.
     std::fs::set_permissions(persist_dir.path(), std::fs::Permissions::from_mode(0o555)).unwrap();
@@ -411,7 +414,7 @@ async fn test_persist_fuzz_failure_replays_qualified_name_of_non_overloaded_test
     let persist_dir = tempfile::tempdir().unwrap();
     let failure_dir = persist_dir
         .path()
-        .join("failures")
+        .join(FAILURES_DIR)
         .join("FuzzFailurePersistTest");
     let bare_file = failure_dir.join("test_persist_fuzzed_failure");
     let qualified_file = failure_dir.join(format!(
@@ -437,7 +440,7 @@ async fn test_persist_fuzz_failure_overwrites_corrupt_file() {
     let persist_dir = tempfile::tempdir().unwrap();
     let failure_file = persist_dir
         .path()
-        .join("failures")
+        .join(FAILURES_DIR)
         .join("FuzzFailurePersistTest")
         .join("test_persist_fuzzed_failure");
     std::fs::create_dir_all(failure_file.parent().unwrap()).unwrap();
@@ -703,7 +706,7 @@ async fn fuzz_runs_with_persisted_failure(counterexample: &BaseCounterExample) -
     let persist_dir = tempfile::tempdir().unwrap();
     let failure_dir = persist_dir
         .path()
-        .join("failures")
+        .join(FAILURES_DIR)
         .join("FuzzWithRejectsTest");
     std::fs::create_dir_all(&failure_dir).unwrap();
     std::fs::write(
@@ -828,7 +831,7 @@ async fn test_persist_fuzz_failure_replays_random_uint() {
 
     let failure_file = persist_dir
         .path()
-        .join("failures")
+        .join(FAILURES_DIR)
         .join("RandomFuzzTest")
         .join("testFuzz_randomUint_shouldFail");
     let persisted: BaseCounterExample =

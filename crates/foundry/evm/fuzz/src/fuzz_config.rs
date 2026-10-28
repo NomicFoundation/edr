@@ -2,6 +2,10 @@ use std::{num::NonZeroU32, path::PathBuf};
 
 use alloy_primitives::U256;
 
+/// Name of the directory under [`FuzzConfig::failure_persist_dir`] in which
+/// fuzz failures are persisted.
+pub const FAILURES_DIR: &str = "failures";
+
 /// Contains for fuzz testing
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct FuzzConfig {
@@ -58,11 +62,12 @@ impl FuzzConfig {
     }
 
     /// Returns the root directory under which fuzz failures are persisted,
-    /// `<failure_persist_dir>/failures`, if failure persistence is enabled.
+    /// `<failure_persist_dir>/`[`FAILURES_DIR`], if failure persistence is
+    /// enabled.
     pub fn failure_persist_root(&self) -> Option<PathBuf> {
         self.failure_persist_dir
             .as_ref()
-            .map(|failure_persist_dir| failure_persist_dir.join("failures"))
+            .map(|failure_persist_dir| failure_persist_dir.join(FAILURES_DIR))
     }
 
     /// Returns the failure directory of the given contract and the failure file
