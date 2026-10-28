@@ -38,6 +38,7 @@ async fn test_fuzz() {
                 r"testFuzz_assumeRandom\(uint256\)",
                 r"testFuzz_gasByInput\(uint256\)",
                 r"testFuzz_rareFailure\(uint256\)",
+                r"testFuzz_bump\(uint256\)",
             ]
             .join("|"),
         )
@@ -459,6 +460,35 @@ async fn test_persist_fuzz_failure_overwrites_corrupt_file() {
     let persisted: BaseCounterExample =
         serde_json::from_slice(&std::fs::read(&failure_file).unwrap()).unwrap();
     assert_eq!(persisted.calldata, calldata);
+}
+
+/// Every worker keeps a trace so that one can be displayed, yet the gas report
+/// receives at most `gas_report_samples` of them, the displayed one included.
+#[tokio::test(flavor = "multi_thread")]
+async fn test_fuzz_gas_report_samples_bound_collected_traces() {
+    const GAS_REPORT_SAMPLES: u32 = 3;
+
+    let filter = SolidityTestFilter::new(".*", ".*", ".*fuzz/FuzzGasReportSamples.t.sol");
+    let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
+    config.generate_gas_report = true;
+    config.fuzz.runs = 1000;
+    config.fuzz.workers = NonZeroU32::new(4);
+    config.fuzz.gas_report_samples = GAS_REPORT_SAMPLES;
+
+    let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;
+    let test_result = runner.test_collect(filter).await.test_result;
+    let bump_calls = test_result
+        .gas_report
+        .as_ref()
+        .expect("a gas report was requested")
+        .contracts
+        .get("default/fuzz/FuzzGasReportSamples.t.sol:Bumper")
+        .expect("the bumped contract should be in the gas report")
+        .functions
+        .get("bump()")
+        .map_or(0, Vec::len);
+
+    assert_eq!(bump_calls, GAS_REPORT_SAMPLES as usize);
 }
 
 #[tokio::test(flavor = "multi_thread")]
