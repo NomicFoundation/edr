@@ -38,6 +38,9 @@ pub const TEST_SECRET_KEY_SIGN_TYPED_DATA_V4: &str =
 
 pub const FORK_BLOCK_NUMBER: u64 = 18_725_000;
 
+/// Gas price of test transactions, in wei.
+pub const TEST_GAS_PRICE: u128 = 42_000_000_000;
+
 /// Constructs a test config in local mode with configured accounts
 pub fn create_test_config<HardforkT: Default>() -> ProviderConfig<HardforkT> {
     create_test_config_with(MinimalProviderConfig::local_with_accounts())
@@ -350,18 +353,29 @@ where
         }))
     }
 
+    /// Creates a new `ProviderTestFixture` with a local provider on
+    /// `hardfork`.
+    pub fn new_local_with_hardfork(hardfork: ChainSpecT::ProtocolHardfork) -> anyhow::Result<Self> {
+        let mut config = create_test_config_with(MinimalProviderConfig::local_with_accounts());
+        config.hardfork = hardfork;
+
+        Self::new(Self::runtime()?, config)
+    }
+
     fn with_config(
         config: MinimalProviderConfig<ChainSpecT::ProtocolHardfork>,
     ) -> anyhow::Result<Self> {
         let config = create_test_config_with(config);
 
-        let runtime = runtime::Builder::new_multi_thread()
+        Self::new(Self::runtime()?, config)
+    }
+
+    fn runtime() -> std::io::Result<runtime::Runtime> {
+        runtime::Builder::new_multi_thread()
             .worker_threads(1)
             .enable_all()
             .thread_name("provider-data-test")
-            .build()?;
-
-        Self::new(runtime, config)
+            .build()
     }
 
     pub fn new(
@@ -414,21 +428,40 @@ where
 }
 
 impl ProviderTestFixture<L1ChainSpec> {
+    /// Creates an EIP-155 transaction request at `TEST_GAS_PRICE` on the
+    /// fixture's chain.
+    pub fn transaction_request(
+        &self,
+        kind: TxKind,
+        input: Bytes,
+        gas_limit: u64,
+        value: U256,
+        nonce: u64,
+    ) -> edr_chain_l1::L1TransactionRequest {
+        edr_chain_l1::L1TransactionRequest::Eip155(edr_chain_l1::request::Eip155 {
+            kind,
+            gas_limit,
+            gas_price: TEST_GAS_PRICE,
+            value,
+            input,
+            nonce,
+            chain_id: self.config.chain_id,
+        })
+    }
+
     pub fn dummy_transaction_request(
         &self,
         local_account_index: usize,
         gas_limit: u64,
         nonce: Option<u64>,
     ) -> anyhow::Result<TransactionRequestAndSender<edr_chain_l1::L1TransactionRequest>> {
-        let request = edr_chain_l1::L1TransactionRequest::Eip155(edr_chain_l1::request::Eip155 {
-            kind: TxKind::Call(Address::ZERO),
+        let request = self.transaction_request(
+            TxKind::Call(Address::ZERO),
+            Bytes::default(),
             gas_limit,
-            gas_price: 42_000_000_000_u128,
-            value: U256::from(1),
-            input: Bytes::default(),
-            nonce: nonce.unwrap_or(0),
-            chain_id: self.config.chain_id,
-        });
+            U256::from(1),
+            nonce.unwrap_or(0),
+        );
 
         let sender = self.nth_local_account(local_account_index)?;
         Ok(TransactionRequestAndSender { request, sender })
