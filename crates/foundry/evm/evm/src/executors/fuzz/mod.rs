@@ -45,7 +45,10 @@ pub use types::{CaseOutcome, CounterExampleOutcome, FuzzOutcome};
 use crate::executors::fuzz::types::CounterExampleData;
 
 /// Minimum number of runs per worker.
-/// This is mainly to reduce the overall number of rayon jobs.
+///
+/// Every worker has a fixed cost (cloning the inspector, building the strategy
+/// and the [`TestRunner`], merging its coverage), which this spreads over
+/// enough runs. The value comes from foundry-rs/foundry#12713.
 const MIN_RUNS_PER_WORKER: u32 = 64;
 
 /// Data collected by a single fuzz worker.
@@ -77,8 +80,8 @@ struct WorkerState<
     >,
     /// Traces collected by this worker.
     ///
-    /// Stores up to `max_traces_to_collect` which is `config.gas_report_samples
-    /// / num_workers`.
+    /// Keeps at most `max_traces_to_collect` traces, which is the gas report
+    /// sample count divided by the worker count, and at least one.
     traces: Vec<SparsedTraceArena>,
     /// Coverage collected by this worker.
     coverage: Option<HitMaps>,
@@ -170,9 +173,9 @@ impl SharedFuzzState {
 ///
 /// After instantiation, calling `fuzz` will proceed to hammer the deployed
 /// smart contract with inputs, until it finds a counterexample. The runs are
-/// split between parallel workers, each running its own clone of the executor.
-/// The provided [`TestRunner`] contains all the configuration which can be
-/// overridden via [environment variables](proptest::test_runner::Config)
+/// split between parallel workers that share the executor and clone only its
+/// inspector. The provided [`TestRunner`] supplies the proptest configuration
+/// that every worker starts from.
 pub struct FuzzedExecutor<
     BlockT: BlockEnvTr,
     TxT: TransactionEnvTr,
