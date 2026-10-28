@@ -687,7 +687,7 @@ impl<
         // Before any suite starts, so that suites running in parallel never race
         // on the removal.
         if let Some(failure_persist_root) = self.fuzz_config.failure_persist_root() {
-            remove_legacy_fuzz_failure_file(&failure_persist_root);
+            remove_legacy_fuzz_failure_file(&failure_persist_root)?;
         }
 
         let fork = self.fork.take();
@@ -751,18 +751,16 @@ impl<
 /// Fuzz failures are now persisted as one JSON counterexample per test in a
 /// directory of the same name, so a leftover regular file at that path would
 /// prevent the directory from being created.
-fn remove_legacy_fuzz_failure_file(failure_persist_root: &Path) {
+fn remove_legacy_fuzz_failure_file(failure_persist_root: &Path) -> edr_common::fs::Result<()> {
     if !failure_persist_root.is_file() {
-        return;
+        return Ok(());
     }
 
     warn!(
         "Removing legacy fuzz failure file {} to make room for the fuzz failure directory.",
         failure_persist_root.display()
     );
-    if let Err(err) = edr_common::fs::remove_file(failure_persist_root) {
-        error!(%err, "Failed to remove legacy fuzz failure file");
-    }
+    edr_common::fs::remove_file(failure_persist_root)
 }
 
 fn matches_contract(id: &ArtifactId, filter: &dyn TestFilter) -> bool {

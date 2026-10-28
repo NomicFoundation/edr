@@ -342,6 +342,44 @@ async fn test_persist_fuzz_failure_replaces_legacy_seed_file() {
         .is_file());
 }
 
+/// A legacy seed file that cannot be removed would block failure persistence
+/// for the whole run, so it fails the run instead of being logged.
+#[cfg(unix)]
+#[tokio::test(flavor = "multi_thread")]
+async fn test_persist_fuzz_failure_errors_on_unremovable_legacy_seed_file() {
+    use std::{os::unix::fs::PermissionsExt, sync::Arc};
+
+    let persist_dir = tempfile::tempdir().unwrap();
+    let legacy_file = persist_dir.path().join("failures");
+    std::fs::write(&legacy_file, "").unwrap();
+    // Removing a file needs write permission on its directory.
+    std::fs::set_permissions(persist_dir.path(), std::fs::Permissions::from_mode(0o555)).unwrap();
+
+    let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
+    config.fuzz.failure_persist_dir = Some(persist_dir.path().to_path_buf());
+    let runner = TEST_DATA_DEFAULT.runner_with_config(config).await;
+    let result = runner.test(
+        tokio::runtime::Handle::current(),
+        Arc::new(SolidityTestFilter::new(
+            ".*",
+            ".*",
+            ".*fuzz/FuzzFailurePersist.t.sol",
+        )),
+        Arc::new(|_| {}),
+    );
+
+    std::fs::set_permissions(persist_dir.path(), std::fs::Permissions::from_mode(0o755)).unwrap();
+    let Err(err) = result else {
+        panic!("an unremovable legacy file must fail the run");
+    };
+    assert!(
+        err.to_string()
+            .contains(&format!("{:?}", legacy_file.as_path())),
+        "{err}"
+    );
+    assert!(legacy_file.is_file());
+}
+
 #[tokio::test(flavor = "multi_thread")]
 async fn test_fuzz_gas_report() {
     let filter = SolidityTestFilter::new(".*", ".*", ".*fuzz/FuzzCollection.t.sol");
