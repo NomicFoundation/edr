@@ -68,3 +68,6 @@ where
 
     Ok((result, call_trace_arenas))
 }
+
+#[cfg(test)]
+mod tests;
