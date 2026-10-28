@@ -178,8 +178,6 @@ async fn test_persist_fuzz_failure() {
         _ => Bytes::new(),
     };
 
-    // the counterexample is persisted as JSON at
-    // `<failure_persist_dir>/failures/<contract>/<test>`
     let failure_file = persist_dir
         .path()
         .join("failures")
