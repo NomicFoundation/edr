@@ -596,7 +596,7 @@ impl<
                         // configured.
                         let max = self.config.max_test_rejects;
                         let total = shared_state.increment_rejects();
-                        if max > 0 && total > max {
+                        if exceeds_max_rejects(total, max) {
                             worker.failure =
                                 Some(TestCaseError::reject(FuzzError::TooManyRejects(max)));
                             shared_state.try_claim_failure(worker_id);
@@ -854,6 +854,12 @@ fn num_workers(runs: u32, workers: Option<NonZeroU32>) -> usize {
     }
 }
 
+/// Whether `total` rejected inputs exceed the `max` allowed; `max = 0` allows
+/// any number.
+fn exceeds_max_rejects(total: u32, max: u32) -> bool {
+    max > 0 && total > max
+}
+
 /// Determines the number of runs of worker `worker_id` out of `num_workers`
 /// workers sharing `total_runs` runs.
 fn runs_per_worker(total_runs: u32, num_workers: usize, worker_id: usize) -> u32 {
@@ -908,6 +914,13 @@ mod tests {
             let (min, max) = (runs.iter().min().unwrap(), runs.iter().max().unwrap());
             assert!(max - min <= 1, "{runs:?}");
         }
+    }
+
+    #[test]
+    fn max_rejects_allows_exactly_max() {
+        assert!(!exceeds_max_rejects(3, 3));
+        assert!(exceeds_max_rejects(4, 3));
+        assert!(!exceeds_max_rejects(u32::MAX, 0));
     }
 
     #[test]
