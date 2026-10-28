@@ -923,4 +923,20 @@ mod tests {
             fuzz_worker_seed(U256::from(998u32), 1)
         );
     }
+
+    /// A replayed counterexample reseeds `vm.random*` from its recorded seed,
+    /// worker and run, so the derivation must depend on each of them.
+    #[test]
+    fn run_seeds_follow_worker_and_run() {
+        let seed = U256::from(997u32);
+        for worker_id in 0..4 {
+            let worker_seed = fuzz_worker_seed(seed, worker_id);
+            assert_eq!(fuzz_run_seed(seed, worker_id, 1), worker_seed);
+            assert_eq!(
+                fuzz_run_seed(seed, worker_id, 5),
+                worker_seed + U256::from(4u32)
+            );
+        }
+        assert_ne!(fuzz_run_seed(seed, 0, 2), fuzz_run_seed(seed, 1, 2));
+    }
 }
