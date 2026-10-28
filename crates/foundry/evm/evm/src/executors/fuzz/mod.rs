@@ -119,6 +119,31 @@ impl<
             ..Default::default()
         }
     }
+
+    /// Records a failing call as this worker's counterexample.
+    ///
+    /// [`TestCaseError::Fail`] requires a reason, so a revert without a
+    /// decodable reason is stored as an empty string, which
+    /// `aggregate_results` maps back to `None`.
+    fn record_counterexample(
+        &mut self,
+        outcome: CounterExampleData<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
+        reason: Option<String>,
+        failure_run: Option<FuzzRunMetadata>,
+    ) {
+        self.logs.extend(outcome.call.logs.clone());
+        self.counterexample = outcome;
+        self.failure = Some(TestCaseError::fail(reason.unwrap_or_default()));
+        self.failure_run = failure_run;
+    }
 }
 
 /// Shared state for coordinating parallel fuzz workers.
@@ -403,11 +428,7 @@ impl<
                 worker.runs += 1;
 
                 let reason = rd.maybe_decode(&outcome.call.result, status);
-                worker.logs.extend(outcome.call.logs.clone());
-                worker.counterexample = outcome;
-                // HACK: we have to use an empty string here to denote `None`.
-                worker.failure = Some(TestCaseError::fail(reason.unwrap_or_default()));
-                worker.failure_run = failure_run;
+                worker.record_counterexample(outcome, reason, failure_run);
                 let claimed = shared_state.try_claim_failure(WORKER_ID);
                 debug_assert!(claimed, "the replay runs before any worker");
                 Some(worker)
@@ -558,11 +579,7 @@ impl<
                         inc_runs(&mut worker);
 
                         let reason = rd.maybe_decode(&outcome.call.result, status);
-                        worker.logs.extend(outcome.call.logs.clone());
-                        worker.counterexample = outcome;
-                        // HACK: we have to use an empty string here to denote `None`.
-                        worker.failure = Some(TestCaseError::fail(reason.unwrap_or_default()));
-                        worker.failure_run = failure_run;
+                        worker.record_counterexample(outcome, reason, failure_run);
                         shared_state.try_claim_failure(worker_id);
                         break 'stop;
                     }
