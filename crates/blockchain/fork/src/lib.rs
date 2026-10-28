@@ -258,11 +258,13 @@ impl<
     /// Constructs a new instance.
     ///
     /// If the remote chain ID is found in the provided `chain_configs`, the
-    /// corresponding `ChainConfig` is used to determine hardfork activations
-    /// and base fee parameters.
+    /// corresponding `ChainConfig`'s hardfork activations are used to
+    /// determine the hardfork for executing historical (pre-fork) blocks.
     ///
-    /// Otherwise, the base fee parameters from the [`BlockConfig`] will be used
-    /// as a default.
+    /// Protocol parameters for blocks mined on top of the fork (e.g. base fee
+    /// parameters and blob schedules) are not selected here. Callers should
+    /// look them up with [`ForkedBlockchain::remote_chain_id`], not with
+    /// `chain_id_override`, which only sets the local chain's identity.
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     #[allow(clippy::too_many_arguments)]
     pub async fn new(
