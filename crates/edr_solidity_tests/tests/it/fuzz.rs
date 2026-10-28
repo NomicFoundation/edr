@@ -37,6 +37,7 @@ async fn test_fuzz() {
                 r"testFuzzWithRejects\(uint256\)",
                 r"testFuzz_assumeRandom\(uint256\)",
                 r"testFuzz_gasByInput\(uint256\)",
+                r"testFuzz_rareFailure\(uint256\)",
             ]
             .join("|"),
         )
@@ -948,8 +949,31 @@ async fn test_fuzz_parallel_workers_report_failure() {
         result.counterexample,
         Some(CounterExample::Single(_))
     ));
-    let (_, (runs, _, _)) = fuzz_outcome!(results, FUZZ_FAILURE_PERSIST, FUZZ_FAILURE_PERSIST_TEST);
-    assert!(runs <= 1000, "{runs}");
+}
+
+/// The first failure stops the other workers. With this seed worker 0 fails
+/// after 36 inputs and the other workers find no failure in their share, so
+/// without the stop the run count would include their whole shares.
+#[tokio::test(flavor = "multi_thread")]
+async fn test_fuzz_parallel_workers_stop_on_first_failure() {
+    const RUNS: u32 = 8000;
+    const WORKERS: u32 = 4;
+
+    let filter = SolidityTestFilter::new(".*", ".*", ".*fuzz/FuzzRareFailure.t.sol");
+    let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
+    config.fuzz.runs = RUNS;
+    config.fuzz.seed = Some(U256::from(78u32));
+    config.fuzz.workers = NonZeroU32::new(WORKERS);
+    let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;
+    let results = runner.test_collect(filter).await.suite_results;
+
+    let (status, (runs, _, _)) = fuzz_outcome!(
+        results,
+        "default/fuzz/FuzzRareFailure.t.sol:FuzzRareFailureTest",
+        "testFuzz_rareFailure(uint256)"
+    );
+    assert_eq!(status, TestStatus::Failure);
+    assert!(runs < (RUNS / WORKERS) as usize, "{runs}");
 }
 
 /// The same seed and worker count must produce the same inputs on every run.
