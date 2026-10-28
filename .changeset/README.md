@@ -27,7 +27,8 @@ EDR is pre-1.0, so breaking changes ship as `minor`.
 
 ## Writing the entry
 
-- Open with the past-tense verb that names the kind of change: `Added`, `Changed`, `Deprecated`, `Fixed`, `Removed`, `Improved` or `Upgraded`.
+- Open with the past-tense verb that names the kind of change: `Added`, `Changed`, `Deprecated`, `Fixed` or `Removed`. A performance change that leaves behavior unchanged opens with `Improved the performance of` instead. `Improved` is reserved for that case.
+- A dependency upgrade states what it delivers to users, such as a new hardfork or cheatcode, and opens with the verb for that change.
 - Name the affected API, option or method, in backticks like any other code, and state the user-visible effect.
 - Put a breaking change in its own sentence or bullet that starts with `BREAKING CHANGE:`. Name the replacement.
 - When a PR makes several independent changes, list them as bullets in the one changeset. Each bullet gets its own verb.
