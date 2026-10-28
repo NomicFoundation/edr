@@ -134,6 +134,18 @@ mod tests {
             Some(Bytes::from_static(&[0x12, 0x34, 0x56, 0x78]))
         );
 
+        // Like geth, an empty `input` still takes precedence over `data`
+        let with_empty_input: L1CallRequest = serde_json::from_str(
+            r#"{"to":"0x5fbdb2315678afecb367f032d93f642f64180aa3","data":"0x1234","input":"0x"}"#,
+        )?;
+        assert_eq!(with_empty_input.data, Some(Bytes::new()));
+
+        // Equal bytes in different hex case are the same calldata
+        let with_mixed_case: L1CallRequest = serde_json::from_str(
+            r#"{"to":"0x5fbdb2315678afecb367f032d93f642f64180aa3","data":"0xAB","input":"0xab"}"#,
+        )?;
+        assert_eq!(with_mixed_case.data, Some(Bytes::from_static(&[0xab])));
+
         Ok(())
     }
 }

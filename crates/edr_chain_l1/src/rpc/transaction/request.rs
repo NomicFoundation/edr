@@ -141,6 +141,15 @@ mod tests {
             .expect_err("Should fail due to different data and input");
         assert_eq!(error.to_string(), InputMismatchError.to_string());
 
+        // An empty `input` differs from non-empty `data`
+        let error = parse(r#""data":"0x1234","input":"0x""#)
+            .expect_err("Should fail due to different data and input");
+        assert_eq!(error.to_string(), InputMismatchError.to_string());
+
+        // Equal bytes in different hex case are the same calldata
+        let with_mixed_case = parse(r#""data":"0xAB","input":"0xab""#)?;
+        assert_eq!(with_mixed_case.data, Some(Bytes::from_static(&[0xab])));
+
         Ok(())
     }
 }
