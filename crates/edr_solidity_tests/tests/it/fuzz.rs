@@ -432,6 +432,26 @@ async fn test_persist_fuzz_failure_replays_qualified_name_of_non_overloaded_test
     assert!(!bare_file.exists());
 }
 
+/// An unreadable persisted failure is ignored: the test fuzzes from scratch
+/// and the file is overwritten with the new counterexample.
+#[tokio::test(flavor = "multi_thread")]
+async fn test_persist_fuzz_failure_overwrites_corrupt_file() {
+    let persist_dir = tempfile::tempdir().unwrap();
+    let failure_file = persist_dir
+        .path()
+        .join("failures")
+        .join("FuzzFailurePersistTest")
+        .join("test_persist_fuzzed_failure");
+    std::fs::create_dir_all(failure_file.parent().unwrap()).unwrap();
+    std::fs::write(&failure_file, "not json").unwrap();
+
+    let calldata = persisted_failure_calldata(persist_dir.path()).await;
+
+    let persisted: BaseCounterExample =
+        serde_json::from_slice(&std::fs::read(&failure_file).unwrap()).unwrap();
+    assert_eq!(persisted.calldata, calldata);
+}
+
 #[tokio::test(flavor = "multi_thread")]
 async fn test_fuzz_gas_report() {
     let filter = SolidityTestFilter::new(".*", ".*", ".*fuzz/FuzzCollection.t.sol");
