@@ -325,12 +325,15 @@ impl<
         }
 
         debug!(n = self.num_workers, "spawning fuzz workers");
+        // A rayon thread that steals a worker may be inside another test's span, so
+        // the worker span is parented explicitly.
+        let parent_span = tracing::Span::current();
         let workers = (0..self.num_workers)
             .into_par_iter()
             .map(|worker_id| {
                 let _tokio_guard = tokio_handle.enter();
-                // Attributes the worker's log output to it.
-                let _span_guard = info_span!("fuzz_worker", id = worker_id).entered();
+                let _span_guard =
+                    info_span!(parent: &parent_span, "fuzz_worker", id = worker_id).entered();
                 self.run_worker(worker_id, func, fuzz_fixtures, address, rd, &shared_state)
             })
             .collect::<Vec<_>>();
