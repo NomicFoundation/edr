@@ -482,9 +482,9 @@ pub struct FuzzConfigArgs {
     /// Optional timeout (in seconds) for each property test.
     /// Defaults to none (no timeout).
     pub timeout: Option<u32>,
-    /// Number of parallel workers used to run each fuzz test. The number of
-    /// runs is split between the workers, each of which needs at least 64
-    /// runs.
+    /// Upper bound on the number of parallel workers that run each fuzz test.
+    /// The runs are split between the workers, and fewer workers are used
+    /// when `runs` is below 64 per worker.
     /// Defaults to the number of available threads.
     pub workers: Option<u32>,
 }
