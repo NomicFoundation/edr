@@ -15,6 +15,7 @@ use std::{
     env, fmt,
     io::Write,
     marker::PhantomData,
+    num::NonZeroU32,
     path::{Path, PathBuf},
     sync::Mutex,
 };
@@ -266,7 +267,7 @@ pub struct TestFuzzConfig {
     pub gas_report_samples: u32,
     pub failure_persist_dir: Option<PathBuf>,
     pub show_logs: bool,
-    pub workers: Option<u32>,
+    pub workers: Option<NonZeroU32>,
 }
 
 impl TestFuzzConfig {

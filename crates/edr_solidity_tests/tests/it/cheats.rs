@@ -1,4 +1,6 @@
 //! Forge tests for cheatcodes.
+use std::num::NonZeroU32;
+
 use alloy_primitives::U256;
 use edr_solidity_tests::result::{TestKind, TestStatus};
 use foundry_cheatcodes::{FsPermissions, PathPermission};
@@ -261,7 +263,7 @@ async fn test_assume_no_revert_with_data() {
     // The count-zero tests fail differently for `x == 2` and `x == 3`, so the
     // expected reasons depend on the seed and on the input order.
     config.fuzz.seed = Some(U256::from(101));
-    config.fuzz.workers = Some(1);
+    config.fuzz.workers = NonZeroU32::new(1);
     // It's important to disable failure persistence, otherwise saved seeds from
     // tests can influence each other's execution.
     config.fuzz.failure_persist_dir = None;

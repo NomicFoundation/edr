@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::{num::NonZeroU32, path::PathBuf};
 
 use alloy_primitives::U256;
 
@@ -27,7 +27,7 @@ pub struct FuzzConfig {
     pub timeout: Option<u32>,
     /// Number of parallel workers used to run each fuzz test. `None` picks
     /// the number of available threads, bounded by the number of runs.
-    pub workers: Option<u32>,
+    pub workers: Option<NonZeroU32>,
 }
 
 impl Default for FuzzConfig {

@@ -1,5 +1,6 @@
 use std::{
     collections::HashMap,
+    num::NonZeroU32,
     sync::{
         atomic::{AtomicU32, Ordering},
         OnceLock,
@@ -828,16 +829,17 @@ fn unix_timestamp_millis() -> u128 {
 /// Determines the number of workers a fuzz test with `runs` runs is split
 /// between.
 ///
-/// Every worker gets at least [`MIN_RUNS_PER_WORKER`] runs. `workers` caps the
-/// number of workers if set, otherwise the number of threads of the global
-/// rayon pool does. A test with no runs gets no workers.
-fn num_workers(runs: u32, workers: Option<u32>) -> usize {
+/// `workers` is an upper bound if set, otherwise the number of threads of the
+/// global rayon pool is. Fewer workers are used when `runs` is below
+/// [`MIN_RUNS_PER_WORKER`] per worker, but always at least one. A test with no
+/// runs gets no workers.
+fn num_workers(runs: u32, workers: Option<NonZeroU32>) -> usize {
     if runs == 0 {
         return 0;
     }
     let max_workers = Ord::max(1, runs / MIN_RUNS_PER_WORKER) as usize;
     match workers {
-        Some(workers) => Ord::min(Ord::max(1, workers as usize), max_workers),
+        Some(workers) => Ord::min(workers.get() as usize, max_workers),
         None => Ord::min(rayon::current_num_threads(), max_workers),
     }
 }
@@ -901,12 +903,11 @@ mod tests {
     #[test]
     fn worker_count_is_bounded_by_runs() {
         assert_eq!(num_workers(0, None), 0);
-        assert_eq!(num_workers(0, Some(4)), 0);
+        assert_eq!(num_workers(0, NonZeroU32::new(4)), 0);
         assert_eq!(num_workers(1, None), 1);
-        assert_eq!(num_workers(63, Some(8)), 1);
-        assert_eq!(num_workers(256, Some(8)), 4);
-        assert_eq!(num_workers(256, Some(0)), 1);
-        assert_eq!(num_workers(10_000, Some(3)), 3);
+        assert_eq!(num_workers(63, NonZeroU32::new(8)), 1);
+        assert_eq!(num_workers(256, NonZeroU32::new(8)), 4);
+        assert_eq!(num_workers(10_000, NonZeroU32::new(3)), 3);
         assert!(num_workers(10_000, None) <= rayon::current_num_threads());
     }
 

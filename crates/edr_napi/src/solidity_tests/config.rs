@@ -1,4 +1,4 @@
-use std::{collections::HashMap, path::PathBuf};
+use std::{collections::HashMap, num::NonZeroU32, path::PathBuf};
 
 use derive_more::Debug;
 use edr_primitives::hex;
@@ -511,6 +511,13 @@ impl TryFrom<FuzzConfigArgs> for FuzzConfig {
             .map(|s| {
                 s.parse().map_err(|_err| {
                     napi::Error::new(Status::InvalidArg, format!("Invalid seed value: {s}"))
+                })
+            })
+            .transpose()?;
+        let workers = workers
+            .map(|workers| {
+                NonZeroU32::new(workers).ok_or_else(|| {
+                    napi::Error::new(Status::InvalidArg, "`workers` must be at least 1")
                 })
             })
             .transpose()?;

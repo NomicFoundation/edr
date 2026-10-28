@@ -1,6 +1,6 @@
 //! Fuzz tests.
 
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, num::NonZeroU32};
 
 use alloy_primitives::{Bytes, U256};
 use edr_gas_report::GasReportExecutionStatus;
@@ -402,7 +402,7 @@ async fn test_should_not_shrink_fuzz_failure() {
     config.fuzz.runs = 256;
     config.fuzz.seed = Some(U256::from(100));
     // The number of runs before the failure depends on worker scheduling.
-    config.fuzz.workers = Some(1);
+    config.fuzz.workers = NonZeroU32::new(1);
     let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;
     let suite_results = runner.test_collect(filter).await.suite_results;
     let suite_result = suite_results
@@ -426,7 +426,7 @@ async fn test_fuzz_can_scrape_bytecode() {
     config.fuzz.runs = 2100;
     config.fuzz.seed = Some(U256::from(107u32));
     // Keep the seeded input stream independent of the number of threads.
-    config.fuzz.workers = Some(1);
+    config.fuzz.workers = NonZeroU32::new(1);
     let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;
     let results = runner.test_collect(filter).await.suite_results;
 
@@ -799,7 +799,7 @@ async fn test_fuzz_parallel_workers_run_all_runs() {
     let filter = SolidityTestFilter::new(".*", ".*", ".*fuzz/FuzzWithRejects.t.sol");
     let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
     config.fuzz.runs = 1000;
-    config.fuzz.workers = Some(4);
+    config.fuzz.workers = NonZeroU32::new(4);
     let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;
     let results = runner.test_collect(filter).await.suite_results;
 
@@ -813,7 +813,7 @@ async fn test_fuzz_parallel_workers_report_failure() {
     let filter = SolidityTestFilter::new(".*", ".*", ".*fuzz/FuzzFailurePersist.t.sol");
     let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
     config.fuzz.runs = 1000;
-    config.fuzz.workers = Some(4);
+    config.fuzz.workers = NonZeroU32::new(4);
     let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;
     let results = runner.test_collect(filter).await.suite_results;
 
@@ -843,7 +843,7 @@ async fn test_fuzz_parallel_workers_are_deterministic() {
         let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
         config.fuzz.runs = 512;
         config.fuzz.seed = Some(U256::from(seed));
-        config.fuzz.workers = Some(2);
+        config.fuzz.workers = NonZeroU32::new(2);
         let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;
         let results = runner.test_collect(filter.clone()).await.suite_results;
         outcomes.push(fuzz_outcome!(
