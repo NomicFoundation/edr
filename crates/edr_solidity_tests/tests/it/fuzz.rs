@@ -2,7 +2,8 @@
 
 use std::{collections::BTreeMap, num::NonZeroU32};
 
-use alloy_primitives::{Bytes, U256};
+use alloy_json_abi::Function;
+use alloy_primitives::{Bytes, Selector, U256};
 use edr_gas_report::GasReportExecutionStatus;
 use edr_solidity_tests::{
     fuzz::{BaseCounterExample, CounterExample, FAILURES_DIR},
@@ -11,6 +12,11 @@ use edr_solidity_tests::{
 };
 
 use crate::helpers::{assert_multiple, SolidityTestFilter, TEST_DATA_DEFAULT};
+
+/// Returns the selector of the function with the given signature.
+fn selector_of(signature: &str) -> Selector {
+    Function::parse(signature).unwrap().selector()
+}
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_fuzz() {
@@ -236,10 +242,9 @@ async fn test_persist_fuzz_failure_overloaded_tests() {
         .join(FAILURES_DIR)
         .join("FuzzOverloadTest");
     let qualified_name = |signature: &str| {
-        let selector = &alloy_primitives::keccak256(signature)[..4];
         format!(
             "testFuzz_overload-{}",
-            alloy_primitives::hex::encode(selector)
+            alloy_primitives::hex::encode(selector_of(signature))
         )
     };
     let address_file = failure_dir.join(qualified_name(ADDRESS_TEST));
@@ -258,19 +263,17 @@ async fn test_persist_fuzz_failure_overloaded_tests() {
         let persisted: BaseCounterExample =
             serde_json::from_slice(&std::fs::read(failure_file).unwrap()).unwrap();
         assert_eq!(persisted.calldata, counterexample.calldata);
-        assert_eq!(
-            &persisted.calldata[..4],
-            &alloy_primitives::keccak256(test_name)[..4]
-        );
+        assert!(persisted
+            .calldata
+            .starts_with(selector_of(test_name).as_slice()));
     }
     assert!(!legacy_file.exists());
 
     // A failure persisted under the bare name by an older Forge is replayed by
     // the overload whose selector it carries.
-    let uint_selector = &alloy_primitives::keccak256(UINT_TEST)[..4];
     let legacy_calldata = Bytes::from(
         [
-            uint_selector,
+            selector_of(UINT_TEST).as_slice(),
             U256::from(424_242u32).to_be_bytes::<32>().as_slice(),
         ]
         .concat(),
@@ -419,7 +422,7 @@ async fn test_persist_fuzz_failure_replays_qualified_name_of_non_overloaded_test
     let bare_file = failure_dir.join("test_persist_fuzzed_failure");
     let qualified_file = failure_dir.join(format!(
         "test_persist_fuzzed_failure-{}",
-        alloy_primitives::hex::encode(&alloy_primitives::keccak256(PERSIST_TEST)[..4])
+        alloy_primitives::hex::encode(selector_of(PERSIST_TEST))
     ));
 
     let initial_calldata = persisted_failure_calldata(persist_dir.path()).await;
@@ -741,15 +744,15 @@ async fn test_fuzz_replay_only_with_same_selector() {
     let arg = alloy_primitives::U256::from(2_000_000u32).to_be_bytes::<32>();
 
     // A counterexample recorded for a different function signature is ignored.
-    let other_selector = &alloy_primitives::keccak256("testFuzzWithRejects(uint8)")[..4];
-    let calldata = Bytes::from([other_selector, arg.as_slice()].concat());
+    let other_selector = selector_of("testFuzzWithRejects(uint8)");
+    let calldata = Bytes::from([other_selector.as_slice(), arg.as_slice()].concat());
     let counterexample = BaseCounterExample::from_fuzz_call(calldata, &[], None, None);
     assert_eq!(fuzz_runs_with_persisted_failure(&counterexample).await, 256);
 
     // A counterexample for the current signature is replayed first. Its input
     // is rejected by `vm.assume`, which must not eat into the configured runs.
-    let selector = &alloy_primitives::keccak256("testFuzzWithRejects(uint256)")[..4];
-    let calldata = Bytes::from([selector, arg.as_slice()].concat());
+    let selector = selector_of("testFuzzWithRejects(uint256)");
+    let calldata = Bytes::from([selector.as_slice(), arg.as_slice()].concat());
     let counterexample = BaseCounterExample::from_fuzz_call(calldata, &[], None, None);
     assert_eq!(fuzz_runs_with_persisted_failure(&counterexample).await, 256);
 }
