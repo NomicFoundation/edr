@@ -70,7 +70,7 @@
 
 - 7f3fbca: Added the EIP-7997 deterministic `CREATE2` factory to the genesis state from the Amsterdam hardfork onward.
 - 1a84229: Added experimental EIP-8037 support: from the Amsterdam hardfork, blocks meter execution gas and state gas separately, `gasUsed` reports the larger of the two, transactions are admitted per dimension, the EIP-7825 gas cap (including a configured `transactionGasCap`) applies to execution gas only, and `tx.gas` is capped at 2^32 − 1. Transaction receipts are unchanged.
-- 161434a: Improved the error messages of the `eip712HashType` and `eip712HashStruct` cheatcodes.
+- 161434a: Changed the error messages of the `eip712HashType` and `eip712HashStruct` cheatcodes to describe the failure in user terms. The unknown-type error now suggests passing the full type definition or configuring the type in the test runner.
 - 169493d: Fixed the EIP-4788 beacon roots and EIP-2935 history storage genesis accounts to have nonce `1`, matching their on-chain deployments, which changes the genesis block hash of local Cancun+ networks.
 
 ## 0.22.0
@@ -153,10 +153,6 @@
 - d5f8a73: Added native inline configuration parsing in Solidity tests. Ill-formed inline configuration rejects the whole run up front, reporting one problem per affected test function; the rejected `runSolidityTests` promise carries the structured, located problems as the `inlineConfigErrors` array on the thrown error.
 
   Removed inline config associated types from NAPI: `TestFunctionOverride`, `TestFunctionIdentifier`, `TestFunctionConfigOverride`, `FuzzConfigOverride`, `InvariantConfigOverride`, and `TimeoutConfig`. Removed the `testFunctionOverrides` field of `SolidityTestRunnerConfigArgs`.
-
-### Patch Changes
-
-- 3fa7eb4: Upgraded revm to v41.0.0 (tag v113)
 
 ## 0.17.0
 
@@ -325,12 +321,11 @@
 - ba6bfa0: Added support for Solidity v0.8.30
 - a2d99ba: Fixed panic due to invalid GasPriceOracle bytecode for Isthmus OP hardfork
 - 2c418b7: Added Osaka blob parameters for usage in eth_call, eth_sendTransaction, etc.
-- c05b49b: Upgraded revm to v24 and alloy to more recent versions
 - 23e8ad8: Added docs for `runSolidityTests` arguments.
 - 0e0619e: Added support for function-level gas-tracking in Solidity tests.
 - f1cdbe2: Turned potential panics into JS errors to help with error reporting to Sentry.
 - bcb772e: Print more detailed error descriptions for EVM, invariant fuzz, and cheatcode errors
-- c498e40: Upgraded revm to v27
+- c498e40: Removed the EOF variants from `SuccessReason` and `ExceptionalHalt`: `EofReturnContract`, `EofAuxDataOverflow`, `EofAuxDataTooSmall`, `SubRoutineStackOverflow` and `InvalidEXTCALLTarget`.
 - 0047135: Update list of unsupported cheatcodes with cheatcodes up to Foundry 1.3.6
 - 33337ea: Added latest EIP-1559 base fee params to Base Mainnet chain config
 - 8794449: Added validity check for the block RLP size cap
@@ -652,7 +647,7 @@
 
 ### Patch Changes
 
-- c498e40: Upgraded revm to v27
+- c498e40: Removed the EOF variants from `SuccessReason` and `ExceptionalHalt`: `EofReturnContract`, `EofAuxDataOverflow`, `EofAuxDataTooSmall`, `SubRoutineStackOverflow` and `InvalidEXTCALLTarget`.
 - ccab079: Fixed wrong stack trace for expectEmit cheatcode
 - 381643b: Removed reference to cli flag from ffi cheatcode error message.
 
@@ -711,7 +706,6 @@
 ### Patch Changes
 
 - f606fc6: Fixed instrumentation for control flow statements
-- c05b49b: Upgraded revm to v24 and alloy to more recent versions
 - f1cdbe2: Turned potential panics into JS errors to help with error reporting to Sentry.
 - a6864ff: Added support for local pre-deploys for Solidity tests.
 - 1b6d123: Fixed a bug causing async functions to throw errors at the callsite
@@ -760,7 +754,9 @@
 
 ### Minor Changes
 
-- af26624: Improved provider initialization performance by passing build info as buffer which avoids FFI copy overhead
+- af26624: Changed `Provider.withConfig` to take build infos as buffers, which avoids an FFI copy during provider initialization.
+
+  BREAKING CHANGE: `tracingConfig` is now a `TracingConfigWithBuffers`. Its `buildInfos` accepts `Uint8Array` buffers, or `BuildInfoAndOutput` pairs for Hardhat v3 build infos, instead of parsed objects.
 
 ### Patch Changes
 
@@ -815,7 +811,9 @@
 
 ### Patch Changes
 
-- 2f1c189: Improved error message and added option to skip unsupported transaction type in `debug_traceTransaction`. Set `__EDR_UNSAFE_SKIP_UNSUPPORTED_TRANSACTION_TYPES=true` as an environment variable to enable this.
+- 2f1c189:
+  - Fixed a panic in `debug_traceTransaction` when an earlier transaction in the block has an unsupported type. The error now names that transaction and its type.
+  - Added the `__EDR_UNSAFE_SKIP_UNSUPPORTED_TRANSACTION_TYPES` environment variable. Set it to `true` to skip such transactions instead of failing.
 
 ## 0.5.2
 
@@ -842,7 +840,6 @@
 ### Patch Changes
 
 - b056511: Fixes restriction to disallow remote blocks without a nonce
-- e650c9e: Upgraded revm to v37
 
 ## 0.4.1
 
@@ -869,7 +866,6 @@
 
 - a4d5b62: Added support for blob transactions (EIP-4844) when auto-mining is enabled and the mempool is empty
 - ad1a4e8: Added support for EIP-712 payloads with signed integers
-- b03c944: Upgraded revm to commit aceb093
 - 3dfd1a5: Fixed `smock.fake` causing a panic
 - 0db9db9: Added retry for sporadic "missing trie node" JSON-RPC errors
 - c5da529: Fixed eth_call and eth_sendTransaction to allow passing input data with both `input` and `data` fields
