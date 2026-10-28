@@ -380,6 +380,58 @@ async fn test_persist_fuzz_failure_errors_on_unremovable_legacy_seed_file() {
     assert!(legacy_file.is_file());
 }
 
+const PERSIST_CONTRACT: &str = "default/fuzz/FuzzFailurePersist.t.sol:FuzzFailurePersistTest";
+const PERSIST_TEST: &str =
+    "test_persist_fuzzed_failure(uint256,int256,address,bool,string,(address,uint256),address[])";
+
+/// Runs the `FuzzFailurePersist` fixture with failures persisted in
+/// `persist_dir` and returns the counterexample calldata.
+async fn persisted_failure_calldata(persist_dir: &std::path::Path) -> Bytes {
+    let filter = SolidityTestFilter::new(".*", ".*", ".*fuzz/FuzzFailurePersist.t.sol");
+    let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
+    config.fuzz.runs = 1000;
+    config.fuzz.seed = None;
+    config.fuzz.failure_persist_dir = Some(persist_dir.to_path_buf());
+    let runner = TEST_DATA_DEFAULT.runner_with_config(config).await;
+    let results = runner.test_collect(filter).await.suite_results;
+    let result = results
+        .get(PERSIST_CONTRACT)
+        .unwrap()
+        .test_results
+        .get(PERSIST_TEST)
+        .unwrap();
+    let Some(CounterExample::Single(counterexample)) = &result.counterexample else {
+        panic!("no counterexample: {:?}", result.counterexample);
+    };
+    counterexample.calldata.clone()
+}
+
+/// A test that used to be overloaded keeps replaying the failure persisted
+/// under its qualified name.
+#[tokio::test(flavor = "multi_thread")]
+async fn test_persist_fuzz_failure_replays_qualified_name_of_non_overloaded_test() {
+    let persist_dir = tempfile::tempdir().unwrap();
+    let failure_dir = persist_dir
+        .path()
+        .join("failures")
+        .join("FuzzFailurePersistTest");
+    let bare_file = failure_dir.join("test_persist_fuzzed_failure");
+    let qualified_file = failure_dir.join(format!(
+        "test_persist_fuzzed_failure-{}",
+        alloy_primitives::hex::encode(&alloy_primitives::keccak256(PERSIST_TEST)[..4])
+    ));
+
+    let initial_calldata = persisted_failure_calldata(persist_dir.path()).await;
+    std::fs::rename(&bare_file, &qualified_file).unwrap();
+
+    assert_eq!(
+        persisted_failure_calldata(persist_dir.path()).await,
+        initial_calldata
+    );
+    assert!(qualified_file.is_file());
+    assert!(!bare_file.exists());
+}
+
 #[tokio::test(flavor = "multi_thread")]
 async fn test_fuzz_gas_report() {
     let filter = SolidityTestFilter::new(".*", ".*", ".*fuzz/FuzzCollection.t.sol");
