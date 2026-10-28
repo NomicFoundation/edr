@@ -1560,12 +1560,6 @@ impl<
             return self.outcome();
         }
 
-        let runner = fuzzer_with_cases(
-            fuzz_config.seed,
-            fuzz_config.runs,
-            fuzz_config.max_test_rejects,
-        );
-
         let test_name =
             fuzz_test_path_name(&self.cr.contract.abi, func, &fuzz_config, self.cr.name);
         let failure_paths = fuzz_config.failure_paths(self.cr.name, &test_name);
@@ -1590,6 +1584,11 @@ impl<
             });
 
         // Run fuzz test.
+        let runner = fuzzer_with_cases(
+            fuzz_config.seed,
+            fuzz_config.runs,
+            fuzz_config.max_test_rejects,
+        );
         let fuzzed_executor = FuzzedExecutor::new(
             self.executor.into_owned(),
             runner,
