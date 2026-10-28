@@ -203,6 +203,10 @@ async fn test_persist_fuzz_failure() {
         // calldata should be the same with the initial one
         assert_eq!(initial_calldata, new_calldata, "run {i}");
     }
+    // Without a seed the replayed run cannot be reproduced, so none is recorded.
+    let persisted: BaseCounterExample =
+        serde_json::from_slice(&std::fs::read(&failure_file).unwrap()).unwrap();
+    assert_eq!(persisted.fuzz.run, None);
 
     // write new failure in a different directory
     let new_persist_dir = tempfile::tempdir().unwrap();

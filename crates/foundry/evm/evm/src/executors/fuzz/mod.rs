@@ -390,7 +390,8 @@ impl<
         {
             cheats.set_seed(fuzz_run_seed(seed, worker_id as usize, run));
         }
-        let failure_run = Some(FuzzRunMetadata::new(seed, Some(run), Some(worker_id)));
+        let failure_run =
+            seed.map(|seed| FuzzRunMetadata::new(Some(seed), Some(run), Some(worker_id)));
 
         match self.single_fuzz(&inspector, address, failure.calldata.clone()) {
             Ok(FuzzOutcome::Case(_)) | Err(TestCaseError::Reject(_)) => None,
