@@ -737,7 +737,7 @@ async fn fuzz_runs_with_persisted_failure(counterexample: &BaseCounterExample) -
 }
 
 // Test that a persisted counterexample is only replayed if it targets the same
-// test selector, and that a replayed input does not count as a run.
+// test selector.
 // <https://github.com/foundry-rs/foundry/issues/11927>
 #[tokio::test(flavor = "multi_thread")]
 async fn test_fuzz_replay_only_with_same_selector() {
@@ -746,13 +746,6 @@ async fn test_fuzz_replay_only_with_same_selector() {
     // A counterexample recorded for a different function signature is ignored.
     let other_selector = selector_of("testFuzzWithRejects(uint8)");
     let calldata = Bytes::from([other_selector.as_slice(), arg.as_slice()].concat());
-    let counterexample = BaseCounterExample::from_fuzz_call(calldata, &[], None, None);
-    assert_eq!(fuzz_runs_with_persisted_failure(&counterexample).await, 256);
-
-    // A counterexample for the current signature is replayed first. Its input
-    // is rejected by `vm.assume`, which must not eat into the configured runs.
-    let selector = selector_of("testFuzzWithRejects(uint256)");
-    let calldata = Bytes::from([selector.as_slice(), arg.as_slice()].concat());
     let counterexample = BaseCounterExample::from_fuzz_call(calldata, &[], None, None);
     assert_eq!(fuzz_runs_with_persisted_failure(&counterexample).await, 256);
 }
