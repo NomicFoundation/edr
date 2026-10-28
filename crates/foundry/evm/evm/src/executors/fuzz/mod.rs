@@ -365,11 +365,7 @@ impl<
         const WORKER_ID: usize = 0;
 
         let failure = self.persisted_failure.as_ref()?;
-        if !failure
-            .calldata
-            .get(..4)
-            .is_some_and(|selector| func.selector() == selector)
-        {
+        if !failure.targets(func) {
             return None;
         }
 

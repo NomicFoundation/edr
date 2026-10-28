@@ -11,9 +11,10 @@ extern crate tracing;
 use std::{fmt, sync::Arc};
 
 use alloy_dyn_abi::{DynSolValue, JsonAbiExt};
+use alloy_json_abi::Function;
 use alloy_primitives::{
     map::{AddressHashMap, HashMap},
-    Address, Bytes, Log, U256,
+    Address, Bytes, Log, Selector, U256,
 };
 use edr_common::calc;
 use foundry_evm_coverage::HitMaps;
@@ -105,6 +106,14 @@ pub struct BaseCounterExample {
 }
 
 impl BaseCounterExample {
+    /// Returns whether the calldata calls `func`.
+    pub fn targets(&self, func: &Function) -> bool {
+        self.calldata
+            .get(..Selector::len_bytes())
+            .and_then(|bytes| Selector::try_from(bytes).ok())
+            == Some(func.selector())
+    }
+
     /// Creates counter example representing a step from invariant call
     /// sequence.
     pub fn from_invariant_call(

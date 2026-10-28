@@ -1574,12 +1574,8 @@ impl<
                         return None;
                     }
                     let legacy_file = failure_dir.join(&func.name);
-                    let failure = read_persisted_fuzz_failure(&legacy_file)?;
-                    failure
-                        .calldata
-                        .get(..4)
-                        .is_some_and(|selector| func.selector() == selector)
-                        .then_some(failure)
+                    read_persisted_fuzz_failure(&legacy_file)
+                        .filter(|failure| failure.targets(func))
                 })
             });
 
