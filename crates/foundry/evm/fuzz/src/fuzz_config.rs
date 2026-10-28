@@ -21,9 +21,6 @@ pub struct FuzzConfig {
     pub gas_report_samples: u32,
     /// Path where fuzz failures are recorded and replayed.
     pub failure_persist_dir: Option<PathBuf>,
-    /// Name of the directory under [`Self::failure_persist_dir`] in which fuzz
-    /// failures are recorded, defaults to `failures`.
-    pub failure_persist_file: String,
     /// show `console.log` in fuzz test, defaults to `false`
     pub show_logs: bool,
     /// Optional timeout (in seconds) for each property test
@@ -43,7 +40,6 @@ impl Default for FuzzConfig {
             dictionary: FuzzDictionaryConfig::default(),
             gas_report_samples: 0,
             failure_persist_dir: None,
-            failure_persist_file: "failures".to_string(),
             show_logs: false,
             timeout: None,
             workers: None,
@@ -62,20 +58,18 @@ impl FuzzConfig {
     }
 
     /// Returns the root directory under which fuzz failures are persisted,
-    /// `<failure_persist_dir>/<failure_persist_file>`, if failure persistence
-    /// is enabled.
+    /// `<failure_persist_dir>/failures`, if failure persistence is enabled.
     pub fn failure_persist_root(&self) -> Option<PathBuf> {
         self.failure_persist_dir
             .as_ref()
-            .map(|failure_persist_dir| failure_persist_dir.join(&self.failure_persist_file))
+            .map(|failure_persist_dir| failure_persist_dir.join("failures"))
     }
 
     /// Returns the failure directory of the given contract and the failure file
     /// of the given fuzz test in it, if failure persistence is enabled.
     ///
     /// Failures are persisted as
-    /// `<failure_persist_dir>/<failure_persist_file>/<contract name>/<test
-    /// name>`.
+    /// `<failure_persist_dir>/failures/<contract name>/<test name>`.
     ///
     /// `test_name` is the function name, or `<name>-<selector>` for an
     /// overloaded function; see `fuzz_test_path_name` in `edr_solidity_tests`.

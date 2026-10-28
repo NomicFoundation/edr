@@ -708,12 +708,6 @@ export interface FuzzConfigArgs {
   /** Path where fuzz failures are recorded and replayed if set. */
   failurePersistDir?: string
   /**
-   * Name of the directory under `failurePersistDir` in which fuzz
-   * failures are recorded, one JSON counterexample per test. Defaults to
-   * `failures`.
-   */
-  failurePersistFile?: string
-  /**
    * The amount of fuzz runs to perform for each fuzz test case. Higher
    * values gives more confidence in results at the cost of testing
    * speed.

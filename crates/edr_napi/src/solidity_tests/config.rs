@@ -451,10 +451,6 @@ impl SolidityTestRunnerConfigArgs<'_> {
 pub struct FuzzConfigArgs {
     /// Path where fuzz failures are recorded and replayed if set.
     pub failure_persist_dir: Option<String>,
-    /// Name of the directory under `failurePersistDir` in which fuzz
-    /// failures are recorded, one JSON counterexample per test. Defaults to
-    /// `failures`.
-    pub failure_persist_file: Option<String>,
     /// The amount of fuzz runs to perform for each fuzz test case. Higher
     /// values gives more confidence in results at the cost of testing
     /// speed.
@@ -499,7 +495,6 @@ impl TryFrom<FuzzConfigArgs> for FuzzConfig {
     fn try_from(value: FuzzConfigArgs) -> Result<Self, Self::Error> {
         let FuzzConfigArgs {
             failure_persist_dir,
-            failure_persist_file,
             runs,
             max_test_rejects,
             seed,
@@ -512,7 +507,6 @@ impl TryFrom<FuzzConfigArgs> for FuzzConfig {
         } = value;
 
         let failure_persist_dir = failure_persist_dir.map(PathBuf::from);
-        let failure_persist_file = failure_persist_file.unwrap_or_else(|| "failures".to_string());
         let seed = seed
             .map(|s| {
                 s.parse().map_err(|_err| {
@@ -524,7 +518,6 @@ impl TryFrom<FuzzConfigArgs> for FuzzConfig {
         let mut fuzz = FuzzConfig {
             seed,
             failure_persist_dir,
-            failure_persist_file,
             // TODO https://github.com/NomicFoundation/edr/issues/657
             gas_report_samples: 0,
             timeout,
@@ -639,7 +632,6 @@ impl InvariantConfigArgs {
             include_storage,
             include_push_bytes,
             // These aren't used in the invariant config.
-            failure_persist_file: _,
             max_test_rejects: _,
             seed: _,
             show_logs: _,

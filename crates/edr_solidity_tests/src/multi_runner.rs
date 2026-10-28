@@ -746,7 +746,7 @@ impl<
 
 /// Removes the fuzz failure file written by versions of EDR that persisted
 /// fuzz failures as a single `proptest` seed file at
-/// `<failure_persist_dir>/<failure_persist_file>`.
+/// `<failure_persist_dir>/failures`.
 ///
 /// Fuzz failures are now persisted as one JSON counterexample per test in a
 /// directory of the same name, so a leftover regular file at that path would

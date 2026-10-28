@@ -153,7 +153,6 @@ async fn test_persist_fuzz_failure() {
     config.fuzz.runs = 1000;
     config.fuzz.seed = None;
     config.fuzz.failure_persist_dir = Some(persist_dir.path().to_path_buf());
-    config.fuzz.failure_persist_file = "testfailure".to_string();
     let runner = TEST_DATA_DEFAULT.runner_with_config(config.clone()).await;
 
     macro_rules! get_failure_result {
@@ -180,10 +179,10 @@ async fn test_persist_fuzz_failure() {
     };
 
     // the counterexample is persisted as JSON at
-    // `<failure_persist_dir>/<failure_persist_file>/<contract>/<test>`
+    // `<failure_persist_dir>/failures/<contract>/<test>`
     let failure_file = persist_dir
         .path()
-        .join("testfailure")
+        .join("failures")
         .join("FuzzFailurePersistTest")
         .join("test_persist_fuzzed_failure");
     let persisted: BaseCounterExample =
@@ -200,18 +199,19 @@ async fn test_persist_fuzz_failure() {
         assert_eq!(initial_calldata, new_calldata, "run {i}");
     }
 
-    // write new failure in different file, but keep the same directory
-    config.fuzz.failure_persist_file = "failure1".to_string();
+    // write new failure in a different directory
+    let new_persist_dir = tempfile::tempdir().unwrap();
+    config.fuzz.failure_persist_dir = Some(new_persist_dir.path().to_path_buf());
     let runner = TEST_DATA_DEFAULT.runner_with_config(config).await;
     let new_calldata = match get_failure_result!(runner) {
         Some(CounterExample::Single(counterexample)) => counterexample.calldata,
         _ => Bytes::new(),
     };
-    // no failure is persisted under the new name so new calldata is generated
+    // no failure is persisted in the new directory so new calldata is generated
     assert_ne!(initial_calldata, new_calldata);
-    assert!(persist_dir
+    assert!(new_persist_dir
         .path()
-        .join("failure1")
+        .join("failures")
         .join("FuzzFailurePersistTest")
         .join("test_persist_fuzzed_failure")
         .is_file());
@@ -232,12 +232,8 @@ async fn test_persist_fuzz_failure_overloaded_tests() {
     let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
     config.fuzz.runs = 10;
     config.fuzz.failure_persist_dir = Some(persist_dir.path().to_path_buf());
-    config.fuzz.failure_persist_file = "testfailure".to_string();
 
-    let failure_dir = persist_dir
-        .path()
-        .join("testfailure")
-        .join("FuzzOverloadTest");
+    let failure_dir = persist_dir.path().join("failures").join("FuzzOverloadTest");
     let qualified_name = |signature: &str| {
         let selector = &alloy_primitives::keccak256(signature)[..4];
         format!(
@@ -310,13 +306,13 @@ async fn test_persist_fuzz_failure_overloaded_tests() {
 }
 
 /// Older EDR versions persisted fuzz failures as a single `proptest` seed file
-/// at `<failure_persist_dir>/<failure_persist_file>`. It must be replaced by
+/// at `<failure_persist_dir>/failures`. It must be replaced by
 /// the failure directory instead of blocking persistence.
 #[tokio::test(flavor = "multi_thread")]
 async fn test_persist_fuzz_failure_replaces_legacy_seed_file() {
     let filter = SolidityTestFilter::new(".*", ".*", ".*fuzz/FuzzFailurePersist.t.sol");
     let persist_dir = tempfile::tempdir().unwrap();
-    let legacy_file = persist_dir.path().join("testfailure");
+    let legacy_file = persist_dir.path().join("failures");
     std::fs::write(
         &legacy_file,
         "# Seeds for failure cases proptest has generated in the past.\n\
@@ -326,7 +322,6 @@ async fn test_persist_fuzz_failure_replaces_legacy_seed_file() {
 
     let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
     config.fuzz.failure_persist_dir = Some(persist_dir.path().to_path_buf());
-    config.fuzz.failure_persist_file = "testfailure".to_string();
     let runner = TEST_DATA_DEFAULT.runner_with_config(config).await;
     let results = runner.test_collect(filter).await.suite_results;
     let result = results
@@ -600,7 +595,7 @@ async fn fuzz_runs_with_persisted_failure(counterexample: &BaseCounterExample) -
     let persist_dir = tempfile::tempdir().unwrap();
     let failure_dir = persist_dir
         .path()
-        .join("testfailure")
+        .join("failures")
         .join("FuzzWithRejectsTest");
     std::fs::create_dir_all(&failure_dir).unwrap();
     std::fs::write(
@@ -697,7 +692,6 @@ async fn test_persist_fuzz_failure_replays_random_uint() {
     config.fuzz.seed = Some(U256::from(1u32));
     config.cheats_config_options.seed = config.fuzz.seed;
     config.fuzz.failure_persist_dir = Some(persist_dir.path().to_path_buf());
-    config.fuzz.failure_persist_file = "failures".to_string();
     let runner = TEST_DATA_DEFAULT.runner_with_config(config).await;
 
     let outcome = |results: &BTreeMap<String, SuiteResult<_>>| {
