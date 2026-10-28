@@ -1,6 +1,6 @@
 # Changesets
 
-A changeset records what a PR changes for users of `@nomicfoundation/edr`. On each push to `main`, the release workflow opens a release PR that turns the pending changesets into entries of `crates/edr_napi/CHANGELOG.md`. Write a changeset for those users, not for reviewers.
+A changeset records what a PR changes for users of `@nomicfoundation/edr`. While changesets are pending on `main`, the release workflow keeps a release PR open and refreshes it on every push. That PR turns the pending changesets into entries of `crates/edr_napi/CHANGELOG.md`. Write a changeset for those users, not for reviewers.
 
 ## When to add one
 
