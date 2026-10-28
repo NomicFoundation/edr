@@ -1569,7 +1569,6 @@ impl<
         let test_name =
             fuzz_test_path_name(&self.cr.contract.abi, func, &fuzz_config, self.cr.name);
         let failure_paths = fuzz_config.failure_paths(self.cr.name, &test_name);
-        // Load persisted counterexample, if any.
         let persisted_failure = failure_paths
             .as_ref()
             .and_then(|(failure_dir, failure_file)| {
@@ -1607,7 +1606,6 @@ impl<
             self.tokio_handle,
         );
 
-        // Record counterexample.
         if let Some((failure_dir, failure_file)) = failure_paths
             && let Some(CounterExample::Single(counterexample)) = &result.counterexample
         {
@@ -1939,9 +1937,7 @@ fn fuzz_test_path_name<'a>(
     }
 }
 
-/// Loads a persisted fuzz counterexample. A missing file is the normal case;
-/// any other failure is logged so that a corrupt file is not mistaken for a
-/// clean slate.
+/// Loads a persisted fuzz counterexample.
 fn read_persisted_fuzz_failure(path: &Path) -> Option<BaseCounterExample> {
     edr_common::fs::read_json_file::<BaseCounterExample>(path)
         .inspect_err(|err| {
