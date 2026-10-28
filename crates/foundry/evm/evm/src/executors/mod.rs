@@ -950,8 +950,8 @@ impl<
         tx.set_gas_price(0);
         tx.set_gas_priority_fee(None);
         tx.set_gas_limit(self.gas_limit);
-        // revm charges EIP-8037 account creation only if the address derived
-        // from `tx.nonce` is empty, and the nonce check is disabled.
+        // The nonce check is disabled and revm charges EIP-8037 account
+        // creation only if the address derived from `tx.nonce` is empty.
         if kind.is_create()
             && let Ok(nonce) = self.get_nonce(caller)
         {

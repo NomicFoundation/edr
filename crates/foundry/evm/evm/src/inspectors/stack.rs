@@ -868,8 +868,8 @@ impl<
         ecx.tx.set_chain_id(Some(ecx.cfg.chain_id));
         ecx.tx.set_caller(caller);
         ecx.tx.set_kind(kind);
-        // revm charges EIP-8037 account creation only if the address derived
-        // from `tx.nonce` is empty, and the nonce check is disabled.
+        // The nonce check is disabled and revm charges EIP-8037 account
+        // creation only if the address derived from `tx.nonce` is empty.
         if kind.is_create()
             && let Some(account) = ecx.journaled_state.state.get(&caller)
         {
