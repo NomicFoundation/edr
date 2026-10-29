@@ -950,6 +950,13 @@ impl<
         tx.set_gas_price(0);
         tx.set_gas_priority_fee(None);
         tx.set_gas_limit(self.gas_limit);
+        // The nonce check is disabled and revm charges EIP-8037 account
+        // creation only if the address derived from `tx.nonce` is empty.
+        if kind.is_create()
+            && let Ok(nonce) = self.get_nonce(caller)
+        {
+            tx.set_nonce(nonce);
+        }
 
         EvmEnv { cfg, block, tx }
     }
@@ -1828,8 +1835,9 @@ pub(crate) fn calculate_initial_gas<HardforkT: HardforkTr>(
 
 #[cfg(test)]
 mod tests {
+    use foundry_evm_core::evm_context::L1EvmBuilder;
     use revm::{
-        context::TxEnv,
+        context::{result::InvalidTransaction, BlockEnv, TxEnv},
         context_interface::cfg::GasParams,
         primitives::{eip2780, eip8038, hardfork::SpecId},
     };
@@ -1860,5 +1868,33 @@ mod tests {
         tx.kind = TxKind::Call(caller);
         let cfg = cfg.with_enable_amsterdam_eip2780(true);
         assert_eq!(calculate_stipend(&tx, &cfg), eip2780::TX_BASE_COST);
+    }
+
+    #[test]
+    fn amsterdam_deploys_charge_create_state_gas_at_caller_nonce() {
+        let mut executor = ExecutorBuilder::<BlockEnv, TxEnv, SpecId, ()>::new()
+            .spec(SpecId::AMSTERDAM)
+            .gas_limit(1_000_000)
+            .build::<L1EvmBuilder, HaltReason, InvalidTransaction>()
+            .unwrap();
+        // As in `EvmOpts`.
+        executor.env_mut().cfg.disable_nonce_check = true;
+        let deployer = Address::repeat_byte(0x33);
+
+        let mut deploy = || {
+            executor
+                .deploy(deployer, Bytes::new(), U256::ZERO, None)
+                .unwrap()
+        };
+        let first = deploy();
+        assert_eq!(first.address, deployer.create(0));
+
+        // Later deployments must not see the first one's address as already
+        // created.
+        for nonce in 1..3 {
+            let result = deploy();
+            assert_eq!(result.address, deployer.create(nonce));
+            assert_eq!(result.raw.gas_used, first.raw.gas_used);
+        }
     }
 }

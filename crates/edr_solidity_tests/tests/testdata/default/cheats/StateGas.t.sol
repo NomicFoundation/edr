@@ -127,6 +127,27 @@ contract StateGasTest is DSTest {
         );
     }
 
+    function testRepeatedDeploymentsReportSameStateGas() public {
+        for (uint256 i = 0; i < 3; i++) {
+            new LargeRuntime();
+            assertEq(vm.lastFrameGas().gasStateUsed, LARGE_RUNTIME_STATE_GAS, "wrong code deposit state gas");
+        }
+    }
+
+    /// forge-config: default.isolate = true
+    function testIsolatedRepeatedDeploymentsReportSameStateGas() public {
+        for (uint256 i = 0; i < 3; i++) {
+            new LargeRuntime();
+            Vm.Gas memory gas = vm.lastFrameGas();
+            assertEq(gas.gasStateUsed, LARGE_RUNTIME_STATE_GAS, "wrong code deposit state gas");
+            assertEq(
+                vm.snapshotGasLastFrame("stateGasRepeatedCreate"),
+                gas.gasTotalUsed + uint64(gas.gasStateUsed) + CREATE_STATE_GAS,
+                "create snapshot is not the receipt gas"
+            );
+        }
+    }
+
     /// forge-config: default.isolate = true
     function testStateGasSnapshotIncludesRefund() public {
         StateGasRefundTarget target = new StateGasRefundTarget();

@@ -868,6 +868,13 @@ impl<
         ecx.tx.set_chain_id(Some(ecx.cfg.chain_id));
         ecx.tx.set_caller(caller);
         ecx.tx.set_kind(kind);
+        // The nonce check is disabled and revm charges EIP-8037 account
+        // creation only if the address derived from `tx.nonce` is empty.
+        if kind.is_create()
+            && let Some(account) = ecx.journaled_state.state.get(&caller)
+        {
+            ecx.tx.set_nonce(account.info.nonce);
+        }
         ecx.tx.set_data(input);
         ecx.tx.set_value(value);
         // Preserve the frame's regular gas and reservoir across the synthetic
