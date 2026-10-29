@@ -28,5 +28,7 @@ contract IsolateOverrideDisabledTest is DSTest {
         assertEq(vm.getNonce(bob), 1);
         counter.increment();
         assertEq(vm.getNonce(bob), 2);
+        // Only reached when a gas report keeps isolation on.
+        assertTrue(vm.isIsolateMode());
     }
 }
