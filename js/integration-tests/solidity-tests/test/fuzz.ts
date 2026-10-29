@@ -6,8 +6,11 @@ import {
   TestContext,
 } from "./testContext.js";
 import fs from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
 import { existsSync } from "node:fs";
 import {
+  BaseCounterExample,
   EdrContext,
   FuzzTestKind,
   InvariantTestKind,
@@ -58,6 +61,56 @@ describe("Fuzz and invariant testing", function () {
 
     // The fuzz failure directory should now be created
     assert.ok(existsSync(failureDir));
+  });
+
+  it("FailingFuzz persists and replays its counterexample", async function () {
+    const failureDir = await fs.mkdtemp(
+      path.join(os.tmpdir(), "edr-fuzz-failures-")
+    );
+    const config = {
+      ...testContext.defaultConfig(),
+      fuzz: { failurePersistDir: failureDir, workers: 1 },
+    };
+    const run = async () => {
+      const [, results] = await runAllSolidityTests(
+        testContext.edrContext,
+        L1_CHAIN_TYPE,
+        testContext.artifacts,
+        testContext.matchingTest("OverflowTest"),
+        testContext.tracingConfig,
+        config
+      );
+      const testResult = results[0].testResults[0];
+      assert.equal(testResult.status, "Failure");
+      return testResult;
+    };
+
+    await run();
+    const failureFile = path.join(
+      failureDir,
+      "failures",
+      "OverflowTest",
+      "testFuzzAddWithOverflow"
+    );
+    assert.ok(existsSync(failureFile));
+
+    // Replace the persisted input with one fuzzing would not produce, so that
+    // getting it back shows the second run replays the file.
+    const half = "8".padEnd(64, "0");
+    const counterexample = JSON.parse(await fs.readFile(failureFile, "utf8"));
+    const selector = counterexample.calldata.slice(0, 10);
+    counterexample.calldata = `${selector}${half}${half}`;
+    await fs.writeFile(failureFile, JSON.stringify(counterexample));
+
+    const replayed = await run();
+    // Only the persisted input runs, and it fails, so no case passes.
+    assert.equal((replayed.kind as FuzzTestKind).runs, 0n);
+    assert.equal(
+      Buffer.from(
+        (replayed.counterexample as BaseCounterExample).calldata
+      ).toString("hex"),
+      counterexample.calldata.slice(2)
+    );
   });
 
   it("ImpureFuzzSetup", async function () {
