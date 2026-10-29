@@ -73,11 +73,11 @@ impl FuzzConfig {
     /// Returns the failure directory of the given contract and the failure file
     /// of the given fuzz test in it, if failure persistence is enabled.
     ///
-    /// Failures are persisted as
-    /// `<failure_persist_dir>/failures/<contract name>/<test name>`.
-    ///
-    /// `test_name` is the function name, or `<name>-<selector>` for an
-    /// overloaded function; see `fuzz_test_path_name` in `edr_solidity_tests`.
+    /// Failures are persisted at
+    /// `<failure_persist_dir>/failures/<contract>/<test>`. `<contract>` is the
+    /// part of `contract_name` after the last `:`, so an artifact id may be
+    /// passed. `<test>` is `test_name`: the function name, or
+    /// `<name>-<selector>` for an overloaded function.
     pub fn failure_paths(
         &self,
         contract_name: &str,
