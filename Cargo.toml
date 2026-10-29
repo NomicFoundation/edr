@@ -227,10 +227,10 @@ foundry-compilers = { version = "0.18.0", default-features = false, features = [
 
 ## revm
 # No op-revm release supports revm 43 (op-revm 20.0.0 on crates.io pins revm
-# ^38), so a shallow mirror of the ethereum-optimism monorepo commit that
-# bumped op-revm to revm 43 (PR #23046, merged into `develop` on 2026-10-16;
-# not in an op-reth release yet) is used instead. See the mirror's PROVENANCE.md.
-op-revm = { git = "https://github.com/NomicFoundation/op-revm", rev = "5a0d3e5062c161818d61dbd588456dee8b1b42d1", default-features = false, features = [
+# ^38), so a shallow mirror of the ethereum-optimism monorepo at the op-reth
+# v2.8.0 release (the first op-reth release on revm 43; its workspace pins revm
+# 43.0.2) is used instead. See the mirror's PROVENANCE.md.
+op-revm = { git = "https://github.com/NomicFoundation/op-revm", tag = "op-reth-v2.8.0-d662020", default-features = false, features = [
     "c-kzg",
     "dev",
     "serde",
