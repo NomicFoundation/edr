@@ -48,11 +48,11 @@ pub enum CounterExample {
 
 /// Metadata needed to reproduce the fuzz run that produced a counterexample.
 ///
-/// All fields are optional so that counterexamples persisted by earlier
-/// versions remain readable.
+/// All fields are optional so that counterexamples persisted by Forge
+/// without this metadata remain readable.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FuzzRunMetadata {
-    /// Seed the worker's input stream was derived from.
+    /// The configured fuzz seed, not the worker seed derived from it.
     #[serde(default, rename = "fuzz_seed", skip_serializing_if = "Option::is_none")]
     pub seed: Option<U256>,
     /// 1-based index of the input in the worker's input stream, rejected
