@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.26;
+pragma solidity ^0.8.28;
 
 // State-access operations repriced by EIP-8038, each behind its own function.
 // `noop` is the baseline their cost is measured against.
