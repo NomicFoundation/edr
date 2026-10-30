@@ -1,6 +1,6 @@
 # Tools
 
-The `tools` crate contains various utilities useful for development.
+The `edr_tool_cli` crate (`crates/tool/cli`) contains various utilities useful for development.
 
 ## Benchmarking
 
@@ -8,7 +8,7 @@ Run the hardhat test command in a repo 5 times and report the times it took:
 
 ```bash
 # From the repo root
- cargo run --bin tools benchmark -i 5 /repo/path -t "npx hardhat test"
+ cargo run --bin edr_tool_cli benchmark -i 5 /repo/path -t "npx hardhat test"
 ```
 
 ## Compare test run execution times
@@ -31,7 +31,7 @@ Generate a comparison report that will list slower tests in the candidate branch
 
 ```bash
 # From the repo root
-cargo run --bin tools compare-test-runs base-test-provider-logs.json candidate-test-provider-logs.json > comparisions.txt
+cargo run --bin edr_tool_cli compare-test-runs base-test-provider-logs.json candidate-test-provider-logs.json > comparisions.txt
 ```
 
 ## Scenarios
@@ -52,7 +52,7 @@ Scenarios can be used to collect and replay RPC requests which is useful for per
 
 ```bash
 # From the repo root
-cargo run --bin tools --release scenario <PATH_TO_SCENARIO_FILE>
+cargo run --bin edr_tool_cli --release scenario <PATH_TO_SCENARIO_FILE>
 ```
 
 The scenario runner supports both compressed and uncompressed scenario files.
