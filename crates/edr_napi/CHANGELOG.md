@@ -1,5 +1,15 @@
 # @nomicfoundation/edr
 
+## 0.25.1
+
+### Patch Changes
+
+- e37042b: - Added the EIP-8037 gas dimensions to `debug_traceTransaction` and `debug_traceCall` responses from the Amsterdam hardfork: the default tracer's top-level frame and the `callTracer`'s root call frame gain `executionGasUsed`, `stateGasUsed` and `gasRefund`, and each `structLogs` entry gains `stateGasReservoir`, plus a signed `stateGasCost` on the steps that charge or refill state gas.
+  - Added the `stateGasTracer`, which reports a transaction's gas in both dimensions on every hardfork, with zero state gas before Amsterdam.
+- 923142f: Changed the experimental EIP-2780 support: from the Amsterdam hardfork, contract-creation transactions no longer pay a value charge.
+- 21098dc: Added experimental EIP-8038 support: from the Amsterdam hardfork, state-access operations are repriced.
+- cfa3dea: Fixed missing EIP-8037 state gas for repeated contract deployments in Amsterdam Solidity tests.
+
 ## 0.25.0
 
 ### Minor Changes
