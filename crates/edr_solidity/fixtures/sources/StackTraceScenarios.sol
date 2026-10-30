@@ -329,3 +329,30 @@ contract InheritsBase is ScenarioBase {
         return 1;
     }
 }
+
+contract HoldsImmutable {
+    uint256 public immutable limit;
+
+    constructor() {
+        limit = 1;
+    }
+
+    function check(uint256 amount) public view {
+        require(amount <= limit, "over limit");
+    }
+}
+
+library StatefulLib {
+    event Hit(uint256 amount);
+
+    function hit(uint256 amount) public {
+        require(amount != 7, "stateful lib boom");
+        emit Hit(amount);
+    }
+}
+
+contract UsesStatefulLib {
+    function go() public {
+        StatefulLib.hit(7);
+    }
+}
