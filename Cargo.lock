@@ -255,9 +255,9 @@ dependencies = [
 
 [[package]]
 name = "alloy-hardforks"
-version = "0.4.9"
+version = "0.4.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "09d5ff0394d9547798fa4b666c46e356d09a113f33d45fb3d75175681c1e2652"
+checksum = "7f03efb8382bf3b19f0bd0b3cdfaa59cb13e57a3a6650f75fae47645873723d5"
 dependencies = [
  "alloy-chains",
  "alloy-eip2124",
@@ -4215,7 +4215,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "976dd42dc7e85965fe702eb8164f21f450704bdde31faefd6471dba214cb594e"
 dependencies = [
  "libc",
- "windows-sys 0.59.0",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -4299,7 +4299,7 @@ checksum = "0ce92ff622d6dadf7349484f42c93271a0d49b7cc4d466a936405bacbe10aa78"
 dependencies = [
  "cfg-if",
  "rustix",
- "windows-sys 0.59.0",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -4958,7 +4958,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9300d38d30facf6870c15bc9e243edcc47e5ddc270c9d2c1ae824a00b1faea79"
 dependencies = [
  "bincode-next",
- "derive_more 2.1.1",
+ "derive_more 1.0.0",
  "gungraun-macros",
  "gungraun-runner",
 ]
@@ -4969,7 +4969,7 @@ version = "0.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d7f3214bae6cfd6739f4f29edb262bae439c6393a7b7b12c4eeb96417c2e50df"
 dependencies = [
- "derive_more 2.1.1",
+ "derive_more 1.0.0",
  "proc-macro-error3",
  "proc-macro2",
  "quote",
@@ -5539,7 +5539,7 @@ checksum = "e04d7f318608d35d4b61ddd75cbdaee86b023ebe2bd5a66ee0915f0bf93095a9"
 dependencies = [
  "hermit-abi",
  "libc",
- "windows-sys 0.59.0",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -7001,7 +7001,7 @@ dependencies = [
  "once_cell",
  "socket2 0.5.9",
  "tracing",
- "windows-sys 0.59.0",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -7758,7 +7758,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys",
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -7824,7 +7824,7 @@ dependencies = [
  "security-framework",
  "security-framework-sys",
  "webpki-root-certs",
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -8607,7 +8607,7 @@ dependencies = [
  "solar-config",
  "solar-data-structures",
  "solar-macros",
- "thiserror 2.0.21",
+ "thiserror 1.0.69",
  "tracing",
  "unicode-width",
 ]
@@ -8781,7 +8781,7 @@ dependencies = [
  "serde_json",
  "sha2 0.10.9",
  "tempfile",
- "thiserror 2.0.21",
+ "thiserror 1.0.69",
  "url",
  "zip",
 ]
@@ -8900,7 +8900,7 @@ dependencies = [
  "getrandom 0.4.1",
  "once_cell",
  "rustix",
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -9737,7 +9737,7 @@ version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf221c93e13a30d793f7645a0e7762c55d169dbb0a49671918a2319d289b10bb"
 dependencies = [
- "windows-sys 0.59.0",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
