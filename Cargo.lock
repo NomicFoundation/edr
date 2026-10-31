@@ -2607,7 +2607,6 @@ version = "0.3.8"
 dependencies = [
  "alloy-eips",
  "alloy-rlp",
- "alloy-serde",
  "alloy-trie",
  "derive-where",
  "edr_chain_l1",
@@ -2616,7 +2615,6 @@ dependencies = [
  "edr_eip4844",
  "edr_eip7892",
  "edr_primitives",
- "serde",
 ]
 
 [[package]]
