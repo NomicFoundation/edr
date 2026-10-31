@@ -1,5 +1,6 @@
 mod call;
 mod gas;
+mod state_dump;
 
 use std::{
     cmp::{self, Ordering},

@@ -17,8 +17,8 @@ use edr_block_storage::{
 };
 use edr_blockchain_api::{
     utils::compute_state_at_block, BlockHashByNumber, BlockchainMetadata, GetBlockchainBlock,
-    GetBlockchainLogs, InsertBlock, ReceiptByTransactionHash, ReserveBlocks, RevertToBlock,
-    StateAtBlock, TotalDifficultyByBlockHash,
+    GetBlockchainLogs, InsertBlock, LocalStateDiffs, ReceiptByTransactionHash, ReserveBlocks,
+    RevertToBlock, StateAtBlock, TotalDifficultyByBlockHash,
 };
 use edr_blockchain_predeploys::predeploys_activated_between;
 use edr_blockchain_remote::{FetchRemoteBlockError, FetchRemoteReceiptError, RemoteBlockchain};
@@ -943,6 +943,34 @@ impl<
         );
 
         Ok(())
+    }
+}
+
+impl<
+        BlockReceiptT: Debug + ReceiptTrait + TryFrom<RpcReceiptT>,
+        BlockT: ?Sized + Block<SignedTransactionT>,
+        FetchReceiptErrorT,
+        HardforkT,
+        LocalBlockT: Block<SignedTransactionT>,
+        RpcBlockChainSpecT: RpcBlockChainSpec<RpcBlock<RpcTransactionT>: TryInto<EthBlockData<SignedTransactionT>>>,
+        RpcReceiptT: serde::de::DeserializeOwned + serde::Serialize,
+        RpcTransactionT: serde::de::DeserializeOwned + serde::Serialize,
+        SignedTransactionT: Debug + ExecutableTransaction,
+    > LocalStateDiffs
+    for ForkedBlockchain<
+        BlockReceiptT,
+        BlockT,
+        FetchReceiptErrorT,
+        HardforkT,
+        LocalBlockT,
+        RpcBlockChainSpecT,
+        RpcReceiptT,
+        RpcTransactionT,
+        SignedTransactionT,
+    >
+{
+    fn local_state_diffs(&self) -> &[(u64, StateDiff)] {
+        self.local_storage.state_diffs()
     }
 }
 
