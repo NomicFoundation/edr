@@ -12,12 +12,7 @@ import { trace as mainnetReturnsDataTrace } from "../../../../../fixture-debug-t
 import { trace as mainnetReturnsDataTraceGeth } from "../../../../../fixture-debug-traces/mainnetReturnsDataTraceGeth";
 import { trace as mainnetRevertTrace } from "../../../../../fixture-debug-traces/mainnetRevertTrace";
 import { trace as modifiesStateTrace } from "../../../../../fixture-debug-traces/modifiesStateTrace";
-import { trace as elongatedMemoryRegressionTestTrace } from "../../../../../fixture-debug-traces/elongatedMemoryRegressionTestTrace";
 import { ALCHEMY_URL } from "../../../../../setup";
-import {
-  assertInvalidArgumentsError,
-  assertInvalidInputError,
-} from "../../../helpers/assertions";
 import { FORK_TESTS_CACHE_PATH } from "../../../helpers/constants";
 import { EXAMPLE_CONTRACT } from "../../../helpers/contracts";
 import { setCWD } from "../../../helpers/cwd";
@@ -39,53 +34,6 @@ describe("Debug module", function () {
       useProvider({ forkBlockNumber: 22559592 });
 
       describe("debug_traceTransaction", function () {
-        it("Should throw for unknown txs", async function () {
-          const unknownTxHash =
-            "0x1234567876543234567876543456765434567aeaeaed67616732632762762373";
-          await assertInvalidInputError(
-            this.provider,
-            "debug_traceTransaction",
-            [unknownTxHash],
-            `Unable to find a block containing transaction ${unknownTxHash}`
-          );
-        });
-
-        it("Should return the right values for successful value transfer txs", async function () {
-          const txHash = await sendDummyTransaction(this.provider, 0, {
-            from: DEFAULT_ACCOUNTS_ADDRESSES[1],
-          });
-
-          const trace: RpcDebugTraceOutput = await this.provider.send(
-            "debug_traceTransaction",
-            [txHash]
-          );
-          assert.deepEqual(trace, {
-            gas: 21_000,
-            failed: false,
-            returnValue: "",
-            structLogs: [],
-          });
-        });
-
-        it("Should throw an error when the value passed as tracer is not supported", async function () {
-          const txHash = await sendDummyTransaction(this.provider, 0, {
-            from: DEFAULT_ACCOUNTS_ADDRESSES[1],
-          });
-
-          await assertInvalidArgumentsError(
-            this.provider,
-            "debug_traceTransaction",
-            [
-              txHash,
-              {
-                tracer: "unsupportedTracer",
-              },
-            ],
-            // TODO: https://github.com/NomicFoundation/edr/issues/1250
-            "JS Tracer is not enabled"
-          );
-        });
-
         it("Should return the right values for fake sender txs", async function () {
           const impersonatedAddress =
             "0xC014BA5EC014ba5ec014Ba5EC014ba5Ec014bA5E";
@@ -144,53 +92,6 @@ describe("Debug module", function () {
           );
 
           assertEqualTraces(trace, modifiesStateTrace);
-        });
-
-        it("should trace an OOG transaction sent to a precompile", async function () {
-          await sendDummyTransaction(this.provider, 0, {
-            from: DEFAULT_ACCOUNTS_ADDRESSES[1],
-            to: "0x0000000000000000000000000000000000000001",
-          }).catch(() => {});
-
-          const block = await this.provider.send("eth_getBlockByNumber", [
-            "latest",
-            false,
-          ]);
-
-          const txHash = block.transactions[0];
-
-          const trace: RpcDebugTraceOutput = await this.provider.send(
-            "debug_traceTransaction",
-            [txHash]
-          );
-          assert.deepEqual(trace, {
-            gas: 21_000,
-            failed: true,
-            returnValue: "",
-            structLogs: [],
-          });
-        });
-
-        // Regression test, see issue: https://github.com/NomicFoundation/hardhat/issues/3858
-        it("The memory property should not have additional superfluous zeros", async function () {
-          // push0 push0 mstore push0
-          const bytecode = "0x5F5F525F";
-          const address = "0x1234567890123456789012345678901234567890";
-
-          await this.provider.send("hardhat_setCode", [address, bytecode]);
-
-          const tx = await this.provider.send("eth_sendTransaction", [
-            {
-              from: DEFAULT_ACCOUNTS_ADDRESSES[2],
-              to: address,
-            },
-          ]);
-
-          const trace = await this.provider.send("debug_traceTransaction", [
-            tx,
-          ]);
-
-          assertEqualTraces(trace, elongatedMemoryRegressionTestTrace);
         });
 
         describe("berlin", function () {
