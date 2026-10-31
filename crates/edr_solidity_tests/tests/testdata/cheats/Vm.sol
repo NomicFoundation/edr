@@ -324,6 +324,7 @@ interface Vm {
     function isContext(ExecutionContext context) external view returns (bool result);
     function isDir(string calldata path) external view returns (bool result);
     function isFile(string calldata path) external view returns (bool result);
+    function isIsolateMode() external view returns (bool result);
     function isPersistent(address account) external view returns (bool persistent);
     function keyExists(string calldata json, string calldata key) external view returns (bool);
     function keyExistsJson(string calldata json, string calldata key) external view returns (bool);

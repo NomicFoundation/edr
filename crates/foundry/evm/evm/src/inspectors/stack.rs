@@ -519,6 +519,9 @@ impl<
     #[inline]
     pub fn enable_isolation(&mut self, yes: bool) {
         self.enable_isolation = yes;
+        if let Some(cheatcodes) = &mut self.cheatcodes {
+            cheatcodes.isolate = yes;
+        }
     }
 
     /// Set whether to enable the log collector.
