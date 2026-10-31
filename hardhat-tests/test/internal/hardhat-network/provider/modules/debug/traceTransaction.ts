@@ -8,8 +8,8 @@ import { createHardhatNetworkProvider } from "hardhat/internal/hardhat-network/p
 import { EthereumProvider } from "hardhat/types";
 import _ from "lodash";
 
-import { trace as mainnetPostLondonTxTrace } from "../../../../../fixture-debug-traces/mainnetPostLondonTxTrace";
 import { trace as mainnetReturnsDataTrace } from "../../../../../fixture-debug-traces/mainnetReturnsDataTrace";
+import { trace as mainnetReturnsDataTraceGeth } from "../../../../../fixture-debug-traces/mainnetReturnsDataTraceGeth";
 import { trace as mainnetRevertTrace } from "../../../../../fixture-debug-traces/mainnetRevertTrace";
 import { trace as modifiesStateTrace } from "../../../../../fixture-debug-traces/modifiesStateTrace";
 import { trace as elongatedMemoryRegressionTestTrace } from "../../../../../fixture-debug-traces/elongatedMemoryRegressionTestTrace";
@@ -25,20 +25,13 @@ import {
   DEFAULT_ACCOUNTS,
   DEFAULT_ACCOUNTS_ADDRESSES,
   DEFAULT_ALLOW_UNLIMITED_CONTRACT_SIZE,
-  DEFAULT_HARDFORK,
   DEFAULT_NETWORK_ID,
   PROVIDERS,
 } from "../../../helpers/providers";
 import { sendDummyTransaction } from "../../../helpers/sendDummyTransaction";
-import {
-  deployContract,
-  getTxToDeployBytecode,
-  sendDeploymentTx,
-} from "../../../helpers/transactions";
+import { deployContract } from "../../../helpers/transactions";
 import { assertEqualTraces } from "../../utils/assertEqualTraces";
 
-// TODO: temporarily skip some of the tests because the latest version of ethereumjs
-// sometimes wrongly adds dummy empty words in the memory field
 describe("Debug module", function () {
   PROVIDERS.forEach(({ name, useProvider }) => {
     describe(`${name} provider`, function () {
@@ -69,7 +62,7 @@ describe("Debug module", function () {
           assert.deepEqual(trace, {
             gas: 21_000,
             failed: false,
-            returnValue: "0x",
+            returnValue: "",
             structLogs: [],
           });
         });
@@ -126,7 +119,7 @@ describe("Debug module", function () {
           assert.deepEqual(trace, {
             gas: 21_000,
             failed: false,
-            returnValue: "0x",
+            returnValue: "",
             structLogs: [],
           });
         });
@@ -142,18 +135,12 @@ describe("Debug module", function () {
               from: DEFAULT_ACCOUNTS_ADDRESSES[1],
               to: contractAddress,
               data: `${EXAMPLE_CONTRACT.selectors.modifiesState}000000000000000000000000000000000000000000000000000000000000000a`,
-              gas: numberToRpcQuantity(6_000_000),
             },
           ]);
 
           const trace: RpcDebugTraceOutput = await this.provider.send(
             "debug_traceTransaction",
-            [
-              txHash,
-              {
-                enableMemory: true,
-              },
-            ]
+            [txHash]
           );
 
           assertEqualTraces(trace, modifiesStateTrace);
@@ -179,7 +166,7 @@ describe("Debug module", function () {
           assert.deepEqual(trace, {
             gas: 21_000,
             failed: true,
-            returnValue: "0x",
+            returnValue: "",
             structLogs: [],
           });
         });
@@ -187,31 +174,20 @@ describe("Debug module", function () {
         // Regression test, see issue: https://github.com/NomicFoundation/hardhat/issues/3858
         it("The memory property should not have additional superfluous zeros", async function () {
           // push0 push0 mstore push0
-          const bytecode = "5F5F525F";
-          const deploymentTx = {
-            ...getTxToDeployBytecode(bytecode),
-            gas: undefined,
-            gasPrice: undefined,
-          };
+          const bytecode = "0x5F5F525F";
+          const address = "0x1234567890123456789012345678901234567890";
 
-          const contractAddress = await sendDeploymentTx(
-            this.provider,
-            deploymentTx
-          );
+          await this.provider.send("hardhat_setCode", [address, bytecode]);
 
           const tx = await this.provider.send("eth_sendTransaction", [
             {
               from: DEFAULT_ACCOUNTS_ADDRESSES[2],
-              to: contractAddress,
-              gas: numberToRpcQuantity(6_000_000),
+              to: address,
             },
           ]);
 
           const trace = await this.provider.send("debug_traceTransaction", [
             tx,
-            {
-              enableMemory: true,
-            },
           ]);
 
           assertEqualTraces(trace, elongatedMemoryRegressionTestTrace);
@@ -240,7 +216,7 @@ describe("Debug module", function () {
             assert.deepEqual(trace, {
               gas: 23_400,
               failed: false,
-              returnValue: "0x",
+              returnValue: "",
               structLogs: [],
             });
           });
@@ -297,26 +273,17 @@ describe("Debug module", function () {
     it("Should return the right values for a successful tx", async function () {
       const trace: RpcDebugTraceOutput = await provider.send(
         "debug_traceTransaction",
-        [
-          "0x89ebeb319fcd7bda9c7f8c1b78a7571842a705425b175f24f34fe8e6c60580d4",
-          {
-            enableMemory: true,
-          },
-        ]
+        ["0x89ebeb319fcd7bda9c7f8c1b78a7571842a705425b175f24f34fe8e6c60580d4"]
       );
 
       assertEqualTraces(trace, mainnetReturnsDataTrace);
+      assertEqualTraces(trace, mainnetReturnsDataTraceGeth);
     });
 
     it("Should return the right values for a reverted tx", async function () {
       const trace: RpcDebugTraceOutput = await provider.send(
         "debug_traceTransaction",
-        [
-          "0x6214b912cc9916d8b7bf5f4ff876e259f5f3754ddebb6df8c8e897cad31ae148",
-          {
-            enableMemory: true,
-          },
-        ]
+        ["0x6214b912cc9916d8b7bf5f4ff876e259f5f3754ddebb6df8c8e897cad31ae148"]
       );
 
       assertEqualTraces(trace, mainnetRevertTrace);
@@ -350,7 +317,6 @@ describe("Debug module", function () {
           "0x6214b912cc9916d8b7bf5f4ff876e259f5f3754ddebb6df8c8e897cad31ae148",
           {
             disableStack: true,
-            enableMemory: true,
           },
         ]
       );
@@ -372,7 +338,6 @@ describe("Debug module", function () {
           "0x6214b912cc9916d8b7bf5f4ff876e259f5f3754ddebb6df8c8e897cad31ae148",
           {
             disableStorage: true,
-            enableMemory: true,
           },
         ]
       );
@@ -385,68 +350,6 @@ describe("Debug module", function () {
         ...mainnetRevertTrace,
         structLogs,
       });
-    });
-  });
-
-  describe("fork tests (post-london)", function () {
-    let provider: EthereumProvider;
-
-    beforeEach(async function () {
-      if (ALCHEMY_URL === undefined) {
-        this.skip();
-      }
-      const forkConfig: ForkConfig = {
-        jsonRpcUrl: ALCHEMY_URL,
-        blockNumber: 15_204_358,
-      };
-
-      const hardhatNetworkProvider = await createHardhatNetworkProvider(
-        {
-          hardfork: DEFAULT_HARDFORK,
-          chainId: 1,
-          networkId: DEFAULT_NETWORK_ID,
-          blockGasLimit: 13000000,
-          minGasPrice: 0n,
-          throwOnTransactionFailures: true,
-          throwOnCallFailures: true,
-          automine: false,
-          intervalMining: 0,
-          mempoolOrder: "priority",
-          chains: defaultHardhatNetworkParams.chains,
-          genesisAccounts: DEFAULT_ACCOUNTS,
-          allowUnlimitedContractSize: DEFAULT_ALLOW_UNLIMITED_CONTRACT_SIZE,
-          forkConfig,
-          forkCachePath: FORK_TESTS_CACHE_PATH,
-          allowBlocksWithSameTimestamp: false,
-          enableTransientStorage: false,
-          enableRip7212: false,
-        },
-        {
-          enabled: false,
-        }
-      );
-
-      provider = new BackwardsCompatibilityProviderAdapter(
-        hardhatNetworkProvider
-      );
-    });
-
-    // see https://github.com/NomicFoundation/hardhat/issues/3519
-    it.skip("Should return the right values for a successful tx", async function () {
-      // This is an expensive test, so we increase the timeout
-      this.timeout(60_000);
-
-      const trace: RpcDebugTraceOutput = await provider.send(
-        "debug_traceTransaction",
-        [
-          "0xe0b1f8e11eb822107ddc35ce2d944147cc043acf680c39332ee95dd6508d107e",
-          {
-            enableMemory: true,
-          },
-        ]
-      );
-
-      assertEqualTraces(trace, mainnetPostLondonTxTrace);
     });
   });
 });

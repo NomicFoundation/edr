@@ -48,9 +48,6 @@ describe("Debug module", function () {
               gas: BASE_GAS_QUANTITY,
             },
             "latest",
-            {
-              enableMemory: true,
-            },
           ]);
 
           assertEqualTraces(trace, contractAGetMessageTrace);
@@ -65,10 +62,6 @@ describe("Debug module", function () {
               gas: BASE_GAS_QUANTITY,
             },
             // blockTag not defined, it should automatically default to "latest"
-            undefined,
-            {
-              enableMemory: true,
-            },
           ]);
 
           assertEqualTraces(trace, contractAGetMessageTrace);
@@ -107,9 +100,6 @@ describe("Debug module", function () {
               gas: BASE_GAS_QUANTITY,
             },
             "latest",
-            {
-              enableMemory: true,
-            },
           ]);
 
           assertEqualTraces(trace, contractAThrowError);
@@ -123,9 +113,6 @@ describe("Debug module", function () {
               value: "0x12",
             },
             "latest",
-            {
-              enableMemory: true,
-            },
           ]);
 
           assertEqualTraces(trace, ethTransferTrace);
