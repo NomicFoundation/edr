@@ -3401,6 +3401,45 @@ mod tests {
         Ok(())
     }
 
+    #[test]
+    fn balance_and_nonce_inside_mined_range() -> anyhow::Result<()> {
+        let mut fixture = ProviderTestFixture::<L1ChainSpec>::new_local()?;
+
+        let account = *fixture
+            .provider_data
+            .local_accounts
+            .keys()
+            .next()
+            .expect("there are local accounts");
+
+        // Enough blocks to reserve all but the first two and the last.
+        fixture.provider_data.mine_and_commit_blocks(10, 1)?;
+
+        // Reading a block in the range creates it from the reservation, so ask
+        // twice: the first query reads it, the second one uses it.
+        for _ in 0..2 {
+            for block_number in [1, 3, 5, 9, 10] {
+                let block_spec = BlockSpec::Number(block_number);
+                assert_eq!(
+                    fixture.provider_data.balance(account, Some(&block_spec))?,
+                    one_ether(),
+                    "block {block_number}"
+                );
+                assert_eq!(
+                    fixture.provider_data.nonce(
+                        &account,
+                        Some(&block_spec),
+                        &StateOverrides::default()
+                    )?,
+                    0,
+                    "block {block_number}"
+                );
+            }
+        }
+
+        Ok(())
+    }
+
     #[cfg(feature = "test-remote")]
     #[test]
     fn test_local_account_balance_forked() -> anyhow::Result<()> {
