@@ -67,6 +67,7 @@ pub struct L1RpcTransactionReceipt {
     /// (max fee + max priority fee), the amount that's actually paid by
     /// users can only be determined post-execution
     #[serde(
+        default,
         skip_serializing_if = "Option::is_none",
         with = "alloy_serde::quantity::opt"
     )]
@@ -333,6 +334,35 @@ mod test {
 
         let serialized = serde_json::to_value(deserialized)?;
         assert_json_eq!(receipt_from_hardhat, serialized);
+
+        Ok(())
+    }
+
+    #[test]
+    fn deserialize_pre_byzantium_receipt_without_effective_gas_price() -> anyhow::Result<()> {
+        // The receipt of the first mainnet transaction (block 46147) without the
+        // `effectiveGasPrice` and `type` keys, as a node that omits them returns it,
+        // for example a Hardhat node on a pre-London hardfork.
+        let receipt = json!({
+          "transactionHash": "0x5c504ed432cb51138bcf09aa5e8a410dd4a1e204ef84bfed1be16dfba1b22060",
+          "transactionIndex": "0x0",
+          "blockHash": "0x4e3a3754410177e6937ef1f84bba68ea139e8d1a2258c5f85db9f1cd715a1bdd",
+          "blockNumber": "0xb443",
+          "from": "0xa1e4380a3b1f749673e270229993ee55f35663b4",
+          "to": "0x5df9b87991262f6ba471f09758cde1c0fc1de734",
+          "cumulativeGasUsed": "0x5208",
+          "gasUsed": "0x5208",
+          "contractAddress": null,
+          "logs": [],
+          "logsBloom": format!("0x{}", "0".repeat(512)),
+          "root": "0x96a8e009d2b88b1483e6941e6812e32263b05683fac202abc622a3e31aed1957"
+        });
+
+        let deserialized: L1RpcTransactionReceipt = serde_json::from_value(receipt.clone())?;
+        assert_eq!(deserialized.effective_gas_price, None);
+
+        let serialized = serde_json::to_value(deserialized)?;
+        assert_json_eq!(receipt, serialized);
 
         Ok(())
     }
