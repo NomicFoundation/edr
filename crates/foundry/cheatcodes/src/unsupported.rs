@@ -17,19 +17,17 @@ use crate::{
     error::{CheatcodeErrorCode, CheatcodeErrorDetails},
     impl_is_pure_false, impl_is_pure_true, Cheatcode, Cheatcodes, Result,
     Vm::{
-        attachBlobCall, attachDelegation_0Call, attachDelegation_1Call, breakpoint_0Call,
-        breakpoint_1Call, broadcast_0Call, broadcast_1Call, broadcast_2Call, createWallet_0Call,
-        createWallet_1Call, createWallet_2Call, deployCode_0Call, deployCode_1Call,
-        deployCode_2Call, deployCode_3Call, deployCode_4Call, deployCode_5Call, deployCode_6Call,
-        deployCode_7Call, deriveKey_0Call, deriveKey_1Call, deriveKey_2Call, deriveKey_3Call,
-        eip712HashStruct_1Call, eip712HashType_1Call, foundryVersionAtLeastCall,
-        foundryVersionCmpCall, getArtifactPathByCodeCall, getArtifactPathByDeployedCodeCall,
-        getBroadcastCall, getBroadcasts_0Call, getBroadcasts_1Call, getDeployment_0Call,
-        getDeployment_1Call, getDeploymentsCall, getFoundryVersionCall, getWalletsCall,
-        rememberKeyCall, rememberKeys_0Call, rememberKeys_1Call, signAndAttachDelegation_0Call,
-        signAndAttachDelegation_1Call, signAndAttachDelegation_2Call, signDelegation_0Call,
-        signDelegation_1Call, signDelegation_2Call, startBroadcast_0Call, startBroadcast_1Call,
-        startBroadcast_2Call, stopBroadcastCall,
+        attachBlobCall, breakpoint_0Call, breakpoint_1Call, broadcast_0Call, broadcast_1Call,
+        broadcast_2Call, createWallet_0Call, createWallet_1Call, createWallet_2Call,
+        deployCode_0Call, deployCode_1Call, deployCode_2Call, deployCode_3Call, deployCode_4Call,
+        deployCode_5Call, deployCode_6Call, deployCode_7Call, deriveKey_0Call, deriveKey_1Call,
+        deriveKey_2Call, deriveKey_3Call, eip712HashStruct_1Call, eip712HashType_1Call,
+        foundryVersionAtLeastCall, foundryVersionCmpCall, getArtifactPathByCodeCall,
+        getArtifactPathByDeployedCodeCall, getBroadcastCall, getBroadcasts_0Call,
+        getBroadcasts_1Call, getDeployment_0Call, getDeployment_1Call, getDeploymentsCall,
+        getFoundryVersionCall, getWalletsCall, rememberKeyCall, rememberKeys_0Call,
+        rememberKeys_1Call, startBroadcast_0Call, startBroadcast_1Call, startBroadcast_2Call,
+        stopBroadcastCall,
     },
 };
 
@@ -158,16 +156,6 @@ impl_unsupported_cheatcode! {
     startBroadcast_1Call => "startBroadcast(address)",
     startBroadcast_2Call => "startBroadcast(uint256)",
     stopBroadcastCall => "stopBroadcast()",
-
-    // EIP-7702 delegation cheatcodes
-    signDelegation_0Call => "signDelegation(address,uint256)",
-    signDelegation_1Call => "signDelegation(address,uint256,uint64)",
-    signDelegation_2Call => "signDelegation(address,uint256,bool)",
-    attachDelegation_0Call => "attachDelegation(SignedDelegation)",
-    attachDelegation_1Call => "attachDelegation(SignedDelegation,bool)",
-    signAndAttachDelegation_0Call => "signAndAttachDelegation(address,uint256)",
-    signAndAttachDelegation_1Call => "signAndAttachDelegation(address,uint256,uint64)",
-    signAndAttachDelegation_2Call => "signAndAttachDelegation(address,uint256,bool)",
 
     // Blob cheatcodes (EIP-4844)
     attachBlobCall => "attachBlob(bytes)",

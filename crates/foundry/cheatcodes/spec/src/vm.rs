@@ -2619,6 +2619,61 @@ interface Vm {
     #[cheatcode(group = Scripting)]
     function broadcastRawTransaction(bytes calldata data) external;
 
+    /// Holds a signed EIP-7702 authorization for an authority account to delegate to an implementation.
+    struct SignedDelegation {
+        /// The y-parity of the recovered secp256k1 signature (0 or 1).
+        uint8 v;
+        /// First 32 bytes of the signature.
+        bytes32 r;
+        /// Second 32 bytes of the signature.
+        bytes32 s;
+        /// The current nonce of the authority account at signing time.
+        /// Used to ensure signature can't be replayed after account nonce changes.
+        uint64 nonce;
+        /// Address of the contract implementation that will be delegated to.
+        /// Gets encoded into delegation code: 0xef0100 || implementation.
+        address implementation;
+    }
+
+    /// Signs an EIP-7702 authorization for delegation.
+    #[cheatcode(group = Scripting)]
+    function signDelegation(address implementation, uint256 privateKey) external returns (SignedDelegation memory signedDelegation);
+
+    /// Signs an EIP-7702 authorization for delegation, with the given nonce.
+    #[cheatcode(group = Scripting)]
+    function signDelegation(address implementation, uint256 privateKey, uint64 nonce) external returns (SignedDelegation memory signedDelegation);
+
+    /// Signs an EIP-7702 authorization for delegation, valid on every chain if `crossChain` is set.
+    #[cheatcode(group = Scripting)]
+    function signDelegation(address implementation, uint256 privateKey, bool crossChain) external returns (SignedDelegation memory signedDelegation);
+
+    /// Attaches a signed EIP-7702 delegation: writes the delegation designator to the authority's account.
+    ///
+    /// Nothing is broadcast to a network. This matches the behavior of Foundry's cheatcode of the
+    /// same name in a test context:
+    /// - The nonce must be the authority's account nonce, or one more than the nonce of its last
+    ///   attached delegation.
+    /// - The authority's account nonce is not incremented.
+    /// - Delegating to the zero address clears the authority's code.
+    #[cheatcode(group = Scripting)]
+    function attachDelegation(SignedDelegation calldata signedDelegation) external;
+
+    /// Attaches a signed EIP-7702 delegation that is valid on every chain if `crossChain` is set.
+    #[cheatcode(group = Scripting)]
+    function attachDelegation(SignedDelegation calldata signedDelegation, bool crossChain) external;
+
+    /// Signs an EIP-7702 authorization and attaches it.
+    #[cheatcode(group = Scripting)]
+    function signAndAttachDelegation(address implementation, uint256 privateKey) external returns (SignedDelegation memory signedDelegation);
+
+    /// Signs an EIP-7702 authorization with the given nonce and attaches it.
+    #[cheatcode(group = Scripting)]
+    function signAndAttachDelegation(address implementation, uint256 privateKey, uint64 nonce) external returns (SignedDelegation memory signedDelegation);
+
+    /// Signs an EIP-7702 authorization, valid on every chain if `crossChain` is set, and attaches it.
+    #[cheatcode(group = Scripting)]
+    function signAndAttachDelegation(address implementation, uint256 privateKey, bool crossChain) external returns (SignedDelegation memory signedDelegation);
+
     // ======== Unsupported Cheatcodes ========
 
     // -------- Data Structures --------
@@ -2646,22 +2701,6 @@ interface Vm {
         Create,
         // Represents a CREATE2 broadcast tx.
         Create2
-    }
-
-    /// Holds a signed EIP-7702 authorization for an authority account to delegate to an implementation.
-    struct SignedDelegation {
-        /// The y-parity of the recovered secp256k1 signature (0 or 1).
-        uint8 v;
-        /// First 32 bytes of the signature.
-        bytes32 r;
-        /// Second 32 bytes of the signature.
-        bytes32 s;
-        /// The current nonce of the authority account at signing time.
-        /// Used to ensure signature can't be replayed after account nonce changes.
-        uint64 nonce;
-        /// Address of the contract implementation that will be delegated to.
-        /// Gets encoded into delegation code: 0xef0100 || implementation.
-        address implementation;
     }
 
     /// A wallet with a public and private key.
@@ -2705,38 +2744,6 @@ interface Vm {
     /// Scripting cheatcodes are not supported.
     #[cheatcode(group = Scripting, status = Unsupported)]
     function stopBroadcast() external;
-
-    /// EIP-7702 cheatcodes are not supported.
-    #[cheatcode(group = Scripting, status = Unsupported)]
-    function signDelegation(address implementation, uint256 privateKey) external returns (SignedDelegation memory signedDelegation);
-
-    /// EIP-7702 cheatcodes are not supported.
-    #[cheatcode(group = Scripting, status = Unsupported)]
-    function signDelegation(address implementation, uint256 privateKey, uint64 nonce) external returns (SignedDelegation memory signedDelegation);
-
-    /// EIP-7702 cheatcodes are not supported.
-    #[cheatcode(group = Scripting, status = Unsupported)]
-    function signDelegation(address implementation, uint256 privateKey, bool crossChain) external returns (SignedDelegation memory signedDelegation);
-
-    /// EIP-7702 cheatcodes are not supported.
-    #[cheatcode(group = Scripting, status = Unsupported)]
-    function attachDelegation(SignedDelegation calldata signedDelegation) external;
-
-    /// EIP-7702 cheatcodes are not supported.
-    #[cheatcode(group = Scripting, status = Unsupported)]
-    function attachDelegation(SignedDelegation calldata signedDelegation, bool crossChain) external;
-
-    /// EIP-7702 cheatcodes are not supported.
-    #[cheatcode(group = Scripting, status = Unsupported)]
-    function signAndAttachDelegation(address implementation, uint256 privateKey) external returns (SignedDelegation memory signedDelegation);
-
-    /// EIP-7702 cheatcodes are not supported.
-    #[cheatcode(group = Scripting, status = Unsupported)]
-    function signAndAttachDelegation(address implementation, uint256 privateKey, uint64 nonce) external returns (SignedDelegation memory signedDelegation);
-
-    /// EIP-7702 cheatcodes are not supported.
-    #[cheatcode(group = Scripting, status = Unsupported)]
-    function signAndAttachDelegation(address implementation, uint256 privateKey, bool crossChain) external returns (SignedDelegation memory signedDelegation);
 
     /// Scripting cheatcodes are not supported.
     #[cheatcode(group = Scripting, status = Unsupported)]

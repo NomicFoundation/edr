@@ -3297,7 +3297,7 @@
     {
       "func": {
         "id": "attachDelegation_0",
-        "description": "EIP-7702 cheatcodes are not supported.",
+        "description": "Attaches a signed EIP-7702 delegation: writes the delegation designator to the authority's account.\nNothing is broadcast to a network. This matches the behavior of Foundry's cheatcode of the\nsame name in a test context:\n- The nonce must be the authority's account nonce, or one more than the nonce of its last\n  attached delegation.\n- The authority's account nonce is not incremented.\n- Delegating to the zero address clears the authority's code.",
         "declaration": "function attachDelegation(SignedDelegation calldata signedDelegation) external;",
         "visibility": "external",
         "mutability": "",
@@ -3311,13 +3311,13 @@
         ]
       },
       "group": "scripting",
-      "status": "unsupported",
+      "status": "stable",
       "safety": "safe"
     },
     {
       "func": {
         "id": "attachDelegation_1",
-        "description": "EIP-7702 cheatcodes are not supported.",
+        "description": "Attaches a signed EIP-7702 delegation that is valid on every chain if `crossChain` is set.",
         "declaration": "function attachDelegation(SignedDelegation calldata signedDelegation, bool crossChain) external;",
         "visibility": "external",
         "mutability": "",
@@ -3331,7 +3331,7 @@
         ]
       },
       "group": "scripting",
-      "status": "unsupported",
+      "status": "stable",
       "safety": "safe"
     },
     {
@@ -9809,7 +9809,7 @@
     {
       "func": {
         "id": "signAndAttachDelegation_0",
-        "description": "EIP-7702 cheatcodes are not supported.",
+        "description": "Signs an EIP-7702 authorization and attaches it.",
         "declaration": "function signAndAttachDelegation(address implementation, uint256 privateKey) external returns (SignedDelegation memory signedDelegation);",
         "visibility": "external",
         "mutability": "",
@@ -9823,13 +9823,13 @@
         ]
       },
       "group": "scripting",
-      "status": "unsupported",
+      "status": "stable",
       "safety": "safe"
     },
     {
       "func": {
         "id": "signAndAttachDelegation_1",
-        "description": "EIP-7702 cheatcodes are not supported.",
+        "description": "Signs an EIP-7702 authorization with the given nonce and attaches it.",
         "declaration": "function signAndAttachDelegation(address implementation, uint256 privateKey, uint64 nonce) external returns (SignedDelegation memory signedDelegation);",
         "visibility": "external",
         "mutability": "",
@@ -9843,13 +9843,13 @@
         ]
       },
       "group": "scripting",
-      "status": "unsupported",
+      "status": "stable",
       "safety": "safe"
     },
     {
       "func": {
         "id": "signAndAttachDelegation_2",
-        "description": "EIP-7702 cheatcodes are not supported.",
+        "description": "Signs an EIP-7702 authorization, valid on every chain if `crossChain` is set, and attaches it.",
         "declaration": "function signAndAttachDelegation(address implementation, uint256 privateKey, bool crossChain) external returns (SignedDelegation memory signedDelegation);",
         "visibility": "external",
         "mutability": "",
@@ -9863,7 +9863,7 @@
         ]
       },
       "group": "scripting",
-      "status": "unsupported",
+      "status": "stable",
       "safety": "safe"
     },
     {
@@ -9889,7 +9889,7 @@
     {
       "func": {
         "id": "signDelegation_0",
-        "description": "EIP-7702 cheatcodes are not supported.",
+        "description": "Signs an EIP-7702 authorization for delegation.",
         "declaration": "function signDelegation(address implementation, uint256 privateKey) external returns (SignedDelegation memory signedDelegation);",
         "visibility": "external",
         "mutability": "",
@@ -9903,13 +9903,13 @@
         ]
       },
       "group": "scripting",
-      "status": "unsupported",
+      "status": "stable",
       "safety": "safe"
     },
     {
       "func": {
         "id": "signDelegation_1",
-        "description": "EIP-7702 cheatcodes are not supported.",
+        "description": "Signs an EIP-7702 authorization for delegation, with the given nonce.",
         "declaration": "function signDelegation(address implementation, uint256 privateKey, uint64 nonce) external returns (SignedDelegation memory signedDelegation);",
         "visibility": "external",
         "mutability": "",
@@ -9923,13 +9923,13 @@
         ]
       },
       "group": "scripting",
-      "status": "unsupported",
+      "status": "stable",
       "safety": "safe"
     },
     {
       "func": {
         "id": "signDelegation_2",
-        "description": "EIP-7702 cheatcodes are not supported.",
+        "description": "Signs an EIP-7702 authorization for delegation, valid on every chain if `crossChain` is set.",
         "declaration": "function signDelegation(address implementation, uint256 privateKey, bool crossChain) external returns (SignedDelegation memory signedDelegation);",
         "visibility": "external",
         "mutability": "",
@@ -9943,7 +9943,7 @@
         ]
       },
       "group": "scripting",
-      "status": "unsupported",
+      "status": "stable",
       "safety": "safe"
     },
     {
