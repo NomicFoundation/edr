@@ -11,9 +11,10 @@ extern crate tracing;
 use std::{fmt, sync::Arc};
 
 use alloy_dyn_abi::{DynSolValue, JsonAbiExt};
+use alloy_json_abi::Function;
 use alloy_primitives::{
     map::{AddressHashMap, HashMap},
-    Address, Bytes, Log,
+    Address, Bytes, Log, Selector, U256,
 };
 use edr_common::calc;
 use foundry_evm_coverage::HitMaps;
@@ -30,7 +31,7 @@ pub mod invariant;
 pub mod strategies;
 
 mod fuzz_config;
-pub use fuzz_config::{FuzzConfig, FuzzDictionaryConfig};
+pub use fuzz_config::{FuzzConfig, FuzzDictionaryConfig, FAILURES_DIR};
 
 mod inspector;
 pub use inspector::Fuzzer;
@@ -43,6 +44,36 @@ pub enum CounterExample {
     /// Original sequence size and sequence of calls used as a counter example
     /// for invariant tests.
     Sequence(usize, Vec<BaseCounterExample>),
+}
+
+/// Metadata needed to reproduce the fuzz run that produced a counterexample.
+///
+/// All fields are optional so that counterexamples persisted by Forge
+/// without this metadata remain readable.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FuzzRunMetadata {
+    /// The configured fuzz seed, not the worker seed derived from it.
+    #[serde(default, rename = "fuzz_seed", skip_serializing_if = "Option::is_none")]
+    pub seed: Option<U256>,
+    /// 1-based index of the input in the worker's input stream, rejected
+    /// inputs included.
+    #[serde(default, rename = "fuzz_run", skip_serializing_if = "Option::is_none")]
+    pub run: Option<u32>,
+    /// Worker that generated the input; each worker derives its own RNG seed
+    /// from `seed`.
+    #[serde(
+        default,
+        rename = "fuzz_worker",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub worker: Option<u32>,
+}
+
+impl FuzzRunMetadata {
+    /// Creates the metadata of a fuzz run.
+    pub const fn new(seed: Option<U256>, run: Option<u32>, worker: Option<u32>) -> Self {
+        Self { seed, run, worker }
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -69,9 +100,20 @@ pub struct BaseCounterExample {
     /// If re-executing the counter example is not guaranteed to yield the same
     /// results, this field contains the reason why.
     pub indeterminism_reasons: Option<IndeterminismReasons>,
+    /// Fuzz run that produced this counterexample.
+    #[serde(flatten)]
+    pub fuzz: FuzzRunMetadata,
 }
 
 impl BaseCounterExample {
+    /// Returns whether the calldata calls `func`.
+    pub fn targets(&self, func: &Function) -> bool {
+        self.calldata
+            .get(..Selector::len_bytes())
+            .and_then(|bytes| Selector::try_from(bytes).ok())
+            == Some(func.selector())
+    }
+
     /// Creates counter example representing a step from invariant call
     /// sequence.
     pub fn from_invariant_call(
@@ -111,6 +153,7 @@ impl BaseCounterExample {
                         ),
                         traces,
                         indeterminism_reasons,
+                        fuzz: FuzzRunMetadata::default(),
                     };
                 }
             }
@@ -127,6 +170,7 @@ impl BaseCounterExample {
             raw_args: None,
             traces,
             indeterminism_reasons,
+            fuzz: FuzzRunMetadata::default(),
         }
     }
 
@@ -156,7 +200,16 @@ impl BaseCounterExample {
             ),
             traces,
             indeterminism_reasons,
+            fuzz: FuzzRunMetadata::default(),
         }
+    }
+}
+
+impl BaseCounterExample {
+    /// Records the fuzz run that produced this counterexample.
+    pub const fn with_fuzz_metadata(mut self, fuzz: FuzzRunMetadata) -> Self {
+        self.fuzz = fuzz;
+        self
     }
 }
 

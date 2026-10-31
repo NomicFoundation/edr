@@ -1,13 +1,14 @@
 //! Regression tests for previous issues.
 
 use alloy_dyn_abi::{DecodedEvent, DynSolValue, EventExt};
-use alloy_json_abi::Event;
+use alloy_json_abi::{Event, Function};
 #[cfg(feature = "test-remote")]
 use alloy_primitives::address;
 use alloy_primitives::{b256, Address, U256};
 use edr_chain_spec::{EvmHaltReason, HaltReasonTrait};
 use edr_solidity::{config::IncludeTraces, solidity_stack_trace::StackTraceEntry};
 use edr_solidity_tests::{
+    fuzz::CounterExample,
     result::{TestKind, TestStatus},
     revm::context::{BlockEnv, TxEnv},
     CollectStackTraces, SolidityTestRunnerConfig,
@@ -1144,6 +1145,8 @@ async fn fuzz_executor_error_reports_no_stack_trace() {
     config.evm_opts.fork_retry_backoff = Some(50);
     // Every run errors; one is enough.
     config.fuzz.runs = 1;
+    // Run metadata is only recorded under a seed.
+    config.fuzz.seed = Some(U256::from(1u32));
 
     let runner = TEST_DATA_DEFAULT.runner_with_config(config).await;
     let filter = SolidityTestFilter::contract("FuzzExecutorErrorTest");
@@ -1167,10 +1170,20 @@ async fn fuzz_executor_error_reports_no_stack_trace() {
         });
 
     assert_eq!(result.status, TestStatus::Failure, "{:?}", result.reason);
+    let Some(CounterExample::Single(counterexample)) = &result.counterexample else {
+        panic!(
+            "the failed run yields a single counterexample, got {:?}",
+            result.counterexample
+        );
+    };
+    let selector = Function::parse("testFuzzTouchesUnfetchableAccount(uint256)")
+        .unwrap()
+        .selector();
     assert!(
-        result.counterexample.is_some(),
-        "the failed run yields a counterexample"
+        counterexample.calldata.starts_with(selector.as_slice()),
+        "the counterexample keeps the failing input"
     );
+    assert_eq!(counterexample.fuzz.run, Some(1));
     assert!(
         result
             .reason

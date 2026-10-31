@@ -16,6 +16,7 @@ use std::{
     env, fmt,
     io::Write,
     marker::PhantomData,
+    num::NonZeroU32,
     path::{Path, PathBuf},
     sync::Mutex,
 };
@@ -264,8 +265,8 @@ pub struct TestFuzzConfig {
     pub dictionary: TestFuzzDictionaryConfig,
     pub gas_report_samples: u32,
     pub failure_persist_dir: Option<PathBuf>,
-    pub failure_persist_file: String,
     pub show_logs: bool,
+    pub workers: Option<NonZeroU32>,
 }
 
 impl TestFuzzConfig {
@@ -287,8 +288,8 @@ impl Default for TestFuzzConfig {
             dictionary: TestFuzzDictionaryConfig::default(),
             gas_report_samples: 256,
             failure_persist_dir: None,
-            failure_persist_file: "testfailure".into(),
             show_logs: false,
+            workers: None,
         }
     }
 }
@@ -303,9 +304,9 @@ impl From<TestFuzzConfig> for FuzzConfig {
             dictionary: value.dictionary.into(),
             gas_report_samples: value.gas_report_samples,
             failure_persist_dir: value.failure_persist_dir,
-            failure_persist_file: value.failure_persist_file,
             show_logs: value.show_logs,
             timeout: None,
+            workers: value.workers,
         }
     }
 }

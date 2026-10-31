@@ -4581,6 +4581,7 @@ dependencies = [
  "foundry-evm-traces",
  "parking_lot",
  "proptest",
+ "rayon",
  "revm",
  "revm-inspectors",
  "serde",

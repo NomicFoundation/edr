@@ -1,4 +1,4 @@
-use std::{collections::HashMap, path::PathBuf};
+use std::{collections::HashMap, num::NonZeroU32, path::PathBuf};
 
 use derive_more::Debug;
 use edr_primitives::hex;
@@ -456,16 +456,13 @@ impl SolidityTestRunnerConfigArgs<'_> {
 pub struct FuzzConfigArgs {
     /// Path where fuzz failures are recorded and replayed if set.
     pub failure_persist_dir: Option<String>,
-    /// Name of the file to record fuzz failures, defaults to `failures`.
-    pub failure_persist_file: Option<String>,
     /// The amount of fuzz runs to perform for each fuzz test case. Higher
     /// values gives more confidence in results at the cost of testing
     /// speed.
     /// Defaults to 256.
     pub runs: Option<u32>,
-    /// The maximum number of combined inputs that may be rejected before the
-    /// test as a whole aborts. “Global” filters apply to the whole test
-    /// case. If the test case is rejected, the whole thing is regenerated.
+    /// The maximum number of inputs that `vm.assume` may reject before the
+    /// test as a whole aborts. 0 disables the limit and requires a `timeout`.
     /// Defaults to 65536.
     pub max_test_rejects: Option<u32>,
     /// Hexadecimal string.
@@ -490,6 +487,11 @@ pub struct FuzzConfigArgs {
     /// Optional timeout (in seconds) for each property test.
     /// Defaults to none (no timeout).
     pub timeout: Option<u32>,
+    /// Upper bound on the number of parallel workers that run each fuzz test.
+    /// The runs are split between the workers, and fewer workers are used
+    /// when `runs` is below 64 per worker.
+    /// Defaults to the number of available threads.
+    pub workers: Option<u32>,
 }
 
 impl TryFrom<FuzzConfigArgs> for FuzzConfig {
@@ -498,7 +500,6 @@ impl TryFrom<FuzzConfigArgs> for FuzzConfig {
     fn try_from(value: FuzzConfigArgs) -> Result<Self, Self::Error> {
         let FuzzConfigArgs {
             failure_persist_dir,
-            failure_persist_file,
             runs,
             max_test_rejects,
             seed,
@@ -507,10 +508,10 @@ impl TryFrom<FuzzConfigArgs> for FuzzConfig {
             include_push_bytes,
             show_logs,
             timeout,
+            workers,
         } = value;
 
         let failure_persist_dir = failure_persist_dir.map(PathBuf::from);
-        let failure_persist_file = failure_persist_file.unwrap_or_else(|| "failures".to_string());
         let seed = seed
             .map(|s| {
                 s.parse().map_err(|_err| {
@@ -518,14 +519,21 @@ impl TryFrom<FuzzConfigArgs> for FuzzConfig {
                 })
             })
             .transpose()?;
+        let workers = workers
+            .map(|workers| {
+                NonZeroU32::new(workers).ok_or_else(|| {
+                    napi::Error::new(Status::InvalidArg, "`workers` must be at least 1")
+                })
+            })
+            .transpose()?;
 
         let mut fuzz = FuzzConfig {
             seed,
             failure_persist_dir,
-            failure_persist_file,
             // TODO https://github.com/NomicFoundation/edr/issues/657
             gas_report_samples: 0,
             timeout,
+            workers,
             ..FuzzConfig::default()
         };
 
@@ -636,10 +644,10 @@ impl InvariantConfigArgs {
             include_storage,
             include_push_bytes,
             // These aren't used in the invariant config.
-            failure_persist_file: _,
             max_test_rejects: _,
             seed: _,
             show_logs: _,
+            workers: _,
             timeout,
         } = fuzz;
 
