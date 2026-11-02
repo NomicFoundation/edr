@@ -33,7 +33,7 @@ use core::fmt::Debug;
 
 pub use edr_block_miner::{MineBlockResultWithMetadata, MineBlockResultWithMetadataForChainSpec};
 use edr_primitives::HashSet;
-use foundry_evm_traces::CallTraceArena;
+use edr_solidity::recorded_steps::RecordedTraceArena;
 use lazy_static::lazy_static;
 
 pub use self::{
@@ -63,13 +63,13 @@ lazy_static! {
 }
 
 pub type ProviderResultWithCallTraces<T, ChainSpecT> =
-    Result<(T, Vec<CallTraceArena>), ProviderErrorForChainSpec<ChainSpecT>>;
+    Result<(T, Vec<RecordedTraceArena>), ProviderErrorForChainSpec<ChainSpecT>>;
 
 #[derive(Clone, Debug)]
 pub struct ResponseWithCallTraces {
     /// The serialized JSON-RPC result.
     pub result: Box<serde_json::value::RawValue>,
-    pub call_trace_arenas: Vec<CallTraceArena>,
+    pub call_trace_arenas: Vec<RecordedTraceArena>,
 }
 
 impl ResponseWithCallTraces {
@@ -101,7 +101,7 @@ fn to_json_with_trace<
     ChainSpecT: ProviderSpec<TimerT>,
     TimerT: Clone + TimeSinceEpoch,
 >(
-    value: (T, Option<CallTraceArena>),
+    value: (T, Option<RecordedTraceArena>),
 ) -> Result<ResponseWithCallTraces, ProviderErrorForChainSpec<ChainSpecT>> {
     let response =
         serde_json::value::to_raw_value(&value.0).map_err(ProviderError::Serialization)?;
@@ -117,7 +117,7 @@ fn to_json_with_traces<
     ChainSpecT: ProviderSpec<TimerT>,
     TimerT: Clone + TimeSinceEpoch,
 >(
-    value: (T, Vec<CallTraceArena>),
+    value: (T, Vec<RecordedTraceArena>),
 ) -> Result<ResponseWithCallTraces, ProviderErrorForChainSpec<ChainSpecT>> {
     let response =
         serde_json::value::to_raw_value(&value.0).map_err(ProviderError::Serialization)?;
