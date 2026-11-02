@@ -3790,6 +3790,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "edr_stack_trace_tests"
+version = "0.3.8"
+dependencies = [
+ "alloy-dyn-abi",
+ "alloy-json-abi",
+ "alloy-primitives",
+ "anyhow",
+ "edr_chain_l1",
+ "edr_instrument",
+ "edr_primitives",
+ "edr_provider",
+ "edr_signer",
+ "edr_solidity",
+ "foundry-compilers",
+ "k256",
+ "parking_lot",
+ "semver 1.0.28",
+ "serde",
+ "serde_json",
+ "tokio",
+]
+
+[[package]]
 name = "edr_state_api"
 version = "0.3.8"
 dependencies = [

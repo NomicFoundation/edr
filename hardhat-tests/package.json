@@ -55,7 +55,7 @@
   "scripts": {
     "build": "pnpm run build:dev",
     "build:dev": "tsc --build --incremental .",
-    "clean": "rimraf build-test tsconfig.tsbuildinfo test/internal/hardhat-network/provider/.hardhat_node_test_cache test/internal/hardhat-network/stack-traces/test-files/artifacts",
+    "clean": "rimraf build-test tsconfig.tsbuildinfo test/internal/hardhat-network/provider/.hardhat_node_test_cache",
     "eslint": "eslint '**/*.ts'",
     "lint": "pnpm prettier --check && pnpm eslint",
     "lint:fix": "pnpm prettier --write && pnpm eslint --fix",

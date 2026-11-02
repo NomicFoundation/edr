@@ -9,7 +9,7 @@ import {
   ProviderMessage,
 } from "hardhat/types";
 import { workaroundWindowsCiFailures } from "../../../../../../utils/workaround-windows-ci-failures";
-import { compileLiteral } from "../../../../stack-traces/compilation";
+import { compileLiteral } from "../../../../helpers/compilation";
 import { EXAMPLE_CONTRACT } from "../../../../helpers/contracts";
 import { setCWD } from "../../../../helpers/cwd";
 import {

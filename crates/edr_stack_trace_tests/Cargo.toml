@@ -1,0 +1,27 @@
+[package]
+name = "edr_stack_trace_tests"
+version.workspace = true
+edition.workspace = true
+publish = false
+
+[dependencies]
+alloy-dyn-abi.workspace = true
+alloy-json-abi.workspace = true
+alloy-primitives.workspace = true
+anyhow = { workspace = true, features = ["std"] }
+edr_chain_l1.workspace = true
+edr_instrument.workspace = true
+edr_primitives.workspace = true
+edr_provider = { workspace = true, features = ["test-utils"] }
+edr_signer.workspace = true
+edr_solidity.workspace = true
+foundry-compilers.workspace = true
+k256 = { version = "0.13.1", default-features = false, features = ["arithmetic", "ecdsa", "pem", "pkcs8", "precomputed-tables", "std"] }
+parking_lot.workspace = true
+semver = { workspace = true, features = ["std"] }
+serde = { workspace = true, features = ["derive"] }
+serde_json.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread"] }
+
+[lints]
+workspace = true
