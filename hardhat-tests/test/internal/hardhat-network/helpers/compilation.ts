@@ -1,6 +1,3 @@
-import fs from "fs";
-import path from "path";
-
 import {
   Compiler as SolcJsCompiler,
   NativeCompiler,
@@ -14,19 +11,19 @@ import { getCompilersDir } from "hardhat/internal/util/global-dir";
 
 import { CompilerInput, CompilerOutput } from "hardhat/types";
 
-import { SolidityCompiler } from "./compilers-list";
+interface SolidityCompilerOptimizer {
+  viaIR: boolean;
+  runs: number;
+}
+
+interface SolidityCompiler {
+  solidityVersion: string;
+  compilerPath: string;
+  optimizer?: SolidityCompilerOptimizer;
+}
 
 interface SolcSourceFileToContents {
   [filename: string]: { content: string };
-}
-
-function getSolcSourceFileMapping(sources: string[]): SolcSourceFileToContents {
-  return Object.assign(
-    {},
-    ...sources.map((s) => ({
-      [path.basename(s)]: { content: fs.readFileSync(s, "utf8") },
-    }))
-  );
 }
 
 function getSolcInput(
@@ -82,13 +79,6 @@ function getSolcInput(
   };
 }
 
-function getSolcInputForFiles(
-  sources: string[],
-  compilerOptions: SolidityCompiler
-): CompilerInput {
-  return getSolcInput(getSolcSourceFileMapping(sources), compilerOptions);
-}
-
 function getSolcInputForLiteral(
   source: string,
   compilerOptions: SolidityCompiler,
@@ -96,8 +86,6 @@ function getSolcInputForLiteral(
 ): CompilerInput {
   return getSolcInput({ [filename]: { content: source } }, compilerOptions);
 }
-
-export const COMPILER_DOWNLOAD_TIMEOUT = 10000;
 
 async function compile(
   input: CompilerInput,
@@ -121,27 +109,6 @@ async function compile(
   }
 
   return [input, output];
-}
-
-export async function compileFiles(
-  sources: string[],
-  compilerOptions: SolidityCompiler
-): Promise<[CompilerInput, CompilerOutput]> {
-  let compiler: Compiler;
-  // special case for running tests with custom solc
-  if (path.isAbsolute(compilerOptions.compilerPath)) {
-    compiler = {
-      compilerPath: compilerOptions.compilerPath,
-      isSolcJs: process.env.EDR_TESTS_SOLC_NATIVE !== "true",
-      version: compilerOptions.solidityVersion,
-      longVersion: compilerOptions.solidityVersion,
-    };
-  } else {
-    await downloadCompiler(compilerOptions.solidityVersion);
-    compiler = await getCompilerForVersion(compilerOptions.solidityVersion);
-  }
-
-  return compile(getSolcInputForFiles(sources, compilerOptions), compiler);
 }
 
 export async function compileLiteral(

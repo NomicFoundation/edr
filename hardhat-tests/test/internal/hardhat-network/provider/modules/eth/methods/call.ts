@@ -46,7 +46,7 @@ import {
   deployContract,
   sendTxToZeroAddress,
 } from "../../../../helpers/transactions";
-import { compileLiteral } from "../../../../stack-traces/compilation";
+import { compileLiteral } from "../../../../helpers/compilation";
 
 describe("Eth module", function () {
   PROVIDERS.forEach(({ name, useProvider, isFork, chainId }) => {

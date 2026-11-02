@@ -55,13 +55,6 @@ jobs:
             hardhat-tests/test/internal/hardhat-network/provider/.hardhat_node_test_cache
           key: hardhat-network-forking-tests-${{ hashFiles('pnpm-lock.yaml') }}
 
-      - name: Cache stack trace artifacts
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: |
-            hardhat-tests/test/internal/hardhat-network/stack-traces/test-files/artifacts
-          key: hardhat-network-stack-traces-tests-${{ hashFiles('hardhat-tests/test/internal/hardhat-network/stack-traces/test-files/**/*.sol') }}-${{ hashFiles('hardhat-tests/test/internal/hardhat-network/stack-traces/test-files/**/test.json') }}-${{ hashFiles('hardhat-tests/test/internal/hardhat-network/stack-traces/**/*.ts') }}
-
       - name: Run tests
         env:
           ALCHEMY_URL: ${{ secrets.ALCHEMY_URL }}
