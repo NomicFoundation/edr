@@ -6015,8 +6015,8 @@ checksum = "f52b00d39961fc5b2736ea853c9cc86238e165017a493d1d5c8eac6bdc4cc273"
 
 [[package]]
 name = "metaslang_bindings"
-version = "1.3.5"
-source = "git+https://github.com/NomicFoundation/slang?tag=v1.3.5#9c5a234eb2da64243f0c46202c1780236321a2bc"
+version = "1.3.10"
+source = "git+https://github.com/NomicFoundation/slang?tag=v1.3.10#35a30e8625fba858a3fde8abd1ad435ef38c70a6"
 dependencies = [
  "metaslang_cst",
  "metaslang_graph_builder",
@@ -6027,8 +6027,8 @@ dependencies = [
 
 [[package]]
 name = "metaslang_cst"
-version = "1.3.5"
-source = "git+https://github.com/NomicFoundation/slang?tag=v1.3.5#9c5a234eb2da64243f0c46202c1780236321a2bc"
+version = "1.3.10"
+source = "git+https://github.com/NomicFoundation/slang?tag=v1.3.10#35a30e8625fba858a3fde8abd1ad435ef38c70a6"
 dependencies = [
  "nom",
  "serde",
@@ -6037,8 +6037,8 @@ dependencies = [
 
 [[package]]
 name = "metaslang_graph_builder"
-version = "1.3.5"
-source = "git+https://github.com/NomicFoundation/slang?tag=v1.3.5#9c5a234eb2da64243f0c46202c1780236321a2bc"
+version = "1.3.10"
+source = "git+https://github.com/NomicFoundation/slang?tag=v1.3.10#35a30e8625fba858a3fde8abd1ad435ef38c70a6"
 dependencies = [
  "log",
  "metaslang_cst",
@@ -6051,15 +6051,15 @@ dependencies = [
 
 [[package]]
 name = "metaslang_stack_graphs"
-version = "1.3.5"
-source = "git+https://github.com/NomicFoundation/slang?tag=v1.3.5#9c5a234eb2da64243f0c46202c1780236321a2bc"
+version = "1.3.10"
+source = "git+https://github.com/NomicFoundation/slang?tag=v1.3.10#35a30e8625fba858a3fde8abd1ad435ef38c70a6"
 dependencies = [
  "bitvec",
  "controlled-option",
  "either",
  "enumset",
  "fxhash",
- "itertools 0.14.0",
+ "itertools 0.15.0",
  "libc",
  "lsp-positions",
  "smallvec",
@@ -8425,8 +8425,8 @@ dependencies = [
 
 [[package]]
 name = "slang_solidity"
-version = "1.3.5"
-source = "git+https://github.com/NomicFoundation/slang?tag=v1.3.5#9c5a234eb2da64243f0c46202c1780236321a2bc"
+version = "1.3.10"
+source = "git+https://github.com/NomicFoundation/slang?tag=v1.3.10#35a30e8625fba858a3fde8abd1ad435ef38c70a6"
 dependencies = [
  "metaslang_bindings",
  "metaslang_cst",
