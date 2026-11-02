@@ -4,7 +4,7 @@ use edr_primitives::Bytes;
 use edr_rpc_eth::StateOverrideOptions;
 use edr_runtime::{overrides::StateOverrides, transaction};
 use edr_signer::FakeSign as _;
-use foundry_evm_traces::CallTraceArena;
+use edr_solidity::recorded_steps::RecordedTraceArena;
 
 use crate::{
     data::ProviderData,
@@ -25,7 +25,7 @@ pub fn handle_call_request<
     request: ChainSpecT::RpcCallRequest,
     block_spec: Option<BlockSpec>,
     state_overrides: Option<StateOverrideOptions>,
-) -> Result<(Bytes, Option<CallTraceArena>), ProviderErrorForChainSpec<ChainSpecT>> {
+) -> Result<(Bytes, Option<RecordedTraceArena>), ProviderErrorForChainSpec<ChainSpecT>> {
     let block_spec = resolve_block_spec_for_call_request(block_spec);
 
     let state_overrides =

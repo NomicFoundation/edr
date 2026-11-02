@@ -18,10 +18,10 @@ use edr_inspector_bytecode::ExecutedBytecodeCollector;
 use edr_primitives::{Address, Bytes, HashMap, HashSet};
 use edr_receipt::{log::ExecutionLog, ExecutionResult};
 use edr_solidity::{
-    config::IncludeTraces, contract_decoder::ContractDecoder, tracing::SolidityTracingInspector,
+    config::IncludeTraces, contract_decoder::ContractDecoder, recorded_steps::RecordedTraceArena,
+    tracing::SolidityTracingInspector,
 };
 use edr_state_api::State;
-use foundry_evm_traces::CallTraceArena;
 use parking_lot::RwLock;
 use revm_inspector::JournalExt;
 pub use revm_inspectors::tracing::StackSnapshotType;
@@ -169,7 +169,7 @@ pub struct EvmObservedData {
     pub address_to_executed_code: HashMap<Address, Bytes>,
     /// The call trace arena collected during execution, including ABI-decoded
     /// information.
-    pub call_trace_arena: CallTraceArena,
+    pub call_trace_arena: RecordedTraceArena,
     /// Encoded `console.log` call inputs
     pub encoded_console_logs: Vec<Bytes>,
 }
@@ -179,7 +179,7 @@ impl EvmObservedData {
         self,
         include: IncludeTraces,
         is_success: bool,
-    ) -> Option<CallTraceArena> {
+    ) -> Option<RecordedTraceArena> {
         include
             .should_include(|| !is_success)
             .then_some(self.call_trace_arena)
@@ -194,7 +194,7 @@ impl EvmObserver {
             .map(CodeCoverageReporter::new);
 
         let tracing_config = TracingInspectorConfig::none()
-            .set_steps(true)
+            .set_steps(false)
             // Calldata and init code: without them, logs and stack traces
             // cannot identify the called contract and function.
             .set_record_inputs(true)
@@ -426,7 +426,7 @@ impl<ExecutionResultT: WithExecutionResult> ObservedExecution<ExecutionResultT> 
     /// Consumes the observed execution, returning the execution result and the
     /// call traces filtered by the observability configuration, using the
     /// EVM-level success of the execution as the success criteria.
-    pub fn into_result_and_filtered_traces(self) -> (ExecutionResultT, Option<CallTraceArena>) {
+    pub fn into_result_and_filtered_traces(self) -> (ExecutionResultT, Option<RecordedTraceArena>) {
         let is_success = self.execution_result.result().is_success();
 
         let call_trace_arena = self

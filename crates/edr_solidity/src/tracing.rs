@@ -4,13 +4,16 @@
 use std::{hash::BuildHasher, sync::Arc};
 
 use edr_chain_spec_evm::{ContextTrait, Inspector};
-use edr_primitives::{Address, Bytes, HashMap, HashSet, U256};
+use edr_primitives::{bytecode::opcode::OpCode, Address, Bytes, HashMap, HashSet, U256};
 use parking_lot::RwLock;
 use revm_inspector::JournalExt;
 use revm_inspectors::tracing::{CallTraceArena, TracingInspector};
-use revm_interpreter::CallOutcome;
+use revm_interpreter::{interpreter_types::Jumps, CallOutcome};
 
-use crate::contract_decoder::ContractDecoder;
+use crate::{
+    contract_decoder::ContractDecoder,
+    recorded_steps::{NodeSteps, RecordedStep, RecordedTraceArena},
+};
 
 /// Marks the calls to `precompile_addresses` in `arena`, so that
 /// [`CallTraceNode::is_precompile`] identifies them.
@@ -36,24 +39,35 @@ pub fn mark_precompile_calls<HasherT: BuildHasher>(
 
 /// A tracing inspector that uses a [`ContractDecoder`] to decode
 /// Solidity-specific information.
+///
+/// Records the opcode steps of each call itself, in a compact form, instead of
+/// the wrapped [`TracingInspector`], which must be configured without steps.
 pub struct SolidityTracingInspector {
     decoder: Arc<RwLock<ContractDecoder>>,
     inspector: TracingInspector,
+    /// Steps of each node in the inspector's arena.
+    steps: Vec<NodeSteps>,
 }
 
 impl SolidityTracingInspector {
     /// Constructs a new [`SolidityTracingInspector`] instance.
     pub fn new(inspector: TracingInspector, decoder: Arc<RwLock<ContractDecoder>>) -> Self {
-        Self { decoder, inspector }
+        Self {
+            decoder,
+            inspector,
+            steps: Vec::new(),
+        }
     }
 
-    /// Collects the [`TracingInspector`]'s traces and ABI decodes them.
+    /// Collects the [`TracingInspector`]'s traces with the recorded steps and
+    /// ABI decodes them.
     pub fn collect(
         self,
         address_to_executed_code: &HashMap<Address, Bytes>,
         precompile_addresses: &HashSet<Address>,
-    ) -> Result<CallTraceArena, serde_json::Error> {
+    ) -> Result<RecordedTraceArena, serde_json::Error> {
         let mut arena = self.inspector.into_traces();
+        let steps = self.steps;
 
         let mut decoder = self.decoder.write();
         decoder.populate_call_trace_arena(
@@ -62,17 +76,18 @@ impl SolidityTracingInspector {
             precompile_addresses,
         )?;
 
-        Ok(arena)
+        Ok(RecordedTraceArena { arena, steps })
     }
 
-    /// Takes the [`TracingInspector`]'s traces and ABI decodes them, replacing
-    /// the current traces with an empty arena.
+    /// Takes the [`TracingInspector`]'s traces with the recorded steps and ABI
+    /// decodes them, replacing them with an empty arena.
     pub fn take(
         &mut self,
         address_to_executed_code: &HashMap<Address, Bytes>,
         precompile_addresses: &HashSet<Address>,
-    ) -> Result<CallTraceArena, serde_json::Error> {
+    ) -> Result<RecordedTraceArena, serde_json::Error> {
         let mut arena = std::mem::take(self.inspector.traces_mut());
+        let steps = std::mem::take(&mut self.steps);
 
         // Reset the inspector
         self.inspector.fuse();
@@ -84,7 +99,70 @@ impl SolidityTracingInspector {
             precompile_addresses,
         )?;
 
-        Ok(arena)
+        Ok(RecordedTraceArena { arena, steps })
+    }
+
+    /// Records the step about to execute in the call that the
+    /// [`TracingInspector`] is tracing, with the stack and memory snapshots
+    /// its configuration asks for.
+    fn record_step(
+        &mut self,
+        interp: &revm_interpreter::Interpreter<revm_interpreter::interpreter::EthInterpreter>,
+    ) {
+        let config = self.inspector.config();
+        let record_memory = config.record_memory_snapshots;
+        let record_stack = config.record_stack_snapshots;
+
+        let node = self.current_node_steps_mut();
+        let prev_op = node.steps.last().map(|step| step.op);
+
+        // Only what EDR reads, unlike `TracingInspector`'s steps; see `RecordedStep`.
+        node.steps.push(RecordedStep {
+            pc: u32::try_from(interp.bytecode.pc()).expect("PC larger than u32::MAX"),
+            op: OpCode::new_or_unknown(interp.bytecode.opcode()),
+        });
+
+        // Taken from `TracingInspector::start_step` (revm-inspectors 0.44.2);
+        // revalidate when bumping revm-inspectors.
+        if record_memory {
+            // Reuse the previous step's memory if that step did not modify it.
+            let memory = match (prev_op, node.memories.last()) {
+                (Some(prev_op), Some(memory)) if !prev_op.modifies_memory() => memory.clone(),
+                _ => Bytes::copy_from_slice(&interp.memory.context_memory()),
+            };
+            node.memories.push(memory);
+        }
+
+        let stack = interp.stack.data();
+        if record_stack.is_all() || record_stack.is_full() {
+            node.stacks.push(stack.as_slice().into());
+        } else if record_stack.is_top() {
+            node.stacks.push(
+                stack
+                    .last()
+                    .map(std::slice::from_ref)
+                    .unwrap_or_default()
+                    .into(),
+            );
+        }
+    }
+
+    /// Returns the steps of the call the [`TracingInspector`] is tracing.
+    ///
+    /// Calls that executed no opcodes before it keep an empty entry, so the
+    /// steps stay indexed like the arena's nodes.
+    fn current_node_steps_mut(&mut self) -> &mut NodeSteps {
+        let node_idx = self
+            .inspector
+            .active_trace()
+            .expect("steps execute inside a call")
+            .idx;
+        if self.steps.len() <= node_idx {
+            self.steps.resize_with(node_idx + 1, NodeSteps::default);
+        }
+        self.steps
+            .get_mut(node_idx)
+            .expect("steps were extended to include the node")
     }
 }
 
@@ -103,6 +181,7 @@ impl<ContextT: ContextTrait<Journal: JournalExt>> Inspector<ContextT> for Solidi
         context: &mut ContextT,
     ) {
         self.inspector.step(interp, context);
+        self.record_step(interp);
     }
 
     fn step_end(

@@ -8,8 +8,11 @@
 use edr_chain_spec::EvmHaltReason;
 use edr_chain_spec_evm::interpreter::{return_revert, InstructionResult, SuccessOrHalt};
 use edr_primitives::{bytecode::opcode::OpCode, Address};
-use edr_solidity::nested_trace::is_calllike_op;
-use edr_solidity_tests::traces::{CallKind, CallTrace, CallTraceArena, CallTraceNode};
+use edr_solidity::{
+    nested_trace::is_calllike_opcode,
+    recorded_steps::{RecordedStep, RecordedTraceArena},
+};
+use edr_solidity_tests::traces::{CallKind, CallTrace, CallTraceNode};
 use napi::bindgen_prelude::{BigInt, Either, Either3, Uint8Array};
 use napi_derive::napi;
 
@@ -123,12 +126,12 @@ type RawTrace = Either3<TracingMessage, TracingStep, TracingMessageResult>;
 
 /// Converts a `CallTraceArena` into a flat vector of `RawTrace` messages,
 /// following the order that `EthereumJS` would have produced.
-pub(crate) fn raw_trace_from_call_trace_arena(arena: &CallTraceArena) -> Vec<RawTrace> {
+pub(crate) fn raw_trace_from_call_trace_arena(arena: &RecordedTraceArena) -> Vec<RawTrace> {
     let mut result = Vec::new();
     if let Some(node) = arena.nodes().first()
-        && (node.trace.kind.is_any_create() || !should_skip_call(&node.trace))
+        && (node.trace.kind.is_any_create() || !should_skip_call(&node.trace, arena.node_steps(0)))
     {
-        convert_node(arena, node, false, node.trace.caller, &mut result);
+        convert_node(arena, 0, node, false, node.trace.caller, &mut result);
     }
     result
 }
@@ -136,7 +139,8 @@ pub(crate) fn raw_trace_from_call_trace_arena(arena: &CallTraceArena) -> Vec<Raw
 /// DFS traversal of the arena, emitting Before/Step/After messages in the flat
 /// order that the old `TraceCollector` used to produce.
 fn convert_node(
-    arena: &CallTraceArena,
+    arena: &RecordedTraceArena,
+    node_idx: usize,
     node: &CallTraceNode,
     mut is_static_call: bool,
     original_caller: Address,
@@ -172,9 +176,10 @@ fn convert_node(
     }));
 
     // 2. Emit Step messages (TracingStep) and recursively convert child calls
-    let mut steps = trace.steps.iter().peekable();
+    let node_steps = arena.node(node_idx);
+    let mut steps = arena.node_steps(node_idx).iter().enumerate().peekable();
     if !is_create
-        && let Some(first_step) = steps.peek()
+        && let Some((_, first_step)) = steps.peek()
         && first_step.op == OpCode::STOP
     {
         // Calls skip a leading STOP step. Creates keep it.
@@ -182,9 +187,9 @@ fn convert_node(
     }
 
     let mut child_index = 0;
-    for step in steps {
+    for (step_idx, step) in steps {
         output.push(Either3::B(TracingStep {
-            pc: step.pc.try_into().expect("PC larger than u32::MAX"),
+            pc: step.pc,
             depth: trace
                 .depth
                 .try_into()
@@ -192,18 +197,16 @@ fn convert_node(
             opcode: TracingOpcode {
                 name: OpCode::name_by_op(step.op.get()).to_string(),
             },
-            stack: step
-                .stack
-                .as_ref()
+            stack: node_steps
+                .and_then(|node| node.stack(step_idx))
                 .map(|s| s.iter().map(u256_to_bigint).collect())
                 .unwrap_or_default(),
-            memory: step
-                .memory
-                .as_ref()
-                .map(|m| Uint8Array::with_data_copied(m.as_bytes())),
+            memory: node_steps
+                .and_then(|node| node.memory(step_idx))
+                .map(Uint8Array::with_data_copied),
         }));
 
-        if is_calllike_op(step) {
+        if is_calllike_opcode(step.op.get()) {
             // The opcode of this step is a call, but it's possible that this step resulted
             // in a revert or out of gas error in which case there's no actual child call executed and recorded: <https://github.com/paradigmxyz/reth/issues/3915>
             if let Some(call_id) = node.children.get(child_index).copied() {
@@ -215,10 +218,11 @@ fn convert_node(
                     .expect("child index should be valid");
 
                 if matches!(step.op, OpCode::CREATE | OpCode::CREATE2)
-                    || !should_skip_call(&child_node.trace)
+                    || !should_skip_call(&child_node.trace, arena.node_steps(call_id))
                 {
                     convert_node(
                         arena,
+                        call_id,
                         child_node,
                         is_static_call,
                         match child_node.trace.kind {
@@ -274,8 +278,8 @@ fn convert_status(
 // Historically, Hardhat 2 didn't emit a before message for calls that failed
 // immediately with a revert or out of gas error, so we skip them to maintain
 // compatibility with existing traces.
-fn should_skip_call(trace: &CallTrace) -> bool {
-    trace.steps.is_empty()
+fn should_skip_call(trace: &CallTrace, steps: &[RecordedStep]) -> bool {
+    steps.is_empty()
         && trace
             .status
             .is_some_and(|status| matches!(status, return_revert!()))

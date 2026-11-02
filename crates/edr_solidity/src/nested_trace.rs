@@ -8,7 +8,7 @@ use derive_where::derive_where;
 use edr_chain_spec::HaltReasonTrait;
 use edr_primitives::{Address, Bytes, HashMap, U256};
 
-pub use self::conversion::{is_calllike_op, CallTraceArenaConversionError};
+pub use self::conversion::{is_calllike_op, is_calllike_opcode, CallTraceArenaConversionError};
 use crate::{
     build_model::ContractMetadata, contracts_identifier::IdentifiedContract, exit_code::ExitCode,
 };
@@ -64,7 +64,28 @@ impl<HaltReasonT: HaltReasonTrait> NestedTrace<HaltReasonT> {
         address_to_runtime_code: &HashMap<Address, &Bytes>,
         arena: &revm_inspectors::tracing::CallTraceArena,
     ) -> Result<Self, CallTraceArenaConversionError> {
-        conversion::convert_from_arena(address_to_creation_code, address_to_runtime_code, arena)
+        conversion::convert_from_arena(
+            address_to_creation_code,
+            address_to_runtime_code,
+            arena,
+            None,
+        )
+    }
+
+    /// Like [`Self::from_call_trace_arena`], but reads steps from
+    /// `recorded_steps` if provided.
+    pub fn from_call_trace_arena_with_steps(
+        address_to_creation_code: &HashMap<Address, &Bytes>,
+        address_to_runtime_code: &HashMap<Address, &Bytes>,
+        arena: &revm_inspectors::tracing::CallTraceArena,
+        recorded_steps: Option<&[crate::recorded_steps::NodeSteps]>,
+    ) -> Result<Self, CallTraceArenaConversionError> {
+        conversion::convert_from_arena(
+            address_to_creation_code,
+            address_to_runtime_code,
+            arena,
+            recorded_steps,
+        )
     }
 
     /// Converts a `CallTraceArena` to a `NestedTrace` by automatically

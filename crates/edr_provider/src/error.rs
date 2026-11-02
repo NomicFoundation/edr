@@ -25,10 +25,10 @@ use edr_runtime::{overrides::AccountOverrideConversionError, transaction};
 use edr_signer::SignatureError;
 use edr_solidity::{
     contract_decoder::{ContractDecoder, ContractDecoderError},
-    solidity_stack_trace::{get_stack_trace, DeployedCode, StackTraceCreationResult},
+    recorded_steps::RecordedTraceArena,
+    solidity_stack_trace::{get_recorded_stack_trace, DeployedCode, StackTraceCreationResult},
 };
 use edr_state_api::StateError;
-use foundry_evm_traces::CallTraceArena;
 use parking_lot::RwLock;
 use serde::Serialize;
 
@@ -607,7 +607,7 @@ impl<
 pub struct EstimateGasFailure<HaltReasonT: HaltReasonTrait> {
     /// Mapping of contract address to executed bytecode
     pub address_to_executed_code: HashMap<Address, Bytes>,
-    pub call_trace_arena: CallTraceArena,
+    pub call_trace_arena: RecordedTraceArena,
     pub encoded_console_logs: Vec<Bytes>,
     /// The set of precompile addresses that were available during execution.
     pub precompile_addresses: HashSet<Address>,
@@ -623,7 +623,7 @@ impl<HaltReasonT: HaltReasonTrait> std::fmt::Display for EstimateGasFailure<Halt
 #[derive(Clone, Debug, thiserror::Error)]
 pub struct TransactionFailureWithCallTraces<HaltReasonT: HaltReasonTrait> {
     pub failure: TransactionFailure<HaltReasonT>,
-    pub call_trace_arenas: Vec<CallTraceArena>,
+    pub call_trace_arenas: Vec<RecordedTraceArena>,
 }
 
 impl<HaltReasonT: HaltReasonTrait> std::fmt::Display
@@ -653,7 +653,7 @@ impl<HaltReasonT: HaltReasonTrait> TransactionFailure<HaltReasonT> {
         execution_result: &ExecutionResult<HaltReasonT>,
         transaction_hash: Option<&B256>,
         address_to_executed_code: &HashMap<Address, Bytes>,
-        call_trace_arena: &CallTraceArena,
+        call_trace_arena: &RecordedTraceArena,
         contract_decoder: &RwLock<ContractDecoder>,
     ) -> Option<TransactionFailure<HaltReasonT>> {
         match execution_result {
@@ -679,13 +679,12 @@ impl<HaltReasonT: HaltReasonTrait> TransactionFailure<HaltReasonT> {
         reason: TransactionFailureReason<HaltReasonT>,
         tx_hash: Option<B256>,
         address_to_executed_code: &HashMap<Address, Bytes>,
-        call_trace_arena: &CallTraceArena,
+        call_trace_arena: &RecordedTraceArena,
         contract_decoder: &RwLock<ContractDecoder>,
     ) -> Self {
-        let stack_trace_result = get_stack_trace(
+        let stack_trace_result = get_recorded_stack_trace(
             contract_decoder,
             call_trace_arena,
-            std::iter::empty(),
             DeployedCode {
                 creation: None,
                 runtime: Some(address_to_executed_code),
@@ -705,14 +704,13 @@ impl<HaltReasonT: HaltReasonTrait> TransactionFailure<HaltReasonT> {
         output: Bytes,
         transaction_hash: Option<B256>,
         address_to_executed_code: &HashMap<Address, Bytes>,
-        call_trace_arena: &CallTraceArena,
+        call_trace_arena: &RecordedTraceArena,
         contract_decoder: &RwLock<ContractDecoder>,
     ) -> Self {
         let data = format!("0x{}", hex::encode(output.as_ref()));
-        let stack_trace_result = get_stack_trace(
+        let stack_trace_result = get_recorded_stack_trace(
             contract_decoder,
             call_trace_arena,
-            std::iter::empty(),
             DeployedCode {
                 creation: None,
                 runtime: Some(address_to_executed_code),

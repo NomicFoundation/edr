@@ -10,8 +10,8 @@ use edr_chain_spec_evm::{BlockEnvTrait as _, CfgEnv, DatabaseComponentError, Tra
 use edr_evm::{dry_run_with_inspector, run};
 use edr_primitives::{HashMap, B256, U256};
 use edr_runtime::inspector::DualInspector;
+use edr_solidity::recorded_steps::RecordedTraceArena;
 use edr_state_api::{DynState, StateError};
-use foundry_evm_traces::CallTraceArena;
 use revm_inspectors::tracing::{DebugInspector, DebugInspectorError, MuxError, TransactionContext};
 
 use crate::{
@@ -244,7 +244,7 @@ impl<TransactionValidationErrorT> JsonRpcError for DebugTraceError<TransactionVa
 /// Result of a `debug_traceTransaction` call with call trace.
 pub struct DebugTraceResultWithCallTraces {
     /// The raw traces of the debugged transaction.
-    pub call_trace_arenas: Vec<CallTraceArena>,
+    pub call_trace_arenas: Vec<RecordedTraceArena>,
     /// The result of the transaction.
     pub result: GethTrace,
 }

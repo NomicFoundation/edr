@@ -20,10 +20,9 @@ use edr_evm::ExecutionResultWithMetadata;
 use edr_precompile::PrecompileFn;
 use edr_primitives::{Address, HashMap, U256};
 use edr_receipt::ReceiptTrait as _;
-use edr_solidity::contract_decoder::ContractDecoder;
+use edr_solidity::{contract_decoder::ContractDecoder, recorded_steps::RecordedTraceArena};
 use edr_state_api::DynState;
 use edr_transaction::TransactionMut;
-use foundry_evm_traces::CallTraceArena;
 use itertools::Itertools;
 use parking_lot::RwLock;
 
@@ -39,7 +38,7 @@ use crate::{
 };
 
 pub struct EstimateGasResult {
-    pub call_trace_arenas: Vec<CallTraceArena>,
+    pub call_trace_arenas: Vec<RecordedTraceArena>,
     pub estimation: u64,
 }
 
@@ -58,7 +57,7 @@ impl GasEstimationMode {
     pub(crate) fn accepts<HaltReasonT>(
         &self,
         result: &ExecutionResult<HaltReasonT>,
-        traces: &CallTraceArena,
+        traces: &RecordedTraceArena,
     ) -> bool {
         match self {
             GasEstimationMode::TopLevelSuccess => result.is_success(),
@@ -100,7 +99,7 @@ impl GasEstimationMode {
 /// Returns true if any sub-call (non-root) in the trace arena ended in an
 /// out-of-gas variant. The OOG variants mirror REVM's
 /// `InstructionResult::is_out_of_gas` macro.
-fn has_internal_oog(arena: &CallTraceArena) -> bool {
+fn has_internal_oog(arena: &RecordedTraceArena) -> bool {
     arena.nodes().iter().any(|node| {
         // Skip the root call — only sub-calls count as "internal".
         node.parent.is_some()
@@ -271,14 +270,14 @@ pub(super) fn estimate_gas<
 /// collection criteria are met.
 struct GasMeasurement {
     gas_used: u64,
-    call_trace: Option<CallTraceArena>,
+    call_trace: Option<RecordedTraceArena>,
 }
 
 /// Whether the estimation mode accepted an execution at a probed gas limit,
 /// along with its call trace when the trace collection criteria are met.
 struct GasProbe {
     accepted: bool,
-    call_trace: Option<CallTraceArena>,
+    call_trace: Option<RecordedTraceArena>,
 }
 
 /// Measures the gas used by the transaction executed with its full gas limit,
