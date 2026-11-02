@@ -26,8 +26,7 @@ use self::corpus::Case;
 
 /// The corpus root, holding the version-grouped case directories.
 pub fn corpus_dir() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../hardhat-tests/test/internal/hardhat-network/stack-traces/test-files")
+    Path::new(env!("CARGO_MANIFEST_DIR")).join("corpus")
 }
 
 /// The outcome of one configuration run.

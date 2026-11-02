@@ -1,7 +1,7 @@
 //! Decodes `console.log` calls into the per-argument strings the corpus
 //! expects.
 
-use std::{collections::HashMap, path::Path, sync::LazyLock};
+use std::{collections::HashMap, sync::LazyLock};
 
 use alloy_dyn_abi::{DynSolType, DynSolValue};
 use anyhow::Context as _;
@@ -10,7 +10,7 @@ use edr_primitives::{hex, keccak256, Bytes};
 /// Selector → argument types, read from the `console.sol` the corpus
 /// imports, whose functions all forward `abi.encodeWithSignature("log(...)")`.
 static SIGNATURES: LazyLock<HashMap<[u8; 4], Vec<DynSolType>>> = LazyLock::new(|| {
-    let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../hardhat-tests/console.sol");
+    let path = crate::corpus_dir().join("console.sol");
     let source = std::fs::read_to_string(&path)
         .unwrap_or_else(|error| panic!("reading {}: {error}", path.display()));
     source
