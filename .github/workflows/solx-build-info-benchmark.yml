@@ -34,7 +34,7 @@ jobs:
       RUSTFLAGS: -Dwarnings
       # Must match the `gungraun` dev-dependency of edr_solidity.
       # renovate: datasource=crate depName=gungraun-runner
-      GUNGRAUN_RUNNER_VERSION: "0.19.4"
+      GUNGRAUN_RUNNER_VERSION: "0.20.0"
       # renovate: datasource=deb depName=valgrind
       VALGRIND_VERSION: "1:3.22.0-0ubuntu3"
     steps:

@@ -40,7 +40,7 @@ itertools = "0.15.0"
 
 [dev-dependencies]
 criterion = "0.8"
-gungraun = "0.19.4"
+gungraun = "0.20.0"
 
 [features]
 tracing = ["edr_chain_spec_evm/tracing"]
