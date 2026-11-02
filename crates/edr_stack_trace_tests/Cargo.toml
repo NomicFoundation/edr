@@ -10,6 +10,7 @@ alloy-json-abi.workspace = true
 alloy-primitives.workspace = true
 anyhow = { workspace = true, features = ["std"] }
 edr_chain_l1.workspace = true
+edr_instrument.workspace = true
 edr_primitives.workspace = true
 edr_provider = { workspace = true, features = ["test-utils"] }
 edr_signer.workspace = true

@@ -3798,6 +3798,7 @@ dependencies = [
  "alloy-primitives",
  "anyhow",
  "edr_chain_l1",
+ "edr_instrument",
  "edr_primitives",
  "edr_provider",
  "edr_signer",
