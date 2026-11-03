@@ -8,6 +8,7 @@ use crate::{
     build_model::ContractFunctionType,
     contract_decoder::{ContractDecoderError, NestedTraceDecoder},
     nested_trace::{CallTraceArenaConversionError, NestedTrace},
+    recorded_steps::{FrameSteps, RecordedTraceArena},
     return_data::CheatcodeErrorDetails,
     solidity_tracer::{self, SolidityTracerError},
 };
@@ -307,20 +308,20 @@ pub fn get_stack_trace<
 }
 
 /// Like [`get_stack_trace`], for a failing trace whose steps were recorded in
-/// a [`crate::recorded_steps::RecordedTraceArena`].
+/// a [`RecordedTraceArena`].
 pub fn get_recorded_stack_trace<
     'arena,
     HaltReasonT: HaltReasonTrait,
     NestedTraceDecoderT: NestedTraceDecoder<HaltReasonT>,
 >(
     contract_decoder: &NestedTraceDecoderT,
-    failing_trace: &'arena crate::recorded_steps::RecordedTraceArena,
+    failing_trace: &'arena RecordedTraceArena,
     deployed_code: DeployedCode<'arena>,
 ) -> Result<Vec<StackTraceEntry>, StackTraceCreationError<HaltReasonT>> {
     get_stack_trace_with_steps(
         contract_decoder,
-        &failing_trace.arena,
-        Some(&failing_trace.steps),
+        failing_trace,
+        Some(failing_trace.all_node_steps()),
         std::iter::empty(),
         deployed_code,
     )
@@ -333,7 +334,7 @@ fn get_stack_trace_with_steps<
 >(
     contract_decoder: &NestedTraceDecoderT,
     failing_trace: &'arena CallTraceArena,
-    recorded_steps: Option<&[crate::recorded_steps::NodeSteps]>,
+    recorded_steps: Option<&[FrameSteps]>,
     code_sources: impl IntoIterator<Item = &'arena CallTraceArena>,
     deployed_code: DeployedCode<'arena>,
 ) -> Result<Vec<StackTraceEntry>, StackTraceCreationError<HaltReasonT>> {

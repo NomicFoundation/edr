@@ -212,25 +212,26 @@ fn trace_both(to: Address, config: TracingInspectorConfig) -> (CallTraceArena, R
 
 fn assert_same_steps(reference: &CallTraceArena, recorded: &RecordedTraceArena) {
     assert_eq!(reference.nodes().len(), recorded.nodes().len());
+    assert_eq!(recorded.all_node_steps().len(), recorded.nodes().len());
 
     for (node_idx, node) in reference.nodes().iter().enumerate() {
         let expected = &node.trace.steps;
-        let steps = recorded.node_steps(node_idx);
-        assert_eq!(steps.len(), expected.len(), "step count of node {node_idx}");
+        let steps = recorded
+            .node_steps(node_idx)
+            .expect("steps are recorded for every node");
+        assert_eq!(
+            steps.steps.len(),
+            expected.len(),
+            "step count of node {node_idx}"
+        );
 
         for (step_idx, (step, expected)) in steps.iter().zip(expected).enumerate() {
             let context = format!("node {node_idx}, step {step_idx}");
             assert_eq!(step.pc as usize, expected.pc, "pc at {context}");
             assert_eq!(step.op, expected.op, "op at {context}");
-
-            let node_steps = recorded.node(node_idx);
+            assert_eq!(step.stack, expected.stack.as_deref(), "stack at {context}");
             assert_eq!(
-                node_steps.and_then(|node| node.stack(step_idx)),
-                expected.stack.as_deref(),
-                "stack at {context}"
-            );
-            assert_eq!(
-                node_steps.and_then(|node| node.memory(step_idx)),
+                step.memory,
                 expected.memory.as_ref().map(RecordedMemory::as_bytes),
                 "memory at {context}"
             );

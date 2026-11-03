@@ -8,9 +8,10 @@ use derive_where::derive_where;
 use edr_chain_spec::HaltReasonTrait;
 use edr_primitives::{Address, Bytes, HashMap, U256};
 
-pub use self::conversion::{is_calllike_op, is_calllike_opcode, CallTraceArenaConversionError};
+pub use self::conversion::{is_calllike_opcode, CallTraceArenaConversionError};
 use crate::{
     build_model::ContractMetadata, contracts_identifier::IdentifiedContract, exit_code::ExitCode,
+    recorded_steps::FrameSteps,
 };
 
 /// An EVM trace where the steps are nested according to the call stack.
@@ -78,7 +79,7 @@ impl<HaltReasonT: HaltReasonTrait> NestedTrace<HaltReasonT> {
         address_to_creation_code: &HashMap<Address, &Bytes>,
         address_to_runtime_code: &HashMap<Address, &Bytes>,
         arena: &revm_inspectors::tracing::CallTraceArena,
-        recorded_steps: Option<&[crate::recorded_steps::NodeSteps]>,
+        recorded_steps: Option<&[FrameSteps]>,
     ) -> Result<Self, CallTraceArenaConversionError> {
         conversion::convert_from_arena(
             address_to_creation_code,

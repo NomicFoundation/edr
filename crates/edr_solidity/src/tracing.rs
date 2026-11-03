@@ -12,7 +12,7 @@ use revm_interpreter::{interpreter_types::Jumps, CallOutcome};
 
 use crate::{
     contract_decoder::ContractDecoder,
-    recorded_steps::{NodeSteps, RecordedStep, RecordedTraceArena},
+    recorded_steps::{FrameSteps, RecordedStep, RecordedTraceArena},
 };
 
 /// Marks the calls to `precompile_addresses` in `arena`, so that
@@ -40,18 +40,24 @@ pub fn mark_precompile_calls<HasherT: BuildHasher>(
 /// A tracing inspector that uses a [`ContractDecoder`] to decode
 /// Solidity-specific information.
 ///
-/// Records the opcode steps of each call itself, in a compact form, instead of
-/// the wrapped [`TracingInspector`], which must be configured without steps.
+/// Records the opcode steps of each call itself, in a compact form, so the
+/// wrapped [`TracingInspector`] is configured without steps; otherwise every
+/// step would be recorded twice.
 pub struct SolidityTracingInspector {
     decoder: Arc<RwLock<ContractDecoder>>,
     inspector: TracingInspector,
     /// Steps of each node in the inspector's arena.
-    steps: Vec<NodeSteps>,
+    steps: Vec<FrameSteps>,
 }
 
 impl SolidityTracingInspector {
     /// Constructs a new [`SolidityTracingInspector`] instance.
     pub fn new(inspector: TracingInspector, decoder: Arc<RwLock<ContractDecoder>>) -> Self {
+        debug_assert!(
+            !inspector.config().record_steps,
+            "the wrapped TracingInspector would record every step a second time"
+        );
+
         Self {
             decoder,
             inspector,
@@ -76,7 +82,7 @@ impl SolidityTracingInspector {
             precompile_addresses,
         )?;
 
-        Ok(RecordedTraceArena { arena, steps })
+        Ok(RecordedTraceArena::new(arena, steps))
     }
 
     /// Takes the [`TracingInspector`]'s traces with the recorded steps and ABI
@@ -99,7 +105,7 @@ impl SolidityTracingInspector {
             precompile_addresses,
         )?;
 
-        Ok(RecordedTraceArena { arena, steps })
+        Ok(RecordedTraceArena::new(arena, steps))
     }
 
     /// Records the step about to execute in the call that the
@@ -151,14 +157,14 @@ impl SolidityTracingInspector {
     ///
     /// Calls that executed no opcodes before it keep an empty entry, so the
     /// steps stay indexed like the arena's nodes.
-    fn current_node_steps_mut(&mut self) -> &mut NodeSteps {
+    fn current_node_steps_mut(&mut self) -> &mut FrameSteps {
         let node_idx = self
             .inspector
             .active_trace()
             .expect("steps execute inside a call")
             .idx;
         if self.steps.len() <= node_idx {
-            self.steps.resize_with(node_idx + 1, NodeSteps::default);
+            self.steps.resize_with(node_idx + 1, FrameSteps::default);
         }
         self.steps
             .get_mut(node_idx)
