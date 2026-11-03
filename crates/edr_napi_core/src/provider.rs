@@ -4,6 +4,7 @@ use std::{str::FromStr as _, sync::Arc};
 
 use edr_provider::{time::TimeSinceEpoch, InvalidRequestReason, SyncCallOverride};
 use edr_rpc_client::jsonrpc;
+use edr_solidity::config::IncludeTraces;
 
 pub use self::config::{Config, ConfigOption};
 use crate::spec::{Response, SyncNapiSpec};
@@ -34,6 +35,10 @@ pub trait SyncProvider: Send + Sync {
 
     /// Set the verbose tracing flag to the provided value.
     fn set_verbose_tracing(&self, enabled: bool) -> napi::Result<()>;
+
+    /// Sets which transactions' call traces are included in responses, for
+    /// requests handled from this point on.
+    fn set_include_call_traces(&self, include_call_traces: IncludeTraces) -> napi::Result<()>;
 }
 
 impl<ChainSpecT: SyncNapiSpec<TimerT>, TimerT: Clone + TimeSinceEpoch> SyncProvider
@@ -70,6 +75,11 @@ impl<ChainSpecT: SyncNapiSpec<TimerT>, TimerT: Clone + TimeSinceEpoch> SyncProvi
 
     fn set_verbose_tracing(&self, enabled: bool) -> napi::Result<()> {
         edr_provider::Provider::set_verbose_tracing(self, enabled)
+            .map_err(|error| napi::Error::new(napi::Status::GenericFailure, error.to_string()))
+    }
+
+    fn set_include_call_traces(&self, include_call_traces: IncludeTraces) -> napi::Result<()> {
+        edr_provider::Provider::set_include_call_traces(self, include_call_traces)
             .map_err(|error| napi::Error::new(napi::Status::GenericFailure, error.to_string()))
     }
 }

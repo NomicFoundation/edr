@@ -87,6 +87,16 @@ export declare class Provider {
    * `false` to disable this.
    */
   setVerboseTracing(verboseTracing: boolean): Promise<void>
+  /**
+   * Sets which transactions' call traces the `traces()` and `callTraces()`
+   * of later responses include. Requests handled after the returned promise
+   * resolves use the new value.
+   *
+   * Traces that are not included are never collected. Consumers that read
+   * traces conditionally can keep this at `IncludeTraces.None` while
+   * nothing reads them, and avoid the collection cost.
+   */
+  setIncludeCallTraces(includeCallTraces: IncludeTraces): Promise<void>
 }
 
 export declare class ProviderFactory {}

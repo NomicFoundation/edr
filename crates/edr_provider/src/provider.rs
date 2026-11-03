@@ -2,7 +2,7 @@ use std::{marker::PhantomData, sync::Arc};
 
 use crossbeam_channel::{bounded, unbounded, RecvError, Sender};
 use edr_chain_spec::{ProtocolHardforkChainSpec, TransactionValidation};
-use edr_solidity::contract_decoder::ContractDecoder;
+use edr_solidity::{config::IncludeTraces, contract_decoder::ContractDecoder};
 use edr_transaction::{IsEip155, IsEip4844, TransactionMut, TransactionType};
 use edr_utils_sync::CancellableThread;
 use parking_lot::RwLock;
@@ -103,6 +103,20 @@ impl<ChainSpecT: SyncProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>
     ) -> Result<(), ProviderErrorForChainSpec<ChainSpecT>> {
         Self::wait_for_reply(|ack| {
             let _ = self.send_message(Message::SetVerboseTracing { enabled, ack });
+        })
+    }
+
+    /// Sets which transactions' call traces are included in responses, for
+    /// requests handled from this point on.
+    pub fn set_include_call_traces(
+        &self,
+        include_call_traces: IncludeTraces,
+    ) -> Result<(), ProviderErrorForChainSpec<ChainSpecT>> {
+        Self::wait_for_reply(|ack| {
+            let _ = self.send_message(Message::SetIncludeCallTraces {
+                include_call_traces,
+                ack,
+            });
         })
     }
 }

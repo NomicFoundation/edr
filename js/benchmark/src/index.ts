@@ -60,6 +60,8 @@ interface ParsedArguments {
   // eslint-disable-next-line @typescript-eslint/naming-convention
   forge_path?: string;
   verbosity?: number;
+  // eslint-disable-next-line @typescript-eslint/naming-convention
+  vm_step_listener: boolean;
 }
 
 interface BenchmarkScenarioResult {
@@ -139,6 +141,10 @@ async function main(): Promise<boolean> {
     type: "int",
     help: `Hardhat verbosity level (0-5, i.e. -v to -vvvvv) for the \`solidity-tests-memory\` command. Pass one level per run; omit to measure verbosities ${MEMORY_VERBOSITIES.join(", ")}, the ones with distinct trace-collection behaviour.`,
   });
+  parser.add_argument("--vm-step-listener", {
+    action: "store_true",
+    help: "Register a no-op `step` listener on the Hardhat 2 VM for the `provider-benchmark` command. Hardhat 2 only reads the EVM traces of a response when a VM listener exists, as with coverage or tracer plugins.",
+  });
   const args: ParsedArguments = parser.parse_args();
 
   // if --benchmark-output is relative, resolve it relatively to cwd
@@ -155,11 +161,14 @@ async function main(): Promise<boolean> {
         if (scenarioFileName.includes(args.grep)) {
           // We store the results to avoid GC
           // eslint-disable-next-line @typescript-eslint/no-unused-vars
-          results = await benchmarkScenario(scenarioFileName);
+          results = await benchmarkScenario(
+            scenarioFileName,
+            args.vm_step_listener
+          );
         }
       }
     } else {
-      benchmarkAllScenarios(benchmarkOutputPath);
+      benchmarkAllScenarios(benchmarkOutputPath, args.vm_step_listener);
     }
   } else if (args.command === "verify-provider-benchmark") {
     return verify(benchmarkOutputPath);
@@ -388,7 +397,7 @@ function setDifference<T>(a: Set<T>, b: Set<T>): Set<T> {
   return new Set(Array.from(a).filter((item) => !b.has(item)));
 }
 
-function benchmarkAllScenarios(outPath: string) {
+function benchmarkAllScenarios(outPath: string, vmStepListener: boolean) {
   const result: any = {};
   let totalTime = 0;
   let totalFailures = 0;
@@ -403,6 +412,7 @@ function benchmarkAllScenarios(outPath: string) {
       "provider-benchmark",
       "-g",
       scenarioFileName,
+      ...(vmStepListener ? ["--vm-step-listener"] : []),
     ];
 
     let processResult: SpawnSyncReturns<string> | undefined;
@@ -480,7 +490,8 @@ function medianOfResults(results: BenchmarkScenarioResult[]) {
 }
 
 async function benchmarkScenario(
-  scenarioFileName: string
+  scenarioFileName: string,
+  vmStepListener: boolean
 ): Promise<BenchmarkScenarioRpcCalls> {
   const { config, requests } = await loadScenario(scenarioFileName);
   const name = path.basename(scenarioFileName).split(".")[0];
@@ -491,6 +502,9 @@ async function benchmarkScenario(
   const provider = await createHardhatNetworkProvider(config.providerConfig, {
     enabled: config.loggerEnabled,
   });
+  if (vmStepListener) {
+    provider._node._vm.evm.events.on("step", () => {});
+  }
 
   const failures = [];
   const rpcCallResults = [];
