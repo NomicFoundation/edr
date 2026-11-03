@@ -561,6 +561,10 @@ interface Vm {
     #[cheatcode(group = Evm, safety = Unsafe)]
     function coolSlot(address target, bytes32 slot) external;
 
+    /// Returns true if isolated test execution is enabled.
+    #[cheatcode(group = Evm, safety = Safe)]
+    function isIsolateMode() external view returns (bool result);
+
     // -------- Call Manipulation --------
     // --- Mocks ---
 

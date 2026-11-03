@@ -41,7 +41,7 @@ jobs:
             target: x86_64-apple-darwin
             build: pnpm run build --strip
 
-          - host: macos-14
+          - host: macos-15
             target: aarch64-apple-darwin
             build: pnpm run build --strip
 
@@ -254,7 +254,7 @@ jobs:
         settings:
           - host: macos-15-intel
             target: x86_64-apple-darwin
-          - host: macos-14
+          - host: macos-15
             target: aarch64-apple-darwin
           - host: windows-2022
             target: x86_64-pc-windows-msvc
