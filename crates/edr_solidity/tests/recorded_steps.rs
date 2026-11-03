@@ -41,7 +41,7 @@ const HALTER: Address = address!("0xf000000000000000000000000000000000000001");
 const IDENTITY_PRECOMPILE: Address = address!("0x0000000000000000000000000000000000000004");
 
 /// Appends a call to `to` with `call_op`, discarding the success flag. `value`
-/// is ignored for `STATICCALL` and `DELEGATECALL`.
+/// is only used by `CALL`.
 fn call<'code>(
     code: &'code mut BytecodeBuilder,
     call_op: u8,
@@ -50,7 +50,7 @@ fn call<'code>(
 ) -> &'code mut BytecodeBuilder {
     // retSize, retOffset, argsSize, argsOffset
     code.push1(0x20).push1(0x40).push1(0x20).push1(0);
-    if matches!(call_op, opcode::CALL | opcode::CALLCODE) {
+    if call_op == opcode::CALL {
         code.push(value);
     }
     code.push(to.as_slice())
@@ -74,7 +74,6 @@ fn root_code() -> Bytes {
     call(&mut code, opcode::CALL, CALLEE, &[0xff; 32]);
     call(&mut code, opcode::DELEGATECALL, CALLEE, &[]);
     call(&mut code, opcode::CALL, REVERTER, &[0]);
-    call(&mut code, opcode::CALL, HALTER, &[0]);
     // CREATE(value, offset, size) with the init code right-aligned in the
     // first memory word.
     code.push(&init_code)
@@ -84,8 +83,10 @@ fn root_code() -> Bytes {
         .push1(32 - init_code_len)
         .push1(0)
         .opcode(opcode::CREATE)
-        .opcode(opcode::POP)
-        .opcode(opcode::STOP);
+        .opcode(opcode::POP);
+    // Last, since the halt consumes all the gas forwarded to it.
+    call(&mut code, opcode::CALL, HALTER, &[0]);
+    code.opcode(opcode::STOP);
     code.runtime()
 }
 
