@@ -592,6 +592,10 @@ pub struct Cheatcodes<
     /// All recorded ETH `deal`s.
     pub eth_deals: Vec<DealRecord>,
 
+    /// Whether calls are isolated for the current test, after its inline
+    /// `isolate` override. Set by `InspectorStack::enable_isolation`.
+    pub isolate: bool,
+
     /// Gas metering state.
     pub gas_metering: GasMetering,
 
@@ -703,6 +707,7 @@ impl<
             test_context: TestContext::default(),
             serialized_jsons: BTreeMap::default(),
             eth_deals: Vec::default(),
+            isolate: false,
             gas_metering: GasMetering::default(),
             gas_snapshots: BTreeMap::default(),
             mapping_slots: Option::default(),
