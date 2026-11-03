@@ -20,12 +20,9 @@ use edr_provider::{
     MethodInvocation, Provider, ProviderError, ProviderErrorForChainSpec, ProviderRequest,
     ResponseWithCallTraces, TransactionFailureReason,
 };
-use edr_test_utils::secret_key::secret_key_to_address;
+use edr_test_utils::{bytecode::opcode, secret_key::secret_key_to_address};
 
-use crate::common::{
-    bytecode::opcode,
-    provider::{code_at, new_provider_with_config, transaction_receipt},
-};
+use crate::common::provider::{code_at, new_provider_with_config, transaction_receipt};
 
 /// EIP-8037 charges state gas per deployed byte from Amsterdam, so a maximum
 /// size deployment needs far more than the 30M default block gas limit.

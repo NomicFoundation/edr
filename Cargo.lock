@@ -3718,6 +3718,7 @@ dependencies = [
  "edr_decoder_revert",
  "edr_defaults",
  "edr_primitives",
+ "edr_test_utils",
  "foundry-compilers",
  "foundry-evm-core",
  "foundry-evm-traces",

@@ -14,16 +14,16 @@ use edr_provider::{
     MethodInvocation, Provider, ProviderError, ProviderErrorForChainSpec, ProviderRequest,
     ResponseWithCallTraces,
 };
-use edr_test_utils::secret_key::secret_key_to_address;
-
-use crate::common::{
+use edr_test_utils::{
     bytecode::{
         opcode::{DUP1, GASLIMIT, SSTORE},
         BytecodeBuilder,
     },
-    provider::{
-        block_gas_limit, new_provider_with_config, send_transaction as send_transaction_request,
-    },
+    secret_key::secret_key_to_address,
+};
+
+use crate::common::provider::{
+    block_gas_limit, new_provider_with_config, send_transaction as send_transaction_request,
 };
 
 const BLOCK_GAS_LIMIT: u64 = 30_000_000;
