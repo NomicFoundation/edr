@@ -9,9 +9,10 @@ use edr_solidity::{
     contract_decoder::ContractDecoder, recorded_steps::RecordedTraceArena,
     tracing::SolidityTracingInspector,
 };
+use edr_test_utils::bytecode::{opcode, BytecodeBuilder};
 use parking_lot::RwLock;
 use revm::{
-    bytecode::{opcode, Bytecode},
+    bytecode::Bytecode,
     context::TxEnv,
     context_interface::TransactTo,
     database::CacheDB,
@@ -39,101 +40,74 @@ const REVERTER: Address = address!("0xe000000000000000000000000000000000000001")
 const HALTER: Address = address!("0xf000000000000000000000000000000000000001");
 const IDENTITY_PRECOMPILE: Address = address!("0x0000000000000000000000000000000000000004");
 
-/// Builds bytecode from opcodes and `PUSH` immediates.
-#[derive(Default)]
-struct Asm(Vec<u8>);
-
-impl Asm {
-    fn op(mut self, op: u8) -> Self {
-        self.0.push(op);
-        self
+/// Appends a call to `to` with `call_op`, discarding the success flag. `value`
+/// is ignored for `STATICCALL` and `DELEGATECALL`.
+fn call<'code>(
+    code: &'code mut BytecodeBuilder,
+    call_op: u8,
+    to: Address,
+    value: &[u8],
+) -> &'code mut BytecodeBuilder {
+    // retSize, retOffset, argsSize, argsOffset
+    code.push1(0x20).push1(0x40).push1(0x20).push1(0);
+    if matches!(call_op, opcode::CALL | opcode::CALLCODE) {
+        code.push(value);
     }
-
-    fn push(mut self, bytes: &[u8]) -> Self {
-        let len = u8::try_from(bytes.len()).expect("push fits in 32 bytes");
-        assert!((1..=32).contains(&len));
-        self.0.push(opcode::PUSH0 + len);
-        self.0.extend_from_slice(bytes);
-        self
-    }
-
-    fn push_u8(self, value: u8) -> Self {
-        self.push(&[value])
-    }
-
-    /// Calls `to` with `call_op`, discarding the success flag. `value` is
-    /// ignored for `STATICCALL` and `DELEGATECALL`.
-    fn call(self, call_op: u8, to: Address, value: &[u8]) -> Self {
-        // retSize, retOffset, argsSize, argsOffset
-        let asm = self.push_u8(0x20).push_u8(0x40).push_u8(0x20).push_u8(0);
-        let asm = if matches!(call_op, opcode::CALL | opcode::CALLCODE) {
-            asm.push(value)
-        } else {
-            asm
-        };
-        asm.push(to.as_slice())
-            .op(opcode::GAS)
-            .op(call_op)
-            .op(opcode::POP)
-    }
-
-    fn build(self) -> Bytes {
-        self.0.into()
-    }
+    code.push(to.as_slice())
+        .opcode(opcode::GAS)
+        .opcode(call_op)
+        .opcode(opcode::POP)
 }
 
 fn root_code() -> Bytes {
     // Init code of a contract with empty runtime code: PUSH1 0 PUSH1 0 RETURN
     let init_code = [opcode::PUSH1, 0, opcode::PUSH1, 0, opcode::RETURN];
+    let init_code_len = u8::try_from(init_code.len()).expect("init code is short");
 
-    Asm::default()
-        .push_u8(0x2a)
-        .push_u8(0)
-        .op(opcode::MSTORE)
-        .call(opcode::CALL, CALLEE, &[0])
-        .call(opcode::STATICCALL, IDENTITY_PRECOMPILE, &[])
-        .call(opcode::CALL, EMPTY, &[0])
-        .call(opcode::CALL, MOCKED, &[0])
-        // Fails before the callee starts: the value exceeds ROOT's balance.
-        .call(opcode::CALL, CALLEE, &[0xff; 32])
-        .call(opcode::DELEGATECALL, CALLEE, &[])
-        .call(opcode::CALL, REVERTER, &[0])
-        .call(opcode::CALL, HALTER, &[0])
-        // CREATE(value, offset, size) with the init code right-aligned in the
-        // first memory word.
-        .push(&init_code)
-        .push_u8(0)
-        .op(opcode::MSTORE)
-        .push_u8(u8::try_from(init_code.len()).expect("init code is short"))
-        .push_u8(32 - u8::try_from(init_code.len()).expect("init code is short"))
-        .push_u8(0)
-        .op(opcode::CREATE)
-        .op(opcode::POP)
-        .op(opcode::STOP)
-        .build()
+    let mut code = BytecodeBuilder::default();
+    code.push1(0x2a).push1(0).opcode(opcode::MSTORE);
+    call(&mut code, opcode::CALL, CALLEE, &[0]);
+    call(&mut code, opcode::STATICCALL, IDENTITY_PRECOMPILE, &[]);
+    call(&mut code, opcode::CALL, EMPTY, &[0]);
+    call(&mut code, opcode::CALL, MOCKED, &[0]);
+    // Fails before the callee starts: the value exceeds ROOT's balance.
+    call(&mut code, opcode::CALL, CALLEE, &[0xff; 32]);
+    call(&mut code, opcode::DELEGATECALL, CALLEE, &[]);
+    call(&mut code, opcode::CALL, REVERTER, &[0]);
+    call(&mut code, opcode::CALL, HALTER, &[0]);
+    // CREATE(value, offset, size) with the init code right-aligned in the
+    // first memory word.
+    code.push(&init_code)
+        .push1(0)
+        .opcode(opcode::MSTORE)
+        .push1(init_code_len)
+        .push1(32 - init_code_len)
+        .push1(0)
+        .opcode(opcode::CREATE)
+        .opcode(opcode::POP)
+        .opcode(opcode::STOP);
+    code.runtime()
 }
 
 fn callee_code() -> Bytes {
-    Asm::default()
-        .push_u8(0x2a)
-        .push_u8(0)
-        .op(opcode::MSTORE)
-        .push_u8(0)
-        .op(opcode::MLOAD)
-        .push_u8(1)
-        .op(opcode::SSTORE)
-        .push_u8(0x20)
-        .push_u8(0)
-        .op(opcode::RETURN)
-        .build()
+    let mut code = BytecodeBuilder::default();
+    code.push1(0x2a)
+        .push1(0)
+        .opcode(opcode::MSTORE)
+        .push1(0)
+        .opcode(opcode::MLOAD)
+        .push1(1)
+        .opcode(opcode::SSTORE)
+        .push1(0x20)
+        .push1(0)
+        .opcode(opcode::RETURN);
+    code.runtime()
 }
 
 fn reverter_code() -> Bytes {
-    Asm::default()
-        .push_u8(0)
-        .push_u8(0)
-        .op(opcode::REVERT)
-        .build()
+    let mut code = BytecodeBuilder::default();
+    code.push1(0).push1(0).opcode(opcode::REVERT);
+    code.runtime()
 }
 
 /// Answers calls to [`MOCKED`] without executing them, like EDR's call
@@ -219,11 +193,7 @@ fn assert_same_steps(reference: &CallTraceArena, recorded: &RecordedTraceArena) 
         let steps = recorded
             .node_steps(node_idx)
             .expect("steps are recorded for every node");
-        assert_eq!(
-            steps.steps.len(),
-            expected.len(),
-            "step count of node {node_idx}"
-        );
+        assert_eq!(steps.len(), expected.len(), "step count of node {node_idx}");
 
         for (step_idx, (step, expected)) in steps.iter().zip(expected).enumerate() {
             let context = format!("node {node_idx}, step {step_idx}");

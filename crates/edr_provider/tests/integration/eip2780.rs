@@ -13,18 +13,16 @@ use edr_provider::{
     ProviderRequest, ResponseWithCallTraces, TransactionFailureReason,
 };
 use edr_runtime::transaction::CreationError;
+use edr_test_utils::bytecode::{opcode, BytecodeBuilder};
 use revm_primitives::{
     eip2780::{TX_BASE_COST, TX_VALUE_COST},
     eip8037::{CPSB_GLAMSTERDAM, NEW_ACCOUNT_BYTES},
     eip8038::{COLD_ACCOUNT_ACCESS, CREATE_ACCESS},
 };
 
-use crate::common::{
-    bytecode::{opcode, BytecodeBuilder},
-    provider::{
-        estimate_gas, gas_used_by_sending, new_provider, new_provider_with_config,
-        send_transaction, transaction_receipt,
-    },
+use crate::common::provider::{
+    estimate_gas, gas_used_by_sending, new_provider, new_provider_with_config, send_transaction,
+    transaction_receipt,
 };
 
 const SENDER: Address = address!("0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266");

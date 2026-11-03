@@ -19,15 +19,15 @@ use edr_provider::{
     AccountOverride, MethodInvocation, Provider, ProviderRequest,
 };
 use edr_state_api::{EvmStorage, EvmStorageSlot, TransactionId};
-use edr_test_utils::secret_key::secret_key_from_str;
-
-use crate::common::{
+use edr_test_utils::{
     bytecode::{
         opcode::{CALLDATALOAD, SSTORE, STOP},
         BytecodeBuilder,
     },
-    provider::{new_provider_with_config, send_transaction, transaction_receipt},
+    secret_key::secret_key_from_str,
 };
+
+use crate::common::provider::{new_provider_with_config, send_transaction, transaction_receipt};
 
 const CHAIN_ID: u64 = 0x7a69;
 

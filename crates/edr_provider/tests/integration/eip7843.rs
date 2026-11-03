@@ -17,11 +17,9 @@ use edr_provider::{
     test_utils::{deploy_contract, get_latest_block, mine_block},
     MethodInvocation, ProviderError, ProviderRequest, TransactionFailureReason,
 };
+use edr_test_utils::bytecode::{opcode::SLOTNUM, BytecodeBuilder};
 
-use crate::common::{
-    bytecode::{opcode::SLOTNUM, BytecodeBuilder},
-    provider::{new_provider, new_provider_with_config},
-};
+use crate::common::provider::{new_provider, new_provider_with_config};
 
 const SLOT_NUMBER_JSON_KEY: &str = "slotNumber";
 

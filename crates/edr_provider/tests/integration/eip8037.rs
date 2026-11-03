@@ -39,17 +39,16 @@ use edr_provider::{
     ProviderError, ProviderRequest, ResponseWithCallTraces,
 };
 use edr_receipt::ExecutionReceipt as _;
-use edr_test_utils::secret_key::secret_key_from_str;
+use edr_test_utils::{
+    bytecode::{opcode, BytecodeBuilder},
+    secret_key::secret_key_from_str,
+};
 use edr_transaction::{request::TransactionRequestAndSender, TxKind};
 use revm_primitives::eip8037::{CPSB_GLAMSTERDAM, SSTORE_SET_BYTES};
 use tokio::runtime;
 
-use crate::common::{
-    bytecode::{opcode, BytecodeBuilder},
-    provider::{
-        estimate_gas, new_provider_with_config, quantity_field, send_transaction,
-        transaction_receipt,
-    },
+use crate::common::provider::{
+    estimate_gas, new_provider_with_config, quantity_field, send_transaction, transaction_receipt,
 };
 
 /// Contract creating [`FRESH_SLOTS`] new storage slots: state gas dominates.
