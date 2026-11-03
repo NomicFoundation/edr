@@ -3,11 +3,14 @@
 use edr_chain_spec::{EvmHaltReason, HaltReasonTrait};
 use edr_primitives::{Address, Bytes, HashMap, U160};
 use foundry_evm_core::constants::{CHEATCODE_ADDRESS, HARDHAT_CONSOLE_ADDRESS};
-use revm_inspectors::tracing::{types::CallTraceStep, CallTraceArena};
+use revm_inspectors::tracing::{types::CallTraceNode, CallTraceArena};
 use revm_interpreter::{InternalResult, SuccessOrHalt};
 
 use super::{CallMessage, CreateMessage, EvmStep, NestedTrace, NestedTraceStep, PrecompileMessage};
-use crate::{exit_code::ExitCode, recorded_steps::NodeSteps};
+use crate::{
+    exit_code::ExitCode,
+    recorded_steps::{FrameSteps, RecordedStep},
+};
 
 /// Error type for converting `CallTraceArena` to `NestedTrace`.
 #[derive(Clone, Debug, thiserror::Error)]
@@ -22,7 +25,7 @@ pub(super) fn convert_from_arena<HaltReasonT: HaltReasonTrait>(
     address_to_creation_code: &HashMap<Address, &Bytes>,
     address_to_runtime_code: &HashMap<Address, &Bytes>,
     arena: &CallTraceArena,
-    recorded_steps: Option<&[NodeSteps]>,
+    recorded_steps: Option<&[FrameSteps]>,
 ) -> Result<NestedTrace<HaltReasonT>, CallTraceArenaConversionError> {
     // Start conversion from the root node (index 0)
     if arena.nodes().is_empty() {
@@ -38,29 +41,25 @@ pub(super) fn convert_from_arena<HaltReasonT: HaltReasonTrait>(
     )
 }
 
-/// Returns the `(pc, op)` of the node's steps, from `recorded_steps` if
-/// provided, otherwise from the arena.
+/// Returns the node's steps, from `recorded_steps` if provided, otherwise from
+/// the node.
 fn node_steps<'a>(
-    arena: &'a CallTraceArena,
-    recorded_steps: Option<&'a [NodeSteps]>,
-    node_idx: usize,
-) -> Box<dyn Iterator<Item = (u32, u8)> + 'a> {
+    node: &'a CallTraceNode,
+    recorded_steps: Option<&'a [FrameSteps]>,
+) -> Box<dyn Iterator<Item = RecordedStep> + 'a> {
     match recorded_steps {
         Some(recorded_steps) => Box::new(
             recorded_steps
-                .get(node_idx)
-                .map_or(&[][..], |node| node.steps.as_slice())
+                .get(node.idx)
+                .expect("steps are recorded for every node of the arena")
+                .steps
                 .iter()
-                .map(|step| (step.pc, step.op.get())),
+                .copied(),
         ),
-        None => Box::new(
-            arena
-                .nodes()
-                .get(node_idx)
-                .map_or(&[][..], |node| node.trace.steps.as_slice())
-                .iter()
-                .map(|step| (step.pc as u32, step.op.get())),
-        ),
+        None => Box::new(node.trace.steps.iter().map(|step| RecordedStep {
+            pc: step.pc as u32,
+            op: step.op,
+        })),
     }
 }
 
@@ -68,7 +67,7 @@ fn convert_node<HaltReasonT: HaltReasonTrait>(
     address_to_creation_code: &HashMap<Address, &Bytes>,
     address_to_runtime_code: &HashMap<Address, &Bytes>,
     arena: &CallTraceArena,
-    recorded_steps: Option<&[NodeSteps]>,
+    recorded_steps: Option<&[FrameSteps]>,
     node_idx: usize,
 ) -> Result<NestedTrace<HaltReasonT>, CallTraceArenaConversionError> {
     let node = arena
@@ -80,10 +79,10 @@ fn convert_node<HaltReasonT: HaltReasonTrait>(
     // Based on https://github.com/paradigmxyz/revm-inspectors/blob/ceef3f3624ca51bf3c41c97d6c013606db3a6019/src/tracing/types.rs#L257
     let mut steps = Vec::new();
     let mut child_index = 0;
-    for (pc, op) in node_steps(arena, recorded_steps, node_idx) {
-        steps.push(NestedTraceStep::Evm(EvmStep { pc }));
+    for step in node_steps(node, recorded_steps) {
+        steps.push(NestedTraceStep::Evm(EvmStep { pc: step.pc }));
 
-        if is_calllike_opcode(op) {
+        if is_calllike_opcode(step.op.get()) {
             // The opcode of this step is a call, but it's possible that this step resulted
             // in a revert or out of gas error in which case there's no actual child call executed and recorded: <https://github.com/paradigmxyz/reth/issues/3915>
             if let Some(call_id) = node.children.get(child_index).copied() {
@@ -224,11 +223,6 @@ fn convert_instruction_result_to_exit_code<HaltReasonT: HaltReasonTrait>(
             InternalResult::Suspend => ExitCode::InternalContinue,
         },
     }
-}
-
-/// Checks whether the given step corresponds to a call-like opcode.
-pub fn is_calllike_op(step: &CallTraceStep) -> bool {
-    is_calllike_opcode(step.op.get())
 }
 
 /// Checks whether the given opcode is call-like.

@@ -10,7 +10,7 @@ use edr_chain_spec_evm::interpreter::{return_revert, InstructionResult, SuccessO
 use edr_primitives::{bytecode::opcode::OpCode, Address};
 use edr_solidity::{
     nested_trace::is_calllike_opcode,
-    recorded_steps::{RecordedStep, RecordedTraceArena},
+    recorded_steps::{FrameSteps, RecordedTraceArena},
 };
 use edr_solidity_tests::traces::{CallKind, CallTrace, CallTraceNode};
 use napi::bindgen_prelude::{BigInt, Either, Either3, Uint8Array};
@@ -129,9 +129,10 @@ type RawTrace = Either3<TracingMessage, TracingStep, TracingMessageResult>;
 pub(crate) fn raw_trace_from_call_trace_arena(arena: &RecordedTraceArena) -> Vec<RawTrace> {
     let mut result = Vec::new();
     if let Some(node) = arena.nodes().first()
-        && (node.trace.kind.is_any_create() || !should_skip_call(&node.trace, arena.node_steps(0)))
+        && (node.trace.kind.is_any_create()
+            || !should_skip_call(&node.trace, node_steps(arena, node)))
     {
-        convert_node(arena, 0, node, false, node.trace.caller, &mut result);
+        convert_node(arena, node, false, node.trace.caller, &mut result);
     }
     result
 }
@@ -140,7 +141,6 @@ pub(crate) fn raw_trace_from_call_trace_arena(arena: &RecordedTraceArena) -> Vec
 /// order that the old `TraceCollector` used to produce.
 fn convert_node(
     arena: &RecordedTraceArena,
-    node_idx: usize,
     node: &CallTraceNode,
     mut is_static_call: bool,
     original_caller: Address,
@@ -176,10 +176,9 @@ fn convert_node(
     }));
 
     // 2. Emit Step messages (TracingStep) and recursively convert child calls
-    let node_steps = arena.node(node_idx);
-    let mut steps = arena.node_steps(node_idx).iter().enumerate().peekable();
+    let mut steps = node_steps(arena, node).iter().peekable();
     if !is_create
-        && let Some((_, first_step)) = steps.peek()
+        && let Some(first_step) = steps.peek()
         && first_step.op == OpCode::STOP
     {
         // Calls skip a leading STOP step. Creates keep it.
@@ -187,7 +186,7 @@ fn convert_node(
     }
 
     let mut child_index = 0;
-    for (step_idx, step) in steps {
+    for step in steps {
         output.push(Either3::B(TracingStep {
             pc: step.pc,
             depth: trace
@@ -197,13 +196,11 @@ fn convert_node(
             opcode: TracingOpcode {
                 name: OpCode::name_by_op(step.op.get()).to_string(),
             },
-            stack: node_steps
-                .and_then(|node| node.stack(step_idx))
+            stack: step
+                .stack
                 .map(|s| s.iter().map(u256_to_bigint).collect())
                 .unwrap_or_default(),
-            memory: node_steps
-                .and_then(|node| node.memory(step_idx))
-                .map(Uint8Array::with_data_copied),
+            memory: step.memory.map(Uint8Array::with_data_copied),
         }));
 
         if is_calllike_opcode(step.op.get()) {
@@ -218,11 +215,10 @@ fn convert_node(
                     .expect("child index should be valid");
 
                 if matches!(step.op, OpCode::CREATE | OpCode::CREATE2)
-                    || !should_skip_call(&child_node.trace, arena.node_steps(call_id))
+                    || !should_skip_call(&child_node.trace, node_steps(arena, child_node))
                 {
                     convert_node(
                         arena,
-                        call_id,
                         child_node,
                         is_static_call,
                         match child_node.trace.kind {
@@ -275,10 +271,19 @@ fn convert_status(
     }
 }
 
+fn node_steps<'arena>(
+    arena: &'arena RecordedTraceArena,
+    node: &CallTraceNode,
+) -> &'arena FrameSteps {
+    arena
+        .node_steps(node.idx)
+        .expect("node belongs to the arena")
+}
+
 // Historically, Hardhat 2 didn't emit a before message for calls that failed
 // immediately with a revert or out of gas error, so we skip them to maintain
 // compatibility with existing traces.
-fn should_skip_call(trace: &CallTrace, steps: &[RecordedStep]) -> bool {
+fn should_skip_call(trace: &CallTrace, steps: &FrameSteps) -> bool {
     steps.is_empty()
         && trace
             .status
