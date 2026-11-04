@@ -156,90 +156,70 @@ impl Eip712TypeCollection {
     }
 }
 
-/// Collects every EIP-712 canonical type reachable from `unit`, for a unit
-/// built over `root_file_id` alone. A unit spanning several roots is scoped
-/// per root through [`UnitStructs::types_for`] instead.
-///
-/// `root_file_id` names the file the query is scoped to: when a name resolves
-/// to definitions that disagree, the one declared there wins a direct lookup,
-/// so a test's own struct is never shadowed from deep in its import graph.
-/// Structs *referencing* such a name are rejected either way — a canonical
-/// type identifies its dependencies by bare name alone.
-pub fn collect_eip712_types_from_compilation_unit(
-    unit: &CompilationUnit,
-    root_file_id: &str,
-) -> Eip712TypeCollection {
-    let structs = collect_unit_structs(unit);
-    let every_file: HashSet<&str> = structs
-        .by_file
-        .keys()
-        .map(String::as_str)
-        .chain([root_file_id])
-        .collect();
-
-    structs.types_for(root_file_id, &every_file)
-}
-
 /// The struct definitions of a unit, keyed by the file declaring them, with
 /// every member already encoded.
 ///
 /// A unit can span several unrelated roots, so a query is scoped per root.
 #[derive(Debug)]
 pub struct UnitStructs {
-    by_file: HashMap<String, Vec<CollectedStruct>>,
-}
-
-/// Encodes every struct member in `unit`, walking it once.
-pub fn collect_unit_structs(unit: &CompilationUnit) -> UnitStructs {
-    let mut by_file: HashMap<String, Vec<CollectedStruct>> = HashMap::new();
-    for definition in unit.all_definitions() {
-        let Definition::Struct(struct_def) = definition else {
-            continue;
-        };
-
-        let members = struct_def
-            .members()
-            .iter()
-            .map(|member| CollectedMember {
-                name: member.name().unparse().to_owned(),
-                encoded_type: encode_member(&member),
-            })
-            .collect();
-
-        let file_id = struct_def.get_file_id().to_owned();
-        by_file
-            .entry(file_id.clone())
-            .or_default()
-            .push(CollectedStruct {
-                name: struct_def.name().unparse().to_owned(),
-                file_id,
-                members,
-            });
-    }
-
-    UnitStructs { by_file }
+    /// Sorted by file id, so a report over several files reads the same on
+    /// every run.
+    by_file: Vec<(String, Vec<CollectedStruct>)>,
 }
 
 impl UnitStructs {
-    /// Collects the canonical types declared in `file_ids`, scoped to
-    /// `root_file_id` as in [`collect_eip712_types_from_compilation_unit`].
-    /// `root_file_id` must be one of `file_ids`.
+    /// Encodes every struct member in `unit`, keyed by the file declaring it.
+    pub fn from_unit(unit: &CompilationUnit) -> Self {
+        let mut by_file: HashMap<String, Vec<CollectedStruct>> = HashMap::new();
+        for definition in unit.all_definitions() {
+            let Definition::Struct(struct_def) = definition else {
+                continue;
+            };
+
+            let members = struct_def
+                .members()
+                .iter()
+                .map(|member| CollectedMember {
+                    name: member.name().unparse().to_owned(),
+                    encoded_type: encode_member(&member),
+                })
+                .collect();
+
+            let file_id = struct_def.get_file_id().to_owned();
+            by_file
+                .entry(file_id.clone())
+                .or_default()
+                .push(CollectedStruct {
+                    name: struct_def.name().unparse().to_owned(),
+                    file_id,
+                    members,
+                });
+        }
+
+        let mut by_file: Vec<_> = by_file.into_iter().collect();
+        by_file.sort_unstable_by(|(left, _), (right, _)| left.cmp(right));
+
+        Self { by_file }
+    }
+
+    /// Collects the canonical types declared in `file_ids`, scoped to the root
+    /// `root_file_id`, which must be one of them.
+    ///
+    /// When a name resolves to definitions that disagree, the one declared in
+    /// the root wins a direct lookup, so a test's own struct is never shadowed
+    /// from deep in its import graph. Structs *referencing* such a name are
+    /// rejected either way, because a canonical type identifies its
+    /// dependencies by bare name alone.
     pub fn types_for(&self, root_file_id: &str, file_ids: &HashSet<&str>) -> Eip712TypeCollection {
-        debug_assert!(
+        assert!(
             file_ids.contains(root_file_id),
             "the root file id must be among the files the query is scoped to"
         );
 
-        // A stable file order keeps a report over several files identical on
-        // every run.
-        let mut included: Vec<(&String, &Vec<CollectedStruct>)> = self
+        let collected: Vec<CollectedStruct> = self
             .by_file
             .iter()
             .filter(|(file_id, _)| file_ids.contains(file_id.as_str()))
-            .collect();
-        included.sort_unstable_by_key(|(file_id, _)| *file_id);
-        let collected: Vec<CollectedStruct> = included
-            .into_iter()
             .flat_map(|(_, structs)| structs.iter().cloned())
             .collect();
 
@@ -797,7 +777,10 @@ mod tests {
         builder.add_file((*root).to_string());
 
         let unit = builder.build();
-        collect_eip712_types_from_compilation_unit(&unit, root)
+        let file_ids = unit.file_ids();
+        let every_file: HashSet<&str> = file_ids.iter().map(String::as_str).collect();
+
+        UnitStructs::from_unit(&unit).types_for(root, &every_file)
     }
 
     /// Convenience function to collect from a single root source.

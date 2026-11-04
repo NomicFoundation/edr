@@ -24,15 +24,20 @@ pub fn language_version_for_solc(solc_version: &Version) -> Option<LanguageVersi
     LanguageVersion::try_from(release).ok()
 }
 
-/// A file is added to a compilation unit under its absolute, normalized path
-/// as text. Imports resolve to such paths, so a root spelled relatively or with
-/// `.` and `..` segments still shares the file an import reaches.
+/// The file id a compilation unit holds a file under, which is its absolute,
+/// normalized path.
+///
+/// Imports resolve to such ids, so a root spelled relatively or with `.` and
+/// `..` segments still shares the file an import reaches. Normalization is
+/// lexical, so a `..` across a symlinked directory is not resolved the way the
+/// OS would.
 pub fn file_id_of(path: &Path) -> String {
-    // Normalizing is lexical and drops a leading `..`, so the path is made
-    // absolute first.
-    let absolute = std::path::absolute(path).unwrap_or_else(|_| path.to_path_buf());
-
-    normalize_path(&absolute).to_string_lossy().into_owned()
+    // Normalizing is lexical and drops a leading `..`, so a path that cannot
+    // be made absolute is kept as spelled.
+    match std::path::absolute(path) {
+        Ok(absolute) => normalize_path(&absolute).to_string_lossy().into_owned(),
+        Err(_) => path.to_string_lossy().into_owned(),
+    }
 }
 
 /// A compilation unit built over one or more root files, together with what
@@ -158,7 +163,7 @@ contract Derived is Base {}
         let error = sources
             .unreadable_roots()
             .get(&file_id_of(&root))
-            .expect("the root does not exist");
+            .expect("an unreadable root is recorded");
         assert_eq!(error.kind(), std::io::ErrorKind::NotFound);
     }
 
@@ -261,7 +266,7 @@ contract Derived is Base {}
         let error = sources
             .unreadable_roots()
             .get(&file_id_of(&missing))
-            .expect("the root does not exist");
+            .expect("an unreadable root is recorded");
         assert_eq!(error.kind(), std::io::ErrorKind::NotFound);
     }
 

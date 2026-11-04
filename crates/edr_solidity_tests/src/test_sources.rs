@@ -1,13 +1,14 @@
 //! Combined collection over the test sources.
 //!
 //! The selected test sources are parsed with Slang in one compilation unit per
-//! language version. A file imported by several test sources is therefore
-//! parsed and analysed once instead of once per source. Each source's inline
-//! test configuration (`forge-config:`/`hardhat-config:` NatSpec directives)
-//! and EIP-712 struct definitions are then extracted from that shared unit.
-//! The EIP-712 collection is scoped to the files the root reaches, while
-//! directives come from the root's own text. The units are dropped
-//! afterwards, so nothing is cached beyond the extracted data.
+//! language version, each source being a root of its unit. A file imported by
+//! several roots is therefore parsed and analysed once instead of once per
+//! root. Each root's inline test configuration (`forge-config:`/
+//! `hardhat-config:` NatSpec directives) and EIP-712 struct definitions are
+//! then extracted from that shared unit. The EIP-712 collection is scoped to
+//! the files the root reaches, while directives come from the root's own text.
+//! The units are dropped afterwards, so nothing is cached beyond the extracted
+//! data.
 //!
 //! Every source named by `test_source_paths` is parsed; nothing is exempt and
 //! nothing is skipped. Problems are accumulated across all of them — an
@@ -22,9 +23,7 @@ use std::{
     sync::Arc,
 };
 
-use edr_solidity_collector_eip712::collector::{
-    collect_unit_structs, Eip712TypeCollection, UnitStructs,
-};
+use edr_solidity_collector_eip712::collector::{Eip712TypeCollection, UnitStructs};
 use edr_solidity_parser_slang::{
     compilation::{build_multi_root_compilation_unit, file_id_of, MultiRootCompilation},
     resolver::{ImportResolver, ProvidedSources},
@@ -78,8 +77,7 @@ pub(crate) struct SourceCollections {
 /// Reads and parses every root, extracting both collections for each root,
 /// keyed by the root's source name.
 ///
-/// Roots compiled with the same solc grammar share one compilation unit. One
-/// unit is held at a time, because each spans every root of its version.
+/// Roots compiled with the same solc grammar share one compilation unit.
 /// Extraction from a built unit runs on rayon's global pool. Collection runs
 /// synchronously and completes before any test suite is dispatched, so it never
 /// contends with suite execution.
@@ -143,12 +141,14 @@ pub(crate) fn collect_test_sources(
             .filter(|diagnostic| matches!(diagnostic.kind(), DiagnosticKind::Syntax(_)))
             .collect();
 
-        let structs = collect_unit_structs(&unit);
+        let structs = UnitStructs::from_unit(&unit);
+        let diagnostic_texts = read_back_diagnostic_texts(&syntax_diagnostics, &sources);
         let version_unit = &VersionUnit {
             unit: &unit,
             sources: &sources,
             structs: &structs,
             syntax_diagnostics: &syntax_diagnostics,
+            diagnostic_texts: &diagnostic_texts,
         };
 
         let results: Vec<_> = sources
@@ -192,6 +192,9 @@ struct VersionUnit<'a> {
     sources: &'a ProvidedSources,
     structs: &'a UnitStructs,
     syntax_diagnostics: &'a [&'a Diagnostic],
+    /// The text of every file a syntax diagnostic points into, by file id, or
+    /// `None` when it could not be read back.
+    diagnostic_texts: &'a HashMap<&'a str, Option<Cow<'a, str>>>,
 }
 
 /// Extracts one root's collections from the unit its version was built into.
@@ -222,7 +225,9 @@ fn collect_root(
         let mut reasons: Vec<String> = reachable_diagnostics
             .by_ref()
             .take(MAX_REPORTED_PARSE_ERRORS)
-            .map(|diagnostic| describe_syntax_diagnostic(diagnostic, file_id, root_content))
+            .map(|diagnostic| {
+                describe_syntax_diagnostic(diagnostic, file_id, version_unit.diagnostic_texts)
+            })
             .collect();
 
         let unreported = reachable_diagnostics.count();
@@ -251,6 +256,41 @@ fn collect_root(
     })
 }
 
+/// Reads back the text of every file a syntax diagnostic points into, once per
+/// unit. A root's text is already retained, and an import's is read from disk
+/// because the unit does not expose it.
+fn read_back_diagnostic_texts<'a>(
+    syntax_diagnostics: &[&'a Diagnostic],
+    sources: &'a ProvidedSources,
+) -> HashMap<&'a str, Option<Cow<'a, str>>> {
+    let mut texts = HashMap::new();
+    for diagnostic in syntax_diagnostics {
+        let file_id = diagnostic.file_id();
+        if texts.contains_key(file_id) {
+            continue;
+        }
+
+        let text = match sources.root_contents().get(file_id) {
+            Some(content) => Some(Cow::Borrowed(content.as_str())),
+            None => std::fs::read_to_string(file_id)
+                .inspect_err(|error| {
+                    // Slang read this file moments ago to parse it, so failing
+                    // to read it back means it changed underneath the run.
+                    tracing::error!(
+                        file = file_id,
+                        %error,
+                        "could not read back an import to locate its syntax error"
+                    );
+                })
+                .ok()
+                .map(Cow::Owned),
+        };
+        texts.insert(file_id, text);
+    }
+
+    texts
+}
+
 /// Formats a syntax diagnostic as its message followed by where it was found:
 /// the line, and the file when it is an import rather than the root.
 ///
@@ -260,33 +300,16 @@ fn collect_root(
 fn describe_syntax_diagnostic(
     diagnostic: &Diagnostic,
     root_file_id: &str,
-    root_content: &str,
+    diagnostic_texts: &HashMap<&str, Option<Cow<'_, str>>>,
 ) -> String {
     let diagnostic_file_id = diagnostic.file_id();
     let is_root = diagnostic_file_id == root_file_id;
 
-    // The root's text is already in hand. An import's is read again because
-    // the unit does not expose it.
-    let diagnostic_content: Option<Cow<'_, str>> = if is_root {
-        Some(Cow::Borrowed(root_content))
-    } else {
-        std::fs::read_to_string(diagnostic_file_id)
-            .inspect_err(|error| {
-                // Slang read this file moments ago to parse it, so failing to
-                // read it back means it changed underneath the run.
-                tracing::error!(
-                    file = diagnostic_file_id,
-                    %error,
-                    "could not read back an import to locate its syntax error"
-                );
-            })
-            .ok()
-            .map(Cow::Owned)
-    };
-
     let mut location = Vec::new();
-    if let Some(line) =
-        diagnostic_content.and_then(|content| line_of(&content, diagnostic.text_range().start).ok())
+    if let Some(line) = diagnostic_texts
+        .get(diagnostic_file_id)
+        .and_then(|content| content.as_deref())
+        .and_then(|content| line_of(content, diagnostic.text_range().start).ok())
     {
         location.push(format!("line {line}"));
     }
@@ -358,7 +381,7 @@ mod tests {
         result.unwrap_or_else(|errors| panic!("unexpected errors: {errors:?}"))
     }
 
-    /// Collects a lone root, keeping the per-root result the tests assert on.
+    /// Collects a lone root and returns its own collections.
     fn collect_one(root: TestSourceRoot) -> Result<SourceCollections, Vec<TestSourceErrorItem>> {
         let source = root.source.clone();
 
@@ -836,8 +859,8 @@ contract BadContractLevel {
 
         let derived_source = "project/Derived.t.sol";
         let base_source = "project/Base.t.sol";
-        // The importer is collected first, so the imported root's text is read
-        // as an import before it is added as a root.
+        // Derived.t.sol is listed first, so Slang reads Base.t.sol as an import
+        // before adding it as a root.
         let collected = collect_all(&[
             root_at(importer, derived_source),
             root_at(imported, base_source),
@@ -976,20 +999,46 @@ contract BadContractLevel {
         };
         // The root's own file is located by line alone, while an import names
         // its file as well.
+        let in_base = format!(" in {})", file_id_of(&dir.path().join("Base.t.sol")));
         assert!(
             reasons_for(base_source)
                 .iter()
-                .all(|reason| reason.contains("(line ") && !reason.contains(" in ")),
+                .all(|reason| reason.contains("(line ") && !reason.ends_with(&in_base)),
             "{:?}",
             reasons_for(base_source)
         );
         assert!(
             reasons_for(derived_source)
                 .iter()
-                .all(|reason| reason.contains(" in ") && reason.contains("Base.t.sol")),
+                .all(|reason| reason.contains("(line ") && reason.ends_with(&in_base)),
             "{:?}",
             reasons_for(derived_source)
         );
+    }
+
+    #[test]
+    fn a_syntax_error_in_an_importing_root_does_not_reject_the_imported_root() {
+        let dir = tempfile::tempdir().expect("temp dir");
+        let base = write_source(
+            &dir,
+            "Base.t.sol",
+            "pragma solidity ^0.8.0;\n\ncontract BaseTest {}\n",
+        );
+        let derived = write_source(
+            &dir,
+            "Derived.t.sol",
+            "pragma solidity ^0.8.0;\n\nimport {BaseTest} from \"./Base.t.sol\";\n\ncontract DerivedTest is BaseTest {\n    function testDerived() public { this is not solidity\n}\n",
+        );
+        let derived_source = "project/Derived.t.sol";
+
+        let errors = collect_with_defaults(&[
+            root_at(base, "project/Base.t.sol"),
+            root_at(derived, derived_source),
+        ])
+        .expect_err("the importing root does not parse");
+
+        assert_eq!(errors.len(), 1, "{errors:#?}");
+        assert_eq!(errors[0].source_name, PathBuf::from(derived_source));
     }
 
     #[test]
@@ -1024,6 +1073,7 @@ contract BadContractLevel {
             panic!("expected parse errors, got {:?}", errors[0].problem);
         };
         assert_eq!(reasons.len(), MAX_REPORTED_PARSE_ERRORS + 1, "{reasons:#?}");
+        assert!(reasons[0].contains("Broken"), "{reasons:#?}");
         assert_eq!(
             reasons[MAX_REPORTED_PARSE_ERRORS],
             format!("and {UNREPORTED_IMPORTS} more")

@@ -1,18 +1,17 @@
-//! Disk-based tests for [`collect_eip712_types_from_compilation_unit`],
-//! exercising the on-disk file reading and import resolution that the
-//! in-memory unit tests in the crate cannot.
+//! Disk-based tests for [`UnitStructs`], exercising the on-disk file reading
+//! and import resolution that the in-memory unit tests in the crate cannot.
 //!
-//! These build a single-root compilation unit, so collection is not scoped
-//! the way the runner's shared unit is.
+//! Collection is scoped to the files the root reaches, as the test runner
+//! scopes it.
 
 use std::{collections::HashMap, path::PathBuf};
 
 use edr_solidity_collector_eip712::{
-    collector::{collect_eip712_types_from_compilation_unit, Eip712TypeCollection},
+    collector::{Eip712TypeCollection, UnitStructs},
     ImportResolver,
 };
 use edr_solidity_parser_slang::compilation::{
-    build_multi_root_compilation_unit, file_id_of, language_version_for_solc,
+    build_multi_root_compilation_unit, file_id_of, language_version_for_solc, MultiRootCompilation,
 };
 use semver::Version;
 
@@ -35,10 +34,11 @@ fn collect(
 ) -> Eip712TypeCollection {
     let root = fixture(relative);
     let language_version = language_version_for_solc(&version).expect("supported solc version");
-    let unit =
-        build_multi_root_compilation_unit([root.as_path()], language_version, import_resolver).unit;
+    let MultiRootCompilation { unit, sources } =
+        build_multi_root_compilation_unit([root.as_path()], language_version, import_resolver);
+    let root_id = file_id_of(&root);
 
-    collect_eip712_types_from_compilation_unit(&unit, &file_id_of(&root))
+    UnitStructs::from_unit(&unit).types_for(&root_id, &sources.reachable_from(&root_id))
 }
 
 #[test]
