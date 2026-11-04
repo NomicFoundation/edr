@@ -44,18 +44,13 @@ pub struct LocatedContract {
 
 /// Walks the already-built `unit`'s file `file_id` (the id the root was added
 /// under) and returns every contract definition together with its functions
-/// and the offsets required to recover their leading NatSpec.
-///
-/// Panics if the unit holds no file under `file_id`. Callers only reach here
-/// for a root whose text was retained, and a retained root is one the builder
-/// read.
+/// and the offsets required to recover their leading NatSpec, or `None` when
+/// the unit holds no file under `file_id`.
 pub(crate) fn locate_contracts_in_unit(
     unit: &CompilationUnit,
     file_id: &str,
-) -> Vec<LocatedContract> {
-    let file = unit
-        .file(file_id)
-        .expect("the unit holds every root it read");
+) -> Option<Vec<LocatedContract>> {
+    let file = unit.file(file_id)?;
 
     let mut contracts = Vec::new();
     for member in file.ast().members().iter() {
@@ -84,7 +79,7 @@ pub(crate) fn locate_contracts_in_unit(
         });
     }
 
-    contracts
+    Some(contracts)
 }
 
 #[cfg(test)]
@@ -120,6 +115,7 @@ mod tests {
         let file_id = file_id_of(root_path);
 
         locate_contracts_in_unit(&unit, &file_id)
+            .expect("the unit holds the root it was built over")
     }
 
     #[test]
