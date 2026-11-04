@@ -218,6 +218,16 @@ pub struct TestRunnerConfig {
     /// import paths (`./`, `../`) are resolved against the importing file and
     /// need no entry here.
     pub import_mappings: HashMap<String, PathBuf>,
+    /// Globs matched against each parsed source's path relative to
+    /// [`Self::project_root`], spelled with forward slashes. A file outside
+    /// the root is matched by its absolute path.
+    ///
+    /// A struct declared in a matching file is not collected, including when
+    /// the matching file is the test's own source. Only EIP-712 collection is
+    /// affected, never inline configuration. Nothing is excluded by default,
+    /// and there is no opposite setting, because every reachable struct is
+    /// collected.
+    pub eip712_exclude_globs: Vec<String>,
     /// The Solidity test profile the run was started with. Inline-config
     /// directives prefixed with a profile name apply only when that profile is
     /// the selected one.
@@ -286,6 +296,7 @@ impl TestRunnerConfig {
             generate_gas_report,
             test_source_paths,
             import_mappings,
+            eip712_exclude_globs,
             test_profile,
             declared_test_profiles,
         } = self;
@@ -399,6 +410,7 @@ impl TestRunnerConfig {
             generate_gas_report,
             test_source_paths,
             import_resolver,
+            eip712_exclude_globs,
             inline_config_profiles,
         })
     }
@@ -448,6 +460,7 @@ mod tests {
             generate_gas_report: None,
             test_source_paths: HashMap::new(),
             import_mappings: HashMap::new(),
+            eip712_exclude_globs: Vec::new(),
             test_profile: DEFAULT_PROFILE.to_owned(),
             declared_test_profiles: vec![DEFAULT_PROFILE.to_owned()],
         }

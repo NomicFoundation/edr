@@ -4,6 +4,7 @@ pub use edr_coverage::reporter::SyncOnCollectedCoverageCallback;
 use edr_eip8037::TransactionGasBounds;
 use edr_primitives::{Address, B256, U256};
 use edr_solidity::config::IncludeTraces;
+pub use edr_solidity_parser_slang::exclusions::InvalidExclusionGlob;
 use foundry_evm::{
     backend::Predeploy,
     evm_context::{BlockEnvTr, HardforkTr, TransactionEnvTr},
@@ -28,6 +29,9 @@ pub enum SolidityTestRunnerConfigError {
     /// Failed to normalize project root
     #[error("Failed to normalize project root with error: {0}")]
     InvalidProjectRoot(std::io::Error),
+    /// An EIP-712 source exclusion glob could not be compiled.
+    #[error(transparent)]
+    InvalidEip712ExcludeGlob(#[from] InvalidExclusionGlob),
 }
 
 /// Solidity tests configuration
@@ -84,6 +88,20 @@ pub struct SolidityTestRunnerConfig<HardforkT: HardforkTr> {
     /// Resolves the imports of test sources while parsing them (see
     /// [`Self::test_source_paths`]).
     pub import_resolver: ImportResolver,
+    /// Globs matched against each parsed source's path relative to
+    /// [`Self::project_root`], spelled with forward slashes. A file outside
+    /// the root is matched by its absolute path.
+    ///
+    /// A struct declared in a matching file is not collected, including when
+    /// the matching file is the test's own source. Excluding is how a project
+    /// settles a same-name clash between two reachable structs. Nothing is
+    /// excluded by default, and there is no opposite setting, because every
+    /// reachable struct is collected.
+    ///
+    /// Only EIP-712 collection is affected. An excluded source still
+    /// contributes its inline configuration and is still parsed, so a syntax
+    /// error in it still rejects the run.
+    pub eip712_exclude_globs: Vec<String>,
     /// The profile the run was started with and every profile the project
     /// declares, used to scope inline-config directives. Defaults to the single
     /// `default` profile.

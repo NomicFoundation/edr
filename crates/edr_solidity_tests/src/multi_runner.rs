@@ -18,7 +18,9 @@ use edr_coverage::{reporter::SyncOnCollectedCoverageCallback, CodeCoverageReport
 use edr_decoder_revert::RevertDecoder;
 use edr_solidity::{config::IncludeTraces, contract_decoder::SyncNestedTraceDecoder};
 use edr_solidity_collector_eip712::collector::Eip712TypeCollection;
-use edr_solidity_parser_slang::compilation::language_version_for_solc;
+use edr_solidity_parser_slang::{
+    compilation::language_version_for_solc, exclusions::SourceExclusions,
+};
 use eyre::Result;
 use foundry_cheatcodes::TestFunctionIdentifier;
 use foundry_evm::{
@@ -112,6 +114,8 @@ pub struct MultiContractRunner<
     test_source_paths: HashMap<PathBuf, PathBuf>,
     /// Resolves the imports of those sources.
     import_resolver: ImportResolver,
+    /// Keeps the sources it matches out of the EIP-712 collection.
+    eip712_exclusions: SourceExclusions,
     /// Scopes those sources' inline-config directives by test profile.
     inline_config_profiles: InlineConfigProfiles,
     /// Known contracts by artifact id
@@ -215,8 +219,17 @@ impl<
             generate_gas_report,
             test_source_paths,
             import_resolver,
+            eip712_exclude_globs,
             inline_config_profiles,
         } = config;
+
+        // Built from the configured root rather than the canonicalized one
+        // below, because that is how the file ids a glob is matched against
+        // are spelled.
+        let eip712_exclusions = SourceExclusions::new(
+            &project_root,
+            eip712_exclude_globs.iter().map(String::as_str),
+        )?;
 
         // Do canonicalization in blocking context.
         // Canonicalization can touch the file system, hence the blocking thread
@@ -262,6 +275,7 @@ impl<
             generate_gas_report,
             test_source_paths,
             import_resolver,
+            eip712_exclusions,
             inline_config_profiles,
         })
     }
@@ -330,15 +344,18 @@ impl<
         // The sources that could not be located are reported together with the
         // problems found in the ones that could, so a run surfaces every
         // problem at once.
-        let collected_sources =
-            match collect_test_sources(&roots, &self.import_resolver, &self.inline_config_profiles)
-            {
-                Ok(collected_sources) => collected_sources,
-                Err(collect_errors) => {
-                    source_errors.extend(collect_errors);
-                    HashMap::new()
-                }
-            };
+        let collected_sources = match collect_test_sources(
+            &roots,
+            &self.import_resolver,
+            &self.inline_config_profiles,
+            &self.eip712_exclusions,
+        ) {
+            Ok(collected_sources) => collected_sources,
+            Err(collect_errors) => {
+                source_errors.extend(collect_errors);
+                HashMap::new()
+            }
+        };
 
         if !source_errors.is_empty() {
             let errors = TestSourceErrors::try_from(source_errors)

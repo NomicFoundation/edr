@@ -203,19 +203,19 @@ impl UnitStructs {
     }
 
     /// Collects the canonical types declared in `file_ids`, scoped to the root
-    /// `root_file_id`, which must be one of them.
+    /// `root_file_id`.
     ///
     /// When a name resolves to definitions that disagree, the one declared in
     /// the root wins a direct lookup, so a test's own struct is never shadowed
     /// from deep in its import graph. Structs *referencing* such a name are
     /// rejected either way, because a canonical type identifies its
     /// dependencies by bare name alone.
+    ///
+    /// `root_file_id` need not be among `file_ids`, which is how a caller
+    /// keeps a file out of the collection. A root left out contributes none of
+    /// its own structs and settles no same-name clash, while still scoping the
+    /// query.
     pub fn types_for(&self, root_file_id: &str, file_ids: &HashSet<&str>) -> Eip712TypeCollection {
-        assert!(
-            file_ids.contains(root_file_id),
-            "the root file id must be among the files the query is scoped to"
-        );
-
         let collected: Vec<CollectedStruct> = self
             .by_file
             .iter()
@@ -455,8 +455,8 @@ pub enum RejectReason {
     /// Two files declare a struct of this name with different members, and
     /// neither is the source that asked, so the name is ambiguous.
     #[error(
-        "conflicting definitions in: {}. Rename one of them, or reference it from a source that \
-         declares it",
+        "conflicting definitions in: {}. Rename one of them, reference it from a source that \
+         declares it, or exclude one of those files from EIP-712 type collection",
         .file_ids.join(", ")
     )]
     Duplicate {
@@ -490,8 +490,9 @@ pub enum RejectReason {
     /// different files. A canonical type inlines its dependencies by bare
     /// name, so there is no way to say which one was meant.
     #[error(
-        "struct references ambiguously-named {}: `{}`. Rename one of the conflicting structs, or \
-         reference it from a source that declares it",
+        "struct references ambiguously-named {}: `{}`. Rename one of the conflicting structs, \
+         reference it from a source that declares it, or exclude the file declaring one of them \
+         from EIP-712 type collection",
         pluralize(.dependencies.len(), "type"),
         .dependencies.join("`, `")
     )]
@@ -762,9 +763,9 @@ mod tests {
         }
     }
 
-    /// Builds a compilation unit from in-memory sources (the first entry is the
-    /// root) and collects EIP-712 types from it.
-    fn collect(sources: &[(&str, &str)]) -> Eip712TypeCollection {
+    /// Builds a compilation unit from in-memory sources (the first entry is
+    /// the root) and collects EIP-712 types from every file but `left_out`.
+    fn collect_without(sources: &[(&str, &str)], left_out: &[&str]) -> Eip712TypeCollection {
         let (root, _) = sources.first().expect("at least one source");
         let sources = sources
             .iter()
@@ -778,9 +779,19 @@ mod tests {
 
         let unit = builder.build();
         let file_ids = unit.file_ids();
-        let every_file: HashSet<&str> = file_ids.iter().map(String::as_str).collect();
+        let collected_from: HashSet<&str> = file_ids
+            .iter()
+            .map(String::as_str)
+            .filter(|file_id| !left_out.contains(file_id))
+            .collect();
 
-        UnitStructs::from_unit(&unit).types_for(root, &every_file)
+        UnitStructs::from_unit(&unit).types_for(root, &collected_from)
+    }
+
+    /// Builds a compilation unit from in-memory sources (the first entry is the
+    /// root) and collects EIP-712 types from it.
+    fn collect(sources: &[(&str, &str)]) -> Eip712TypeCollection {
+        collect_without(sources, &[])
     }
 
     /// Convenience function to collect from a single root source.
@@ -1125,6 +1136,53 @@ mod tests {
         assert!(matches!(
             collection.get("S"),
             Err(Eip712CollectionLookupError::Rejected(Eip712TypeRejected { name, reason: RejectReason::Duplicate { .. } })) if name == "S"
+        ));
+    }
+
+    #[test]
+    fn leaving_a_file_out_settles_a_clash_it_caused() {
+        let collection = collect_without(
+            &[
+                (
+                    "root.sol",
+                    "import \"a.sol\";
+                     import {S as Vendored} from \"b.sol\";
+                     struct Uses { S s; }",
+                ),
+                ("a.sol", "struct S { uint256 a; }"),
+                ("b.sol", "struct S { address b; }"),
+            ],
+            &["b.sol"],
+        );
+
+        assert_eq!(get_canonical_type(&collection, "S"), "S(uint256 a)");
+        assert_eq!(
+            get_canonical_type(&collection, "Uses"),
+            "Uses(S s)S(uint256 a)"
+        );
+    }
+
+    /// The root still scopes the query when it is left out, so an imported
+    /// name it also declares is resolved from the import rather than from it.
+    #[test]
+    fn leaving_the_root_out_drops_its_structs_and_its_say_in_a_clash() {
+        let collection = collect_without(
+            &[
+                (
+                    "root.sol",
+                    "import {S as Vendored} from \"dep.sol\";
+                     struct S { uint256 a; }
+                     struct Own { uint256 b; }",
+                ),
+                ("dep.sol", "struct S { address c; }"),
+            ],
+            &["root.sol"],
+        );
+
+        assert_eq!(get_canonical_type(&collection, "S"), "S(address c)");
+        assert!(matches!(
+            collection.get("Own"),
+            Err(Eip712CollectionLookupError::NotFound { type_name }) if type_name == "Own"
         ));
     }
 

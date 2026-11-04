@@ -6,7 +6,8 @@
 //! root. Each root's inline test configuration (`forge-config:`/
 //! `hardhat-config:` NatSpec directives) and EIP-712 struct definitions are
 //! then extracted from that shared unit. The EIP-712 collection is scoped to
-//! the files the root reaches, while directives come from the root's own text.
+//! the files the root reaches, minus the ones the configured exclusion globs
+//! match, while directives come from the root's own text and ignore the globs.
 //! The units are dropped afterwards, so nothing is cached beyond the extracted
 //! data.
 //!
@@ -19,7 +20,7 @@
 
 use std::{
     borrow::Cow,
-    collections::{BTreeMap, HashMap},
+    collections::{BTreeMap, HashMap, HashSet},
     path::PathBuf,
     sync::Arc,
 };
@@ -27,6 +28,7 @@ use std::{
 use edr_solidity_collector_eip712::collector::{Eip712TypeCollection, UnitStructs};
 use edr_solidity_parser_slang::{
     compilation::{build_multi_root_compilation_unit, file_id_of, MultiRootCompilation},
+    exclusions::SourceExclusions,
     resolver::{ImportResolver, ProvidedSources},
     LanguageVersion,
 };
@@ -89,6 +91,7 @@ pub(crate) fn collect_test_sources(
     roots: &[TestSourceRoot],
     import_resolver: &ImportResolver,
     profiles: &InlineConfigProfiles,
+    exclusions: &SourceExclusions,
 ) -> Result<HashMap<PathBuf, SourceCollections>, Vec<TestSourceErrorItem>> {
     // Roots of different versions cannot share a unit because a unit parses
     // every file it holds with one grammar.
@@ -157,8 +160,14 @@ pub(crate) fn collect_test_sources(
             .par_iter()
             .flat_map_iter(|(file_id, root_content)| {
                 roots_for(file_id).iter().map(move |root| {
-                    let collections =
-                        collect_root(root, file_id, root_content, version_unit, profiles);
+                    let collections = collect_root(
+                        root,
+                        file_id,
+                        root_content,
+                        version_unit,
+                        profiles,
+                        exclusions,
+                    );
 
                     (root.source.clone(), collections)
                 })
@@ -201,10 +210,11 @@ struct VersionUnit<'a> {
 /// Extracts one root's collections from the unit its version was built into.
 ///
 /// EIP-712 collection is scoped to the files the root reaches through resolved
-/// imports. A struct declared in another root's closure neither shadows the
-/// root's own nor is served to it. Inline-config directives come only from the
-/// root's own text. A syntax error anywhere in the closure rejects the root,
-/// because the EIP-712 types are collected from the whole closure. An
+/// imports, minus the ones `exclusions` matches. A struct declared in another
+/// root's closure neither shadows the root's own nor is served to it.
+/// Inline-config directives come only from the root's own text, so an excluded
+/// root still contributes them. A syntax error anywhere in the closure rejects
+/// the root, excluded files included, because they are parsed either way. An
 /// unresolvable import does not reject the root, because such imports are
 /// legitimately optional.
 fn collect_root(
@@ -213,6 +223,7 @@ fn collect_root(
     root_content: &str,
     version_unit: &VersionUnit<'_>,
     profiles: &InlineConfigProfiles,
+    exclusions: &SourceExclusions,
 ) -> Result<SourceCollections, Vec<TestSourceErrorItem>> {
     let reachable = version_unit.sources.reachable_from(file_id);
 
@@ -249,7 +260,14 @@ fn collect_root(
         file_id,
         profiles,
     )?;
-    let eip712_types = Arc::new(version_unit.structs.types_for(file_id, &reachable));
+    // The root stays the scoping id even when it is excluded, so a clash it
+    // would otherwise settle is left to the remaining files.
+    let collected_from: HashSet<&str> = reachable
+        .iter()
+        .copied()
+        .filter(|reached| !exclusions.excludes(reached))
+        .collect();
+    let eip712_types = Arc::new(version_unit.structs.types_for(file_id, &collected_from));
 
     Ok(SourceCollections {
         eip712_types,
@@ -327,7 +345,7 @@ fn describe_syntax_diagnostic(
 
 #[cfg(test)]
 mod tests {
-    use std::{collections::HashSet, io::Write as _, path::Path};
+    use std::{io::Write as _, path::Path};
 
     use edr_solidity_parser_slang::compilation::language_version_for_solc;
     use semver::Version;
@@ -367,15 +385,30 @@ mod tests {
         }
     }
 
-    /// Collects `roots` with no import mappings and the default profile.
-    fn collect_with_defaults(
+    /// Collects `roots` with no import mappings, the default profile and the
+    /// EIP-712 exclusions `globs` describes, relative to `project_root`.
+    fn collect_excluding(
         roots: &[TestSourceRoot],
+        project_root: &Path,
+        globs: &[&str],
     ) -> Result<HashMap<PathBuf, SourceCollections>, Vec<TestSourceErrorItem>> {
+        let exclusions =
+            SourceExclusions::new(project_root, globs.iter().copied()).expect("valid globs");
+
         collect_test_sources(
             roots,
             &ImportResolver::default(),
             &InlineConfigProfiles::default(),
+            &exclusions,
         )
+    }
+
+    /// Collects `roots` with no import mappings, the default profile and
+    /// nothing excluded.
+    fn collect_with_defaults(
+        roots: &[TestSourceRoot],
+    ) -> Result<HashMap<PathBuf, SourceCollections>, Vec<TestSourceErrorItem>> {
+        collect_excluding(roots, Path::new(""), &[])
     }
 
     fn unwrap_collected<T>(result: Result<T, Vec<TestSourceErrorItem>>) -> T {
@@ -398,8 +431,12 @@ mod tests {
         }
     }
 
+    /// Writes a source at `name`, which may name directories under `dir` that
+    /// do not exist yet.
     fn write_source(dir: &tempfile::TempDir, name: &str, content: &str) -> PathBuf {
         let path = dir.path().join(name);
+        std::fs::create_dir_all(path.parent().expect("the path names a file"))
+            .expect("create the source's directories");
         std::fs::write(&path, content).expect("write source");
         path
     }
@@ -494,12 +531,8 @@ contract C {
         );
         let root = root_for(&file, FIXTURE_SOURCE);
 
-        let errors = collect_test_sources(
-            &[root],
-            &ImportResolver::default(),
-            &InlineConfigProfiles::default(),
-        )
-        .expect_err("a source that does not parse cannot be collected");
+        let errors = collect_with_defaults(&[root])
+            .expect_err("a source that does not parse cannot be collected");
 
         assert_eq!(errors.len(), 1, "{errors:#?}");
         assert_eq!(errors[0].source_name, PathBuf::from(FIXTURE_SOURCE));
@@ -539,12 +572,8 @@ contract C {
             version: fixture_grammar(),
         };
 
-        let errors = collect_test_sources(
-            &[root],
-            &ImportResolver::default(),
-            &InlineConfigProfiles::default(),
-        )
-        .expect_err("an import that does not parse cannot be collected");
+        let errors = collect_with_defaults(&[root])
+            .expect_err("an import that does not parse cannot be collected");
 
         assert_eq!(errors.len(), 1, "{errors:#?}");
         assert_eq!(errors[0].source_name, PathBuf::from(FIXTURE_SOURCE));
@@ -642,12 +671,7 @@ contract Bad {
             root_for(&second, "project/Second.t.sol"),
         ];
 
-        let errors = collect_test_sources(
-            &roots,
-            &ImportResolver::default(),
-            &InlineConfigProfiles::default(),
-        )
-        .expect_err("expected errors");
+        let errors = collect_with_defaults(&roots).expect_err("expected errors");
 
         assert_eq!(errors.len(), 2, "{errors:#?}");
         let sources: HashSet<_> = errors.iter().map(|item| item.source_name.clone()).collect();
@@ -706,12 +730,7 @@ contract BadContractLevel {
             version: fixture_grammar(),
         };
 
-        let errors = collect_test_sources(
-            &[root],
-            &ImportResolver::default(),
-            &InlineConfigProfiles::default(),
-        )
-        .expect_err("expected errors");
+        let errors = collect_with_defaults(&[root]).expect_err("expected errors");
 
         assert_eq!(errors.len(), 1);
 
@@ -1169,6 +1188,158 @@ contract BadContractLevel {
                 PathBuf::from("project/Mid.t.sol"),
                 PathBuf::from("project/Zeta.t.sol"),
             ]
+        );
+    }
+
+    /// The glob excluding everything the project vendored.
+    const VENDOR_GLOB: &str = "contracts/vendor/**";
+
+    /// The project's own `Permit`, which carries a nonce.
+    const PROJECT_PERMIT: &str = "struct Permit { address owner; address spender; uint256 value; \
+                                  uint256 nonce; uint256 deadline; }";
+
+    const PROJECT_PERMIT_CANONICAL: &str =
+        "Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)";
+
+    /// The vendored `Permit`, which carries no nonce and so clashes with
+    /// [`PROJECT_PERMIT`].
+    const VENDOR_PERMIT: &str =
+        "struct Permit { address owner; address spender; uint256 value; uint256 deadline; }";
+
+    /// Writes a project whose test source reaches both `Permit` definitions,
+    /// the vendored one only through an alias so the source still compiles.
+    fn clashing_permit_project() -> (tempfile::TempDir, TestSourceRoot) {
+        let dir = tempfile::tempdir().expect("temp dir");
+        write_source(
+            &dir,
+            "contracts/Permit.sol",
+            &format!("pragma solidity ^0.8.0;\n\n{PROJECT_PERMIT}\n"),
+        );
+        write_source(
+            &dir,
+            "contracts/vendor/Permit.sol",
+            &format!("pragma solidity ^0.8.0;\n\n{VENDOR_PERMIT}\n"),
+        );
+        let root = write_source(
+            &dir,
+            "contracts/Permit.t.sol",
+            "pragma solidity ^0.8.0;\n\nimport \"./Permit.sol\";\nimport {Permit as VendorPermit} from \"./vendor/Permit.sol\";\n\nstruct Order { Permit permit; uint256 id; }\n\ncontract PermitTest {}\n",
+        );
+
+        (dir, root_at(root, FIXTURE_SOURCE))
+    }
+
+    #[test]
+    fn two_reachable_definitions_of_a_name_are_rejected_without_exclusions() {
+        let (dir, root) = clashing_permit_project();
+
+        let collected = unwrap_collected(collect_excluding(&[root], dir.path(), &[]));
+        let collected = collected_for(&collected, FIXTURE_SOURCE);
+
+        let permit = collected
+            .eip712_types
+            .get("Permit")
+            .expect_err("the two definitions disagree");
+        assert!(
+            permit.to_string().contains("conflicting definitions"),
+            "{permit}"
+        );
+        assert!(permit.to_string().contains("exclude"), "{permit}");
+
+        let order = collected
+            .eip712_types
+            .get("Order")
+            .expect_err("`Order` references the ambiguous name");
+        assert!(order.to_string().contains("exclude"), "{order}");
+    }
+
+    #[test]
+    fn excluding_the_vendored_copy_resolves_the_name_and_the_structs_using_it() {
+        let (dir, root) = clashing_permit_project();
+
+        let collected = unwrap_collected(collect_excluding(&[root], dir.path(), &[VENDOR_GLOB]));
+        let collected = collected_for(&collected, FIXTURE_SOURCE);
+
+        assert_eq!(
+            canonical_type(collected, "Permit"),
+            PROJECT_PERMIT_CANONICAL
+        );
+        assert_eq!(
+            canonical_type(collected, "Order"),
+            format!("Order(Permit permit,uint256 id){PROJECT_PERMIT_CANONICAL}")
+        );
+    }
+
+    /// Writes a test source under the directory [`VENDOR_GLOB`] matches,
+    /// declaring both a struct and an inline-config directive.
+    fn excluded_root_project() -> (tempfile::TempDir, TestSourceRoot) {
+        let dir = tempfile::tempdir().expect("temp dir");
+        let root = write_source(
+            &dir,
+            "contracts/vendor/Vendored.t.sol",
+            &format!(
+                "pragma solidity ^0.8.0;\n\n{PROJECT_PERMIT}\n\ncontract VendoredTest {{\n    /// forge-config: default.fuzz.runs = 9\n    function testVendored(uint256 x) public {{}}\n}}\n"
+            ),
+        );
+
+        (dir, root_at(root, FIXTURE_SOURCE))
+    }
+
+    /// Matching the test's own source drops the structs it declares, the same
+    /// way `forge bind-json` skips an excluded file whatever declared it.
+    #[test]
+    fn an_excluded_test_source_loses_its_own_structs() {
+        let (dir, root) = excluded_root_project();
+
+        let collected = unwrap_collected(collect_excluding(&[root], dir.path(), &[VENDOR_GLOB]));
+
+        assert!(collected_for(&collected, FIXTURE_SOURCE)
+            .eip712_types
+            .is_empty());
+    }
+
+    #[test]
+    fn an_excluded_test_source_keeps_its_inline_configuration() {
+        let (dir, root) = excluded_root_project();
+
+        let collected = unwrap_collected(collect_excluding(&[root], dir.path(), &[VENDOR_GLOB]));
+
+        let overrides = collected_for(&collected, FIXTURE_SOURCE)
+            .overrides
+            .get("VendoredTest")
+            .expect("VendoredTest has overrides");
+        assert_eq!(overrides.functions.len(), 1, "{:#?}", overrides.functions);
+        assert_eq!(
+            overrides.functions[0].config.fuzz.as_ref().unwrap().runs,
+            Some(9)
+        );
+    }
+
+    /// Every reachable struct is collected, so a dependency needs no opting
+    /// in however deep in the package tree it sits.
+    #[test]
+    fn a_dependency_under_node_modules_is_collected() {
+        let dir = tempfile::tempdir().expect("temp dir");
+        write_source(
+            &dir,
+            "node_modules/@vendor/permit2/Allowance.sol",
+            "pragma solidity ^0.8.0;\n\nstruct Allowance { address token; uint160 amount; }\n",
+        );
+        let root = write_source(
+            &dir,
+            "contracts/Allowance.t.sol",
+            "pragma solidity ^0.8.0;\n\nimport \"../node_modules/@vendor/permit2/Allowance.sol\";\n\ncontract AllowanceTest {}\n",
+        );
+
+        let collected = unwrap_collected(collect_excluding(
+            &[root_at(root, FIXTURE_SOURCE)],
+            dir.path(),
+            &[VENDOR_GLOB],
+        ));
+
+        assert_eq!(
+            canonical_type(collected_for(&collected, FIXTURE_SOURCE), "Allowance"),
+            "Allowance(address token,uint160 amount)"
         );
     }
 }
