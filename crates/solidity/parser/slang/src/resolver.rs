@@ -169,6 +169,11 @@ impl ProvidedSources {
 pub(crate) struct SourceProvider<'a> {
     import_resolver: &'a ImportResolver,
     recorder: &'a mut SourceRecorder,
+    /// Every import proven readable, holding its text until
+    /// [`CompilationBuilderConfig::read_file`] takes it. A key without text is
+    /// a file already handed over, which a further importer of it must not
+    /// read again.
+    import_texts: HashMap<String, Option<String>>,
 }
 
 impl<'a> SourceProvider<'a> {
@@ -179,6 +184,7 @@ impl<'a> SourceProvider<'a> {
         Self {
             import_resolver,
             recorder,
+            import_texts: HashMap::new(),
         }
     }
 }
@@ -189,9 +195,14 @@ impl CompilationBuilderConfig for SourceProvider<'_> {
     /// controls, so this reads a project source exactly as the compiler does.
     ///
     /// Slang reads every file at most once, so a root's text is retained here
-    /// for whoever needs its comments.
+    /// for whoever needs its comments. An import already read by
+    /// [`Self::resolve_import`] is served from there instead of from disk.
     fn read_file(&mut self, file_id: &str) -> Result<String, String> {
-        let read = std::fs::read_to_string(Path::new(file_id));
+        let read = match self.import_texts.get_mut(file_id).and_then(Option::take) {
+            Some(text) => Ok(text),
+            None => std::fs::read_to_string(Path::new(file_id)),
+        };
+
         let Some(root) = self.recorder.roots.get_mut(file_id) else {
             return read.map_err(|error| error.to_string());
         };
@@ -211,10 +222,13 @@ impl CompilationBuilderConfig for SourceProvider<'_> {
         }
     }
 
-    /// Reports an import whose resolved path holds no file as unresolved,
-    /// because Slang's binder panics when a contract inherits from an import
-    /// it resolved but could not read. An unresolved import only yields a
+    /// Reports an import whose file cannot be read as unresolved, because
+    /// Slang's binder panics when a contract inherits from an import it
+    /// resolved but could not read. An unresolved import only yields a
     /// diagnostic.
+    ///
+    /// Reading it here is what proves it readable, so the text is retained for
+    /// the [`Self::read_file`] that follows rather than read twice.
     fn resolve_import(
         &mut self,
         source_file_id: &str,
@@ -224,19 +238,24 @@ impl CompilationBuilderConfig for SourceProvider<'_> {
             .import_resolver
             .resolve_import(source_file_id, import_path)?;
 
-        if Path::new(&resolved).is_file() {
-            self.recorder
-                .imports
-                .entry(source_file_id.to_owned())
-                .or_default()
-                .push(resolved.clone());
+        if !self.import_texts.contains_key(&resolved) {
+            let text = std::fs::read_to_string(Path::new(&resolved)).map_err(|error| {
+                format!(
+                    "import '{import_path}' resolves to '{resolved}', which could not be read: \
+                     {error}"
+                )
+            })?;
 
-            Ok(resolved)
-        } else {
-            Err(format!(
-                "import '{import_path}' resolves to '{resolved}', which is not a file"
-            ))
+            self.import_texts.insert(resolved.clone(), Some(text));
         }
+
+        self.recorder
+            .imports
+            .entry(source_file_id.to_owned())
+            .or_default()
+            .push(resolved.clone());
+
+        Ok(resolved)
     }
 }
 
@@ -284,6 +303,44 @@ mod tests {
             resolver.resolve_import("/project/A.sol", "@oz/contracts/token/ERC20.sol"),
             "/deps/@oz/contracts/token/ERC20.sol",
         );
+    }
+
+    #[test]
+    fn provider_reports_an_unreadable_file_as_unresolved() {
+        let dir = tempfile::tempdir().expect("temp dir");
+        // Invalid UTF-8: the file exists, but its text cannot be read.
+        std::fs::write(dir.path().join("Dep.sol"), [0xff, 0xfe]).expect("write dependency");
+
+        let root_id = dir.path().join("Root.sol").to_string_lossy().into_owned();
+
+        let resolver = ImportResolver::default();
+        let mut recorder = SourceRecorder::expecting([root_id.clone()]);
+        let mut provider = SourceProvider::new(&resolver, &mut recorder);
+
+        assert!(provider.resolve_import(&root_id, "./Dep.sol").is_err());
+    }
+
+    /// Deleting the file between the calls is what proves no further read
+    /// happened: another one would fail.
+    #[test]
+    fn provider_reads_an_import_once_however_many_files_import_it() {
+        let dir = tempfile::tempdir().expect("temp dir");
+        let dep = dir.path().join("Dep.sol");
+        std::fs::write(&dep, "on disk").expect("write dependency");
+
+        let first_id = dir.path().join("First.sol").to_string_lossy().into_owned();
+        let second_id = dir.path().join("Second.sol").to_string_lossy().into_owned();
+        let dep_id = dep.to_string_lossy().into_owned();
+
+        let resolver = ImportResolver::default();
+        let mut recorder = SourceRecorder::expecting([]);
+        let mut provider = SourceProvider::new(&resolver, &mut recorder);
+
+        assert_resolves(provider.resolve_import(&first_id, "./Dep.sol"), &dep_id);
+        std::fs::remove_file(&dep).expect("remove dependency");
+
+        assert_resolves(provider.resolve_import(&second_id, "./Dep.sol"), &dep_id);
+        assert_eq!(provider.read_file(&dep_id), Ok("on disk".to_owned()));
     }
 
     #[test]
