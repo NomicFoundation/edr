@@ -1690,6 +1690,21 @@ export interface SolidityTestRunnerConfigArgs {
    */
   importMappings?: Record<string, string>
   /**
+   * Globs matched against each source file's path relative to
+   * `projectRoot`, with forward slashes, e.g. `contracts/vendor/**` or
+   * `node_modules/@uniswap/permit2/**`. A file outside the project root is
+   * matched by its absolute path.
+   *
+   * A struct declared in a matching file is not collected, including when
+   * the matching file is the test's own source. Excluding a file is how a
+   * project settles a clash between two reachable structs of the same name.
+   *
+   * Exclusion only affects EIP-712 collection, never inline configuration.
+   * There is no opposite setting, because every reachable struct is
+   * collected. Defaults to excluding nothing.
+   */
+  eip712ExcludeGlobs?: Array<string>
+  /**
    * The Solidity test profile this run was started with.
    *
    * An inline-config directive prefixed with a profile name

@@ -1,8 +1,10 @@
-import { assert } from "chai";
+import chai, { assert } from "chai";
+import chaiAsPromised from "chai-as-promised";
 import * as path from "path";
 
 import {
   EdrContext,
+  SuiteResult,
   TestSourceError,
   TestSourceFileError,
   L1_CHAIN_TYPE,
@@ -11,6 +13,8 @@ import {
   l1SolidityTestRunnerFactory,
 } from "..";
 import { loadContract, runAllSolidityTests } from "./helpers";
+
+chai.use(chaiAsPromised);
 
 describe("Solidity Tests", () => {
   const context = new EdrContext();
@@ -260,6 +264,70 @@ describe("Solidity Tests", () => {
         assert.fail("Unexpected test suite name: " + suite.id.name);
       }
     }
+  });
+
+  // `Eip712ExcludeTest.t.sol` reaches two different `Permit` structs, its own
+  // and a vendored one. The name is ambiguous until `eip712ExcludeGlobs` drops
+  // one of the two files, and the globs are matched relative to `projectRoot`.
+  const eip712ExcludeTestSourcePaths = {
+    "data/contracts/Eip712ExcludeTest.t.sol": path.join(
+      __dirname,
+      "data/contracts/Eip712ExcludeTest.t.sol"
+    ),
+  };
+  const vendorExcludeGlob = "data/contracts/vendor/**";
+
+  async function runEip712ExcludeSuite(
+    eip712ExcludeGlobs: string[]
+  ): Promise<SuiteResult> {
+    const artifacts = [
+      loadContract("./data/artifacts/default/Eip712ExcludeTest.json"),
+    ];
+    const testSuites = artifacts.map((artifact) => artifact.id);
+
+    const [, results] = await runAllSolidityTests(
+      context,
+      L1_CHAIN_TYPE,
+      artifacts,
+      testSuites,
+      {
+        disableTransactionGasCap: true,
+        projectRoot: __dirname,
+        hardfork: l1HardforkToString(l1HardforkLatest()),
+        testSourcePaths: eip712ExcludeTestSourcePaths,
+        eip712ExcludeGlobs,
+      }
+    );
+
+    assert.equal(results.length, 1);
+    return results[0];
+  }
+
+  it("resolves a clashing EIP-712 type once the other source is excluded", async function () {
+    const suite = await runEip712ExcludeSuite([vendorExcludeGlob]);
+
+    assert.equal(suite.testResults.length, 1);
+    assert.equal(
+      suite.testResults[0].status,
+      "Success",
+      `${suite.testResults[0].name} failed: ${JSON.stringify(
+        suite.testResults[0].reason
+      )}`
+    );
+  });
+
+  it("leaves a clashing EIP-712 type unresolvable without an exclusion", async function () {
+    const suite = await runEip712ExcludeSuite([]);
+
+    assert.equal(suite.testResults.length, 1);
+    assert.equal(suite.testResults[0].status, "Failure");
+  });
+
+  it("rejects an exclusion glob that cannot be compiled", async function () {
+    await assert.isRejected(
+      runEip712ExcludeSuite(["data/contracts/["]),
+      /invalid source exclusion glob `data\/contracts\/\[`/
+    );
   });
 
   // A non-empty `testSourcePaths` must name the source of every selected test

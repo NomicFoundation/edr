@@ -9,7 +9,8 @@ To migrate:
 - drop `eip712CanonicalTypes`;
 - declare each struct you look up by name in the test contract's own source, or in a file it imports;
 - give every test suite an entry in `testSourcePaths`;
-- add `importMappings` entries for the non-relative import paths those sources use.
+- add `importMappings` entries for the non-relative import paths those sources use;
+- add `eip712ExcludeGlobs` entries for any file whose structs should not be collected.
 
 The consequences below are worth checking before you upgrade.
 
@@ -20,6 +21,12 @@ Name resolution is now scoped per suite rather than run-wide. A lookup sees only
 Both features require solc 0.8 or newer, and there is no per-source exemption. Omitting the map, or passing an empty one, still disables collection entirely. That is now the only way to run test sources solc 0.8 cannot parse. The whole run then loses inline configuration and EIP-712 types.
 
 `importMappings` keys are matched exactly, not by prefix, and an import with no entry stays unresolved. Parsing then degrades to what it can still reach. A struct behind an unmapped import therefore resolves as an unknown type, rather than reporting the import as the cause.
+
+`eip712ExcludeGlobs` keeps the sources it matches out of EIP-712 collection. Each glob is matched against a source file's path relative to `projectRoot`, spelled with forward slashes, for example `contracts/vendor/**` or `node_modules/@uniswap/permit2/**`. A `*` does not cross a `/`, while a `**` does, and a file outside the project root is matched by its absolute path instead.
+
+A struct declared in a matching file is not collected, even when the matching file is the running test's own source. That is how a project settles two reachable structs that share a name but declare different members, which is otherwise rejected as ambiguous. Exclusion affects EIP-712 collection alone: an excluded source still contributes its inline configuration, is still parsed, and a syntax error in it still rejects the run.
+
+There is no setting for the opposite direction, because every struct a test source reaches is collected, dependencies included. Nothing has to be listed to be found.
 
 Three new failure modes have no equivalent under the old configuration. EIP-712 cannot encode a mapping, a function, or a fixed-point number. A struct with such a member is unusable, as is any struct referencing it. Two same-named structs in a source's import graph may declare different members, which leaves the name ambiguous. The suite's own definition still wins a lookup by that name, but any struct _referencing_ it is rejected. A canonical type identifies its dependencies by bare name, so the wrong body could otherwise be encoded.
 

@@ -6,6 +6,8 @@ The sources are read from the absolute paths supplied through the `testSourcePat
 
 ## Recompiling
 
-The artifacts are committed pre-compiled, because this package's test run has no build step. They were produced with solc 0.8.24 through the standard JSON interface, using the remapping `@fixtures/=data/contracts/external/`. Each source key is the file's path relative to `test/`, for example `data/contracts/Eip712ResolveTest.t.sol`. An artifact's `sourceName` therefore matches the key the tests use in `testSourcePaths`.
+The artifacts are committed pre-compiled, because this package's test run has no build step. They were produced through the standard JSON interface, using the remapping `@fixtures/=data/contracts/external/`. Each source key is the file's path relative to `test/`, for example `data/contracts/Eip712ResolveTest.t.sol`. An artifact's `sourceName` therefore matches the key the tests use in `testSourcePaths`.
 
-After changing any `.sol` file here, recompile and refresh the corresponding artifact JSON in `../artifacts/default/`, keeping the `contractName`, `sourceName`, and `solcVersion` ("0.8.24") fields.
+Most were compiled with solc 0.8.24, and `Eip712ExcludeTest` with solc 0.8.28. Keep an artifact's `solcVersion` in step with the compiler that produced it, because it selects the grammar the source is parsed with at run time.
+
+After changing any `.sol` file here, recompile and refresh the corresponding artifact JSON in `../artifacts/default/`, keeping its `contractName`, `sourceName`, and `solcVersion` fields.
