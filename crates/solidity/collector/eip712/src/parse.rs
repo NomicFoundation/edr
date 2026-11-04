@@ -4,6 +4,12 @@ use alloy_dyn_abi::eip712_parser::EncodeType;
 
 use crate::Eip712Type;
 
+/// Opens the member list of a type in an `encodeType` string.
+const MEMBER_LIST_START: char = '(';
+
+/// Why an input that parses but declares no type is rejected.
+const NO_TYPE_DEFINITION: &str = "no parseable type definition found";
+
 /// Errors that can occur while parsing or canonicalizing an EIP-712 type
 /// definition.
 #[derive(Debug, thiserror::Error)]
@@ -37,15 +43,12 @@ impl Eip712Type {
             reason: error.to_string(),
         })?;
 
-        let name = encode_type
-            .types
-            .first()
-            .ok_or_else(|| Eip712Error::Parse {
+        if encode_type.types.is_empty() {
+            return Err(Eip712Error::Parse {
                 input: input.to_string(),
-                reason: "no parseable type definition found".into(),
-            })?
-            .type_name
-            .to_string();
+                reason: NO_TYPE_DEFINITION.into(),
+            });
+        }
 
         let canonical_definition =
             encode_type
@@ -55,8 +58,14 @@ impl Eip712Type {
                     reason: error.to_string(),
                 })?;
 
+        // The primary type heads the canonical form whatever order the input
+        // listed its types in, so its name has to come from there.
+        let (name, _members) = canonical_definition
+            .split_once(MEMBER_LIST_START)
+            .expect("a canonicalized type definition opens its primary type's member list");
+
         Ok(Self {
-            name,
+            name: name.to_owned(),
             canonical_definition,
         })
     }
@@ -101,12 +110,25 @@ mod tests {
     }
 
     #[test]
+    fn names_the_primary_type_of_a_reordered_input() {
+        // The referenced type comes first in the input, but EIP-712 puts the
+        // primary type first in the canonical form.
+        let def = Eip712Type::parse("Person(address wallet)Mail(Person from)").unwrap();
+
+        assert_eq!(def.name(), "Mail");
+        assert!(
+            def.canonical_definition().starts_with("Mail("),
+            "{}",
+            def.canonical_definition()
+        );
+    }
+
+    #[test]
     fn rejects_empty_input() {
         let err = Eip712Type::parse("").unwrap_err();
         assert!(matches!(
             &err,
-            Eip712Error::Parse { reason, .. }
-                if reason == "no parseable type definition found"
+            Eip712Error::Parse { reason, .. } if reason == NO_TYPE_DEFINITION
         ));
     }
 
