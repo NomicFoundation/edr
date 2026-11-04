@@ -1692,8 +1692,8 @@ export interface SolidityTestRunnerConfigArgs {
   /**
    * Globs matched against each source file's path relative to
    * `projectRoot`, with forward slashes, e.g. `contracts/vendor/**` or
-   * `node_modules/@uniswap/permit2/**`. A file outside the project root is
-   * matched by its absolute path.
+   * `node_modules/@uniswap/permit2/**`, written without a leading `./` or
+   * `/`. A file outside the project root is matched by its absolute path.
    *
    * A struct declared in a matching file is not collected, including when
    * the matching file is the test's own source. Excluding a file is how a

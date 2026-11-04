@@ -4,7 +4,10 @@
 //! Collection is scoped to the files the root reaches, as the test runner
 //! scopes it.
 
-use std::{collections::HashMap, path::PathBuf};
+use std::{
+    collections::{HashMap, HashSet},
+    path::PathBuf,
+};
 
 use edr_solidity_collector_eip712::collector::{Eip712TypeCollection, UnitStructs};
 use edr_solidity_parser_slang::{
@@ -39,7 +42,11 @@ fn collect(
         build_multi_root_compilation_unit([root.as_path()], language_version, import_resolver);
     let root_id = file_id_of(&root);
 
-    UnitStructs::from_unit(&unit).types_for(&root_id, &sources.reachable_from(&root_id))
+    UnitStructs::from_unit(&unit).types_for(
+        &root_id,
+        &sources.reachable_from(&root_id),
+        &HashSet::new(),
+    )
 }
 
 #[test]

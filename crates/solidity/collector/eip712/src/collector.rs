@@ -214,8 +214,14 @@ impl UnitStructs {
     /// `root_file_id` need not be among `file_ids`, which is how a caller
     /// keeps a file out of the collection. A root left out contributes none of
     /// its own structs and settles no same-name clash, while still scoping the
-    /// query.
-    pub fn types_for(&self, root_file_id: &str, file_ids: &HashSet<&str>) -> Eip712TypeCollection {
+    /// query. A struct that only `excluded_file_ids` declare is rejected along
+    /// with every struct referencing it, so a lookup says why.
+    pub fn types_for(
+        &self,
+        root_file_id: &str,
+        file_ids: &HashSet<&str>,
+        excluded_file_ids: &HashSet<&str>,
+    ) -> Eip712TypeCollection {
         let collected: Vec<CollectedStruct> = self
             .by_file
             .iter()
@@ -223,23 +229,59 @@ impl UnitStructs {
             .flat_map(|(_, structs)| structs.iter().cloned())
             .collect();
 
-        into_collection(collected, root_file_id)
+        // A struct only excluded files declare is still a struct to the
+        // members referencing it, which cannot be encoded without it.
+        let collected_names: HashSet<&str> = collected
+            .iter()
+            .map(|struct_def| struct_def.name.as_str())
+            .collect();
+        let mut excluded_only: HashMap<String, RejectReason> = HashMap::new();
+        for (file_id, structs) in &self.by_file {
+            if !excluded_file_ids.contains(file_id.as_str()) {
+                continue;
+            }
+            for struct_def in structs {
+                if collected_names.contains(struct_def.name.as_str()) {
+                    continue;
+                }
+
+                match excluded_only
+                    .entry(struct_def.name.clone())
+                    .or_insert_with(|| RejectReason::DeclaredInExcludedFiles {
+                        file_ids: Vec::new(),
+                    }) {
+                    RejectReason::DeclaredInExcludedFiles { file_ids } => {
+                        file_ids.push(file_id.clone());
+                    }
+                    _ => unreachable!("only exclusion reasons are seeded here"),
+                }
+            }
+        }
+
+        into_collection(collected, root_file_id, excluded_only)
     }
 }
 
 /// Resolves same-name structs against `root_file_id`, then canonicalizes every
-/// struct EIP-712 can encode.
-fn into_collection(collected: Vec<CollectedStruct>, root_file_id: &str) -> Eip712TypeCollection {
+/// struct EIP-712 can encode. `already_rejected` names structs that cannot be
+/// served before any encoding is attempted, so their dependents are rejected
+/// too.
+fn into_collection(
+    collected: Vec<CollectedStruct>,
+    root_file_id: &str,
+    mut already_rejected: HashMap<String, RejectReason>,
+) -> Eip712TypeCollection {
     let DedupedCollection {
         unique,
         duplicates,
         ambiguous,
     } = dedup_by_name(collected, root_file_id);
+    already_rejected.extend(duplicates);
 
     let EncodableCollection {
         encodables,
         rejected,
-    } = reject_non_encodable(unique, duplicates, &ambiguous);
+    } = reject_non_encodable(unique, already_rejected, &ambiguous);
 
     let types = encodables
         .iter()
@@ -449,9 +491,28 @@ fn pluralize(count: usize, noun: &str) -> String {
     }
 }
 
+fn pluralize_with(count: usize, singular: &str, plural: &str) -> String {
+    if count == 1 {
+        singular.to_owned()
+    } else {
+        plural.to_owned()
+    }
+}
+
 /// Why a struct that exists in the sources cannot serve as an EIP-712 type.
 #[derive(Clone, Debug, thiserror::Error)]
 pub enum RejectReason {
+    /// Every file declaring the struct is excluded from collection, so neither
+    /// it nor a struct referencing it can be encoded.
+    #[error(
+        "struct is declared only in {} excluded from EIP-712 type collection: {}",
+        pluralize_with(.file_ids.len(), "a file", "files"),
+        .file_ids.join(", ")
+    )]
+    DeclaredInExcludedFiles {
+        /// The excluded files declaring it, sorted.
+        file_ids: Vec<String>,
+    },
     /// Two files declare a struct of this name with different members, and
     /// neither is the source that asked, so the name is ambiguous.
     #[error(
@@ -784,8 +845,9 @@ mod tests {
             .map(String::as_str)
             .filter(|file_id| !left_out.contains(file_id))
             .collect();
+        let left_out: HashSet<&str> = left_out.iter().copied().collect();
 
-        UnitStructs::from_unit(&unit).types_for(root, &collected_from)
+        UnitStructs::from_unit(&unit).types_for(root, &collected_from, &left_out)
     }
 
     /// Builds a compilation unit from in-memory sources (the first entry is the
@@ -1162,6 +1224,39 @@ mod tests {
         );
     }
 
+    #[test]
+    fn a_dependency_only_a_left_out_file_declares_makes_its_dependents_unusable() {
+        let collection = collect_without(
+            &[
+                (
+                    "root.sol",
+                    "import \"dep.sol\";
+                     struct Wrapper { PermitSingle p; }",
+                ),
+                (
+                    "dep.sol",
+                    "struct PermitSingle { address token; uint160 amount; }",
+                ),
+            ],
+            &["dep.sol"],
+        );
+
+        assert!(matches!(
+            collection.get("PermitSingle"),
+            Err(Eip712CollectionLookupError::Rejected(Eip712TypeRejected {
+                reason: RejectReason::DeclaredInExcludedFiles { file_ids },
+                ..
+            })) if file_ids == vec!["dep.sol".to_owned()]
+        ));
+        assert!(matches!(
+            collection.get("Wrapper"),
+            Err(Eip712CollectionLookupError::Rejected(Eip712TypeRejected {
+                reason: RejectReason::UnusableDependencies { dependencies },
+                ..
+            })) if dependencies == vec!["PermitSingle".to_owned()]
+        ));
+    }
+
     /// The root still scopes the query when it is left out, so an imported
     /// name it also declares is resolved from the import rather than from it.
     #[test]
@@ -1182,7 +1277,10 @@ mod tests {
         assert_eq!(get_canonical_type(&collection, "S"), "S(address c)");
         assert!(matches!(
             collection.get("Own"),
-            Err(Eip712CollectionLookupError::NotFound { type_name }) if type_name == "Own"
+            Err(Eip712CollectionLookupError::Rejected(Eip712TypeRejected {
+                reason: RejectReason::DeclaredInExcludedFiles { file_ids },
+                ..
+            })) if file_ids == vec!["root.sol".to_owned()]
         ));
     }
 
