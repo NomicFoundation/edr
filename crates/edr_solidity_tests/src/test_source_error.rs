@@ -42,8 +42,8 @@ pub enum TestSourceCollectError {
         /// Why reading it failed.
         reason: String,
     },
-    /// The test source has no `testSourcePaths` entry, so it is not located,
-    /// read, or parsed.
+    /// The test source has no `testSourcePaths` entry (`test_source_paths` in
+    /// Rust), so it is not located, read, or parsed.
     #[error("no `testSourcePaths` entry for this source")]
     SourcePathNotProvided,
     /// A directive's offset could not be resolved to a line number. It lies
