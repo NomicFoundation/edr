@@ -6,8 +6,6 @@
 pub mod collector;
 pub mod parse;
 
-pub use edr_solidity_parser_slang::resolver::ImportResolver;
-
 /// An EIP-712 type definition in canonical form, paired with its
 /// primary-type name.
 ///
