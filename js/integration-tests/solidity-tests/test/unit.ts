@@ -37,7 +37,7 @@ describe("Unit tests", () => {
     assert.equal(totalTests, 2);
   });
 
-  it("InvalidInlineConfig", async function () {
+  it("rejects a run on test-source errors", async function () {
     // Ill-formed inline configuration rejects the whole run up front, carrying
     // the structured, located problems on the error so Hardhat can point the
     // user at each one.
