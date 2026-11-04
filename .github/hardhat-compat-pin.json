@@ -1,5 +1,5 @@
 {
   "pr": 8650,
-  "sha": "f5e0cf080597b1f6458e369fbeb41a4612ff1e98",
+  "sha": "cf46d20e28505bcbc2e315305d68e6324ca64059",
   "reason": "Port EIP-712 type collection from TS to Rust"
 }
