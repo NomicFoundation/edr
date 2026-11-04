@@ -2646,6 +2646,7 @@ fn update_env_block<BlockT: BlockEnvTr>(block_env: &mut BlockT, block: &AnyRpcBl
     block_env.set_basefee(block.header.base_fee_per_gas.unwrap_or_default());
     block_env.set_gas_limit(block.header.gas_limit);
     block_env.set_number(U256::from(block.header.number));
+    block_env.set_slot_num(block.header.slot_number.unwrap_or_default());
     if let Some(excess_blob_gas) = block.header.excess_blob_gas {
         block_env.set_blob_excess_gas_and_price(
             excess_blob_gas,
@@ -2756,6 +2757,38 @@ fn apply_state_changeset(
 #[inline]
 fn is_known_system_sender(sender: Address) -> bool {
     [ARBITRUM_SENDER, OPTIMISM_SYSTEM_ADDRESS].contains(&sender)
+}
+
+#[cfg(test)]
+mod update_env_block_tests {
+    use alloy_consensus::Sealed;
+    use alloy_network::{AnyHeader, AnyRpcBlock, AnyRpcHeader};
+    use alloy_primitives::B256;
+    use alloy_rpc_types::{Block, BlockTransactions};
+    use revm::{
+        context::{Block as _, BlockEnv},
+        primitives::hardfork::SpecId,
+    };
+
+    #[test]
+    fn sets_slot_number() {
+        let mut block_env = BlockEnv::default();
+        for slot_number in [Some(42), Some(u64::MAX), None, Some(0)] {
+            let header = AnyHeader {
+                slot_number,
+                ..AnyHeader::default()
+            };
+            let block = AnyRpcBlock::new(
+                Block::new(
+                    AnyRpcHeader::from_sealed(Sealed::new_unchecked(header, B256::ZERO)),
+                    BlockTransactions::Full(Vec::new()),
+                )
+                .into(),
+            );
+            super::update_env_block(&mut block_env, &block, SpecId::AMSTERDAM);
+            assert_eq!(block_env.slot_num(), slot_number.unwrap_or_default());
+        }
+    }
 }
 
 #[cfg(test)]
