@@ -56,8 +56,9 @@ pub(crate) type SourceOverrides = HashMap<String, ContractInlineConfig>;
 
 /// Extracts the inline configuration of every contract in the already-built
 /// `unit`'s file `file_id` (the id the root file was added under). `content`
-/// is that file's text, which the NatSpec is recovered from; `source` names
-/// the file in error reports (the solc source name the caller queries by).
+/// is that file's text as the unit parsed it, which the NatSpec is recovered
+/// from, so the unit holds the file. `source` names the file in error reports
+/// (the solc source name the caller queries by).
 ///
 /// Every problem found is accumulated — at most one per test function, plus at
 /// most one per contract's own directives — rather than short-circuited, so the
@@ -74,12 +75,10 @@ pub(crate) fn collect_source_overrides_from_unit(
     file_id: &str,
     profiles: &InlineConfigProfiles,
 ) -> Result<SourceOverrides, Vec<TestSourceErrorItem>> {
-    source_overrides(
-        source,
-        content,
-        &locate_contracts_in_unit(unit, file_id),
-        profiles,
-    )
+    let contracts = locate_contracts_in_unit(unit, file_id)
+        .expect("the unit parsed `content`, so it holds the file");
+
+    source_overrides(source, content, &contracts, profiles)
 }
 
 /// Parses the inline configuration of every contract in `contracts` that
