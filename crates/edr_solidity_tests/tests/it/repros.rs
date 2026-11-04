@@ -1220,7 +1220,11 @@ async fn test_trace_marks_precompile_calls() {
     let config = runner_config(None, &TEST_DATA_VIA_IR, false).await;
     let runner = TEST_DATA_VIA_IR.runner_with_config(config).await;
     let filter = SolidityTestFilter::path(".*repros/PrecompileCall.t.sol");
-    let suite_results = runner.test_collect(filter).await.suite_results;
+    let suite_results = runner
+        .test_collect(filter)
+        .await
+        .expect("the run produces results")
+        .suite_results;
 
     let suite = suite_results
         .get("via-ir/repros/PrecompileCall.t.sol:PrecompileCallTest")
