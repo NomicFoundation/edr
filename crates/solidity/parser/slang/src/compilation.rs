@@ -97,16 +97,25 @@ mod tests {
 
     use super::*;
 
-    #[test]
-    fn inheriting_from_a_missing_import_reports_it_as_unresolved() {
-        let dir = tempfile::tempdir().expect("temp dir");
-        let root = dir.path().join("Root.sol");
+    /// The file a root inherits from in
+    /// [`assert_inheriting_from_the_dependency_is_unresolved`].
+    const DEPENDENCY_FILE_NAME: &str = "Dep.sol";
+
+    /// Writes into `dir` a root inheriting from [`DEPENDENCY_FILE_NAME`],
+    /// builds a unit over it, and asserts the import was reported as
+    /// unresolved, rather than resolved to a file Slang cannot use.
+    ///
+    /// The root inherits from the import so that Slang's binder has to look
+    /// the base contract up inside it.
+    fn assert_inheriting_from_the_dependency_is_unresolved(dir: &Path) {
+        let root = dir.join("Root.sol");
         std::fs::write(
             &root,
-            "pragma solidity ^0.8.0;
-import {Base} from \"./Missing.sol\";
-contract Derived is Base {}
-",
+            format!(
+                "pragma solidity ^0.8.0;\n\
+                 import {{Base}} from \"./{DEPENDENCY_FILE_NAME}\";\n\
+                 contract Derived is Base {{}}\n"
+            ),
         )
         .expect("write root");
 
@@ -125,6 +134,23 @@ contract Derived is Base {}
             "{:?}",
             unit.diagnostics()
         );
+    }
+
+    #[test]
+    fn inheriting_from_a_missing_import_reports_it_as_unresolved() {
+        let dir = tempfile::tempdir().expect("temp dir");
+
+        assert_inheriting_from_the_dependency_is_unresolved(dir.path());
+    }
+
+    #[test]
+    fn inheriting_from_an_unreadable_import_reports_it_as_unresolved() {
+        let dir = tempfile::tempdir().expect("temp dir");
+        // Invalid UTF-8: the file exists, but its text cannot be read.
+        std::fs::write(dir.path().join(DEPENDENCY_FILE_NAME), [0xff, 0xfe])
+            .expect("write dependency");
+
+        assert_inheriting_from_the_dependency_is_unresolved(dir.path());
     }
 
     #[test]
