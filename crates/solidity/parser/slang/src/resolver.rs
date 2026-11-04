@@ -273,35 +273,42 @@ mod tests {
     /// platform's separator doesn't matter (`normalize_path` emits `\` on
     /// Windows; the resolved string is only ever handed to
     /// `fs::read_to_string`, which accepts either separator).
-    fn assert_resolves(result: Result<String, String>, expected: &str) {
-        assert_eq!(result.map(PathBuf::from), Ok(PathBuf::from(expected)));
+    fn assert_resolves(result: Result<String, String>, expected: &Path) {
+        assert_eq!(result.map(PathBuf::from), Ok(expected.to_path_buf()));
+    }
+
+    /// An absolute directory that exists on every platform, so file ids are
+    /// not prefixed with a drive on Windows. No file under it is read.
+    fn project_dir() -> PathBuf {
+        std::env::temp_dir().join("project")
     }
 
     #[test]
     fn resolves_relative_imports_against_the_importer() {
         let resolver = ImportResolver::default();
+        let contracts = project_dir().join("contracts");
+        let a = contracts.join("A.sol");
+        let b = contracts.join("lib").join("B.sol");
+
         assert_resolves(
-            resolver.resolve_import("/project/contracts/A.sol", "./lib/B.sol"),
-            "/project/contracts/lib/B.sol",
+            resolver.resolve_import(&a.to_string_lossy(), "./lib/B.sol"),
+            &b,
         );
         assert_resolves(
-            resolver.resolve_import("/project/contracts/lib/B.sol", "../A.sol"),
-            "/project/contracts/A.sol",
+            resolver.resolve_import(&b.to_string_lossy(), "../A.sol"),
+            &a,
         );
     }
 
     #[test]
     fn resolves_mapped_imports() {
-        let resolver = ImportResolver::new(
-            [(
-                "@oz/contracts/token/ERC20.sol".to_owned(),
-                PathBuf::from("/deps/@oz/contracts/token/ERC20.sol"),
-            )]
-            .into(),
-        );
+        let import_path = "@oz/contracts/token/ERC20.sol";
+        let mapped = std::env::temp_dir().join("deps").join(import_path);
+        let resolver = ImportResolver::new([(import_path.to_owned(), mapped.clone())].into());
+
         assert_resolves(
-            resolver.resolve_import("/project/A.sol", "@oz/contracts/token/ERC20.sol"),
-            "/deps/@oz/contracts/token/ERC20.sol",
+            resolver.resolve_import(&project_dir().join("A.sol").to_string_lossy(), import_path),
+            &mapped,
         );
     }
 
