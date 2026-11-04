@@ -40,9 +40,9 @@ pub fn mark_precompile_calls<HasherT: BuildHasher>(
 /// A tracing inspector that uses a [`ContractDecoder`] to decode
 /// Solidity-specific information.
 ///
-/// Records the opcode steps of each call itself, in a compact form, so the
-/// wrapped [`TracingInspector`] is configured without steps; otherwise every
-/// step would be recorded twice.
+/// Records the opcode steps of each call itself, in a compact form. The
+/// wrapped [`TracingInspector`] is configured without steps, because otherwise
+/// every step would be recorded twice.
 pub struct SolidityTracingInspector {
     decoder: Arc<RwLock<ContractDecoder>>,
     inspector: TracingInspector,
@@ -139,8 +139,8 @@ impl SolidityTracingInspector {
         };
 
         // Reuses the previous step's memory if that step did not modify it.
-        // Taken from `TracingInspector::start_step` (revm-inspectors 0.44.2);
-        // revalidate when bumping revm-inspectors.
+        // Taken from `TracingInspector::start_step` (revm-inspectors 0.44.2),
+        // so revalidate it when bumping revm-inspectors.
         let memory = config.record_memory_snapshots.then(|| {
             let prev_step = self.step_recorder.last_step(node_idx);
             match prev_step {
@@ -153,7 +153,6 @@ impl SolidityTracingInspector {
             }
         });
 
-        // Only what EDR reads, unlike `TracingInspector`'s steps; see `RecordedStep`.
         let step = RecordedStep {
             pc: u32::try_from(interp.bytecode.pc()).expect("PC larger than u32::MAX"),
             op: OpCode::new_or_unknown(interp.bytecode.opcode()),
