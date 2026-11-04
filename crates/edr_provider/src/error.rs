@@ -26,7 +26,7 @@ use edr_signer::SignatureError;
 use edr_solidity::{
     contract_decoder::{ContractDecoder, ContractDecoderError},
     recorded_trace_arena::RecordedTraceArena,
-    solidity_stack_trace::{get_recorded_stack_trace, DeployedCode, StackTraceCreationResult},
+    solidity_stack_trace::{get_stack_trace, DeployedCode, StackTraceCreationResult},
 };
 use edr_state_api::StateError;
 use parking_lot::RwLock;
@@ -682,9 +682,10 @@ impl<HaltReasonT: HaltReasonTrait> TransactionFailure<HaltReasonT> {
         call_trace_arena: &RecordedTraceArena,
         contract_decoder: &RwLock<ContractDecoder>,
     ) -> Self {
-        let stack_trace_result = get_recorded_stack_trace(
+        let stack_trace_result = get_stack_trace(
             contract_decoder,
             call_trace_arena,
+            std::iter::empty(),
             DeployedCode {
                 creation: None,
                 runtime: Some(address_to_executed_code),
@@ -708,9 +709,10 @@ impl<HaltReasonT: HaltReasonTrait> TransactionFailure<HaltReasonT> {
         contract_decoder: &RwLock<ContractDecoder>,
     ) -> Self {
         let data = format!("0x{}", hex::encode(output.as_ref()));
-        let stack_trace_result = get_recorded_stack_trace(
+        let stack_trace_result = get_stack_trace(
             contract_decoder,
             call_trace_arena,
+            std::iter::empty(),
             DeployedCode {
                 creation: None,
                 runtime: Some(address_to_executed_code),

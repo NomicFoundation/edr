@@ -8,11 +8,10 @@ use derive_where::derive_where;
 use edr_chain_spec::HaltReasonTrait;
 use edr_primitives::{Address, Bytes, HashMap, U256};
 
-use self::conversion::StepSource;
 pub use self::conversion::{is_calllike_opcode, CallTraceArenaConversionError};
 use crate::{
     build_model::ContractMetadata, contracts_identifier::IdentifiedContract, exit_code::ExitCode,
-    recorded_trace_arena::RecordedTraceArena,
+    recorded_trace_arena::ArenaWithSteps,
 };
 
 /// An EVM trace where the steps are nested according to the call stack.
@@ -56,34 +55,21 @@ impl<HaltReasonT: HaltReasonTrait> NestedTrace<HaltReasonT> {
     ///   creation code
     /// * `address_to_runtime_code` - Mapping from contract addresses to their
     ///   runtime code
-    /// * `arena` - The call trace arena to convert
+    /// * `arena` - The call trace arena to convert: a `CallTraceArena` with its
+    ///   own steps, or a `RecordedTraceArena`
     ///
     /// # Errors
     ///
     /// Returns an error if the arena is empty or has an invalid root node.
-    pub fn from_call_trace_arena(
+    pub fn from_call_trace_arena<'arena>(
         address_to_creation_code: &HashMap<Address, &Bytes>,
         address_to_runtime_code: &HashMap<Address, &Bytes>,
-        arena: &revm_inspectors::tracing::CallTraceArena,
+        arena: impl Into<ArenaWithSteps<'arena>>,
     ) -> Result<Self, CallTraceArenaConversionError> {
         conversion::convert_from_arena(
             address_to_creation_code,
             address_to_runtime_code,
-            StepSource::Traced(arena),
-        )
-    }
-
-    /// Like [`Self::from_call_trace_arena`], for an arena whose steps were
-    /// recorded in a [`RecordedTraceArena`].
-    pub fn from_recorded_trace_arena(
-        address_to_creation_code: &HashMap<Address, &Bytes>,
-        address_to_runtime_code: &HashMap<Address, &Bytes>,
-        arena: &RecordedTraceArena,
-    ) -> Result<Self, CallTraceArenaConversionError> {
-        conversion::convert_from_arena(
-            address_to_creation_code,
-            address_to_runtime_code,
-            StepSource::Recorded(arena),
+            arena.into(),
         )
     }
 

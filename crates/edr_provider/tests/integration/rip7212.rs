@@ -103,7 +103,7 @@ async fn rip7212_enabled() -> anyhow::Result<()> {
         "0x0000000000000000000000000000000000000000000000000000000000000001"
     );
 
-    let nested_trace = NestedTrace::<edr_chain_l1::HaltReason>::from_recorded_trace_arena(
+    let nested_trace = NestedTrace::<edr_chain_l1::HaltReason>::from_call_trace_arena(
         &HashMap::default(),
         &HashMap::default(),
         response
@@ -153,7 +153,7 @@ async fn rip7212_enabled_post_osaka() -> anyhow::Result<()> {
         "0x0000000000000000000000000000000000000000000000000000000000000001"
     );
 
-    let nested_trace = NestedTrace::<edr_chain_l1::HaltReason>::from_recorded_trace_arena(
+    let nested_trace = NestedTrace::<edr_chain_l1::HaltReason>::from_call_trace_arena(
         &HashMap::default(),
         &HashMap::default(),
         response
