@@ -472,6 +472,7 @@ pub trait BlockEnvMut {
     fn set_basefee(&mut self, basefee: u64);
     fn set_beneficiary(&mut self, beneficiary: Address);
     fn set_number(&mut self, block_number: U256);
+    fn set_slot_num(&mut self, slot_num: u64);
     fn set_blob_excess_gas_and_price(
         &mut self,
         excess_blob_gas: u64,
@@ -510,6 +511,10 @@ impl BlockEnvMut for BlockEnv {
 
     fn set_number(&mut self, block_number: U256) {
         self.number = block_number;
+    }
+
+    fn set_slot_num(&mut self, slot_num: u64) {
+        self.slot_num = slot_num;
     }
 
     fn set_timestamp(&mut self, timestamp: U256) {
