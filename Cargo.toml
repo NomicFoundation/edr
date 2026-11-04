@@ -357,6 +357,7 @@ derive-where = { version = "1.6.0", default-features = false }
 evm-disassembler = "0.6"
 eyre = "0.6"
 flate2 = "1.1"
+globset = { version = "0.4", default-features = false }
 hex = { package = "const-hex", version = "1.6", features = ["hex"] }
 itertools = "0.15"
 jsonpath_lib = "0.3"

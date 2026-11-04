@@ -5,6 +5,7 @@ edition.workspace = true
 
 [dependencies]
 edr_common.workspace = true
+globset.workspace = true
 semver.workspace = true
 slang_solidity_v2.workspace = true
 thiserror.workspace = true
