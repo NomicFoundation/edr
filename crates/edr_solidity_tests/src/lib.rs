@@ -11,9 +11,9 @@ pub use runner::ContractRunner;
 
 mod config;
 pub use config::{
-    CollectStackTraces, FuzzConfigOverride, InvariantConfigOverride, SolidityTestRunnerConfig,
-    SolidityTestRunnerConfigError, SyncOnCollectedCoverageCallback, TestFunctionConfigOverride,
-    TimeoutConfig, MAX_TEST_TRANSACTION_GAS_LIMIT,
+    CollectStackTraces, FuzzConfigOverride, InvalidExclusionGlob, InvariantConfigOverride,
+    SolidityTestRunnerConfig, SolidityTestRunnerConfigError, SyncOnCollectedCoverageCallback,
+    TestFunctionConfigOverride, TimeoutConfig, MAX_TEST_TRANSACTION_GAS_LIMIT,
 };
 
 pub mod inline_config;
