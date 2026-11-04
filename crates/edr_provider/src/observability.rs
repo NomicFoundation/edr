@@ -18,14 +18,15 @@ use edr_inspector_bytecode::ExecutedBytecodeCollector;
 use edr_primitives::{Address, Bytes, HashMap, HashSet};
 use edr_receipt::{log::ExecutionLog, ExecutionResult};
 use edr_solidity::{
-    config::IncludeTraces, contract_decoder::ContractDecoder,
-    recorded_trace_arena::RecordedTraceArena, tracing::SolidityTracingInspector,
+    config::IncludeTraces,
+    contract_decoder::ContractDecoder,
+    recorded_trace_arena::RecordedTraceArena,
+    tracing::{SolidityTracingInspector, SolidityTracingInspectorArgs},
 };
 use edr_state_api::State;
 use parking_lot::RwLock;
 use revm_inspector::JournalExt;
 pub use revm_inspectors::tracing::StackSnapshotType;
-use revm_inspectors::tracing::{TracingInspector, TracingInspectorConfig};
 
 use crate::{
     console_log::ConsoleLogCollector,
@@ -129,6 +130,16 @@ impl EvmObserverConfig {
     }
 }
 
+impl From<&EvmObserverConfig> for SolidityTracingInspectorArgs {
+    fn from(config: &EvmObserverConfig) -> Self {
+        Self {
+            contract_decoder: config.contract_decoder.clone(),
+            record_memory: config.record_memory,
+            record_stack: config.record_stack,
+        }
+    }
+}
+
 /// An observer for the EVM that collects information about the execution by
 /// directly inspecting the EVM.
 ///
@@ -189,37 +200,25 @@ impl EvmObservedData {
 impl EvmObserver {
     /// Creates a new instance with the provided configuration.
     pub fn new(config: EvmObserverConfig) -> Self {
+        // The tracing inspector must be created unconditionally: the
+        // recorded traces are needed to generate stack traces for
+        // transaction failures (see `get_stack_trace`) and to detect
+        // internal out-of-gas errors during gas estimation (see
+        // `has_internal_oog`). Whether traces are also included in
+        // responses is decided separately, according to
+        // `include_call_traces`.
+        let tracing_inspector = SolidityTracingInspector::new((&config).into());
+
         let code_coverage = config
             .on_collected_coverage_fn
             .map(CodeCoverageReporter::new);
-
-        let tracing_config = TracingInspectorConfig::none()
-            .set_steps(false)
-            // Calldata and init code: without them, logs and stack traces
-            // cannot identify the called contract and function.
-            .set_record_inputs(true)
-            .set_memory_snapshots(config.record_memory)
-            .set_stack_snapshots(config.record_stack)
-            // Call traces include precompile calls, like Solidity test call traces.
-            .set_exclude_precompile_calls(false)
-            .set_record_logs(true);
 
         Self {
             bytecode_collector: ExecutedBytecodeCollector::default(),
             code_coverage,
             console_logger: ConsoleLogCollector::default(),
             mocker: Mocker::new(config.call_override.clone()),
-            // The tracing inspector must be created unconditionally: the
-            // recorded traces are needed to generate stack traces for
-            // transaction failures (see `get_stack_trace`) and to detect
-            // internal out-of-gas errors during gas estimation (see
-            // `has_internal_oog`). Whether traces are also included in
-            // responses is decided separately, according to
-            // `include_call_traces`.
-            tracing_inspector: SolidityTracingInspector::new(
-                TracingInspector::new(tracing_config),
-                config.contract_decoder,
-            ),
+            tracing_inspector,
         }
     }
 
