@@ -8,7 +8,7 @@ use crate::{
     build_model::ContractFunctionType,
     contract_decoder::{ContractDecoderError, NestedTraceDecoder},
     nested_trace::{CallTraceArenaConversionError, NestedTrace},
-    recorded_steps::{FrameSteps, RecordedTraceArena},
+    recorded_trace_arena::RecordedTraceArena,
     return_data::CheatcodeErrorDetails,
     solidity_tracer::{self, SolidityTracerError},
 };
@@ -298,13 +298,19 @@ pub fn get_stack_trace<
     code_sources: impl IntoIterator<Item = &'arena CallTraceArena>,
     deployed_code: DeployedCode<'arena>,
 ) -> Result<Vec<StackTraceEntry>, StackTraceCreationError<HaltReasonT>> {
-    get_stack_trace_with_steps(
-        contract_decoder,
-        failing_trace,
-        None,
-        code_sources,
+    let (address_to_creation_code, address_to_runtime_code) = code_by_address(
         deployed_code,
-    )
+        code_sources
+            .into_iter()
+            .chain(std::iter::once(failing_trace)),
+    );
+
+    let trace = NestedTrace::from_call_trace_arena(
+        &address_to_creation_code,
+        &address_to_runtime_code,
+        failing_trace,
+    )?;
+    stack_trace_from_nested_trace(contract_decoder, trace)
 }
 
 /// Like [`get_stack_trace`], for a failing trace whose steps were recorded in
@@ -318,26 +324,28 @@ pub fn get_recorded_stack_trace<
     failing_trace: &'arena RecordedTraceArena,
     deployed_code: DeployedCode<'arena>,
 ) -> Result<Vec<StackTraceEntry>, StackTraceCreationError<HaltReasonT>> {
-    get_stack_trace_with_steps(
-        contract_decoder,
-        failing_trace,
-        Some(failing_trace.all_node_steps()),
-        std::iter::empty(),
+    let (address_to_creation_code, address_to_runtime_code) = code_by_address(
         deployed_code,
-    )
+        std::iter::once(failing_trace.as_call_trace_arena()),
+    );
+
+    let trace = NestedTrace::from_recorded_trace_arena(
+        &address_to_creation_code,
+        &address_to_runtime_code,
+        failing_trace,
+    )?;
+    stack_trace_from_nested_trace(contract_decoder, trace)
 }
 
-fn get_stack_trace_with_steps<
-    'arena,
-    HaltReasonT: HaltReasonTrait,
-    NestedTraceDecoderT: NestedTraceDecoder<HaltReasonT>,
->(
-    contract_decoder: &NestedTraceDecoderT,
-    failing_trace: &'arena CallTraceArena,
-    recorded_steps: Option<&[FrameSteps]>,
-    code_sources: impl IntoIterator<Item = &'arena CallTraceArena>,
+/// Returns the creation and runtime code by address, from `deployed_code` and
+/// the contracts created in `code_sources`.
+fn code_by_address<'arena>(
     deployed_code: DeployedCode<'arena>,
-) -> Result<Vec<StackTraceEntry>, StackTraceCreationError<HaltReasonT>> {
+    code_sources: impl IntoIterator<Item = &'arena CallTraceArena>,
+) -> (
+    HashMap<Address, &'arena Bytes>,
+    HashMap<Address, &'arena Bytes>,
+) {
     let mut address_to_creation_code: HashMap<Address, &Bytes> = deployed_code
         .creation
         .map(|map| map.iter().map(|(k, v)| (*k, v)).collect())
@@ -348,10 +356,7 @@ fn get_stack_trace_with_steps<
         .map(|map| map.iter().map(|(k, v)| (*k, v)).collect())
         .unwrap_or_default();
 
-    for trace in code_sources
-        .into_iter()
-        .chain(std::iter::once(failing_trace))
-    {
+    for trace in code_sources {
         for node in trace.nodes() {
             let address = node.trace.address;
             if node.trace.kind.is_any_create() {
@@ -361,12 +366,16 @@ fn get_stack_trace_with_steps<
         }
     }
 
-    let trace = NestedTrace::from_call_trace_arena_with_steps(
-        &address_to_creation_code,
-        &address_to_runtime_code,
-        failing_trace,
-        recorded_steps,
-    )?;
+    (address_to_creation_code, address_to_runtime_code)
+}
+
+fn stack_trace_from_nested_trace<
+    HaltReasonT: HaltReasonTrait,
+    NestedTraceDecoderT: NestedTraceDecoder<HaltReasonT>,
+>(
+    contract_decoder: &NestedTraceDecoderT,
+    trace: NestedTrace<HaltReasonT>,
+) -> Result<Vec<StackTraceEntry>, StackTraceCreationError<HaltReasonT>> {
     let trace = contract_decoder.try_to_decode_nested_trace(trace)?;
     let stack_trace = solidity_tracer::get_stack_trace(trace)?;
     Ok(stack_trace)

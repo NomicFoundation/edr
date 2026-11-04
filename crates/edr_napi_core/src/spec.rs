@@ -9,7 +9,7 @@ use edr_provider::{
 };
 use edr_rpc_client::jsonrpc;
 use edr_solidity::{
-    recorded_steps::RecordedTraceArena, solidity_stack_trace::StackTraceCreationResult,
+    recorded_trace_arena::RecordedTraceArena, solidity_stack_trace::StackTraceCreationResult,
 };
 use edr_transaction::{IsEip155, IsEip4844, TransactionMut, TransactionType};
 use napi::{Either, Status};

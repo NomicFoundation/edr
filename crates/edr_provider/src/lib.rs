@@ -33,7 +33,7 @@ use core::fmt::Debug;
 
 pub use edr_block_miner::{MineBlockResultWithMetadata, MineBlockResultWithMetadataForChainSpec};
 use edr_primitives::HashSet;
-use edr_solidity::recorded_steps::RecordedTraceArena;
+use edr_solidity::recorded_trace_arena::RecordedTraceArena;
 use lazy_static::lazy_static;
 
 pub use self::{

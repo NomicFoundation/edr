@@ -4,7 +4,7 @@ use edr_primitives::Bytes;
 use edr_rpc_eth::StateOverrideOptions;
 use edr_runtime::{overrides::StateOverrides, transaction};
 use edr_signer::FakeSign as _;
-use edr_solidity::recorded_steps::RecordedTraceArena;
+use edr_solidity::recorded_trace_arena::RecordedTraceArena;
 
 use crate::{
     data::ProviderData,

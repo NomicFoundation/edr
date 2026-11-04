@@ -6,7 +6,7 @@ use std::sync::Arc;
 
 use edr_primitives::{address, bytes, Address, Bytes, HashMap, HashSet, U256};
 use edr_solidity::{
-    contract_decoder::ContractDecoder, recorded_steps::RecordedTraceArena,
+    contract_decoder::ContractDecoder, recorded_trace_arena::RecordedTraceArena,
     tracing::SolidityTracingInspector,
 };
 use edr_test_utils::bytecode::{opcode, BytecodeBuilder};
@@ -186,14 +186,15 @@ fn trace_both(to: Address, config: TracingInspectorConfig) -> (CallTraceArena, R
 }
 
 fn assert_same_steps(reference: &CallTraceArena, recorded: &RecordedTraceArena) {
+    // `nodes()` stops at the first node without a steps entry.
     assert_eq!(reference.nodes().len(), recorded.nodes().len());
-    assert_eq!(recorded.all_node_steps().len(), recorded.nodes().len());
 
     for (node_idx, node) in reference.nodes().iter().enumerate() {
         let expected = &node.trace.steps;
         let steps = recorded
-            .node_steps(node_idx)
-            .expect("steps are recorded for every node");
+            .node(node_idx)
+            .expect("steps are recorded for every node")
+            .steps();
         assert_eq!(steps.len(), expected.len(), "step count of node {node_idx}");
 
         for (step_idx, (step, expected)) in steps.iter().zip(expected).enumerate() {

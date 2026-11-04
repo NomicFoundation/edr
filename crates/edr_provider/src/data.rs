@@ -64,7 +64,8 @@ use edr_signer::{
     public_key_to_address, FakeSign as _, RecoveryMessage, Sign as _, SignatureWithRecoveryId,
 };
 use edr_solidity::{
-    config::IncludeTraces, contract_decoder::ContractDecoder, recorded_steps::RecordedTraceArena,
+    config::IncludeTraces, contract_decoder::ContractDecoder,
+    recorded_trace_arena::RecordedTraceArena,
 };
 use edr_state_api::{
     account::{Account, AccountInfo, AccountStatus},
@@ -1710,7 +1711,7 @@ where
                     execution_result,
                     transaction.kind(),
                     transaction.data().clone(),
-                    &inspector_data.call_trace_arena,
+                    inspector_data.call_trace_arena.as_call_trace_arena(),
                     &inspector_data.address_to_executed_code,
                 ) {
                     Ok(()) => (),
@@ -2538,7 +2539,10 @@ where
                     observed_execution.result(),
                     kind,
                     input.clone(),
-                    &observed_execution.evm_observed_data.call_trace_arena,
+                    observed_execution
+                        .evm_observed_data
+                        .call_trace_arena
+                        .as_call_trace_arena(),
                     &observed_execution.evm_observed_data.address_to_executed_code,
                 ) {
                     Ok(report) => report,
@@ -3830,6 +3834,7 @@ mod tests {
             let has_nested_inner_frame = observed
                 .evm_observed_data
                 .call_trace_arena
+                .as_call_trace_arena()
                 .nodes()
                 .iter()
                 .any(|node| {

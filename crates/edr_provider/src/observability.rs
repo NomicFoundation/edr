@@ -18,8 +18,8 @@ use edr_inspector_bytecode::ExecutedBytecodeCollector;
 use edr_primitives::{Address, Bytes, HashMap, HashSet};
 use edr_receipt::{log::ExecutionLog, ExecutionResult};
 use edr_solidity::{
-    config::IncludeTraces, contract_decoder::ContractDecoder, recorded_steps::RecordedTraceArena,
-    tracing::SolidityTracingInspector,
+    config::IncludeTraces, contract_decoder::ContractDecoder,
+    recorded_trace_arena::RecordedTraceArena, tracing::SolidityTracingInspector,
 };
 use edr_state_api::State;
 use parking_lot::RwLock;

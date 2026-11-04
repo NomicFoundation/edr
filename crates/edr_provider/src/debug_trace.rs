@@ -10,7 +10,7 @@ use edr_chain_spec_evm::{BlockEnvTrait as _, CfgEnv, DatabaseComponentError, Tra
 use edr_evm::{dry_run_with_inspector, run};
 use edr_primitives::{HashMap, B256, U256};
 use edr_runtime::inspector::DualInspector;
-use edr_solidity::recorded_steps::RecordedTraceArena;
+use edr_solidity::recorded_trace_arena::RecordedTraceArena;
 use edr_state_api::{DynState, StateError};
 use revm_inspectors::tracing::{DebugInspector, DebugInspectorError, MuxError, TransactionContext};
 
