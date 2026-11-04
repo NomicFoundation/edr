@@ -178,9 +178,9 @@ impl JsonRpcError for EvmObserverCollectionError {
 pub struct EvmObservedData {
     /// Mapping of contract address to executed bytecode
     pub address_to_executed_code: HashMap<Address, Bytes>,
-    /// The call trace arena collected during execution, including ABI-decoded
+    /// The trace collected during execution, including ABI-decoded
     /// information.
-    pub call_trace_arena: RecordedTraceArena,
+    pub execution_trace: RecordedTraceArena,
     /// Encoded `console.log` call inputs
     pub encoded_console_logs: Vec<Bytes>,
 }
@@ -193,7 +193,7 @@ impl EvmObservedData {
     ) -> Option<RecordedTraceArena> {
         include
             .should_include(|| !is_success)
-            .then_some(self.call_trace_arena)
+            .then_some(self.execution_trace)
     }
 }
 
@@ -242,13 +242,13 @@ impl EvmObserver {
         }
 
         let address_to_executed_code = bytecode_collector.collect();
-        let call_trace_arena = tracing_inspector
+        let execution_trace = tracing_inspector
             .collect(&address_to_executed_code, precompile_addresses)
             .map_err(EvmObserverCollectionError::AbiDecoding)?;
 
         Ok(EvmObservedData {
             address_to_executed_code,
-            call_trace_arena,
+            execution_trace,
             encoded_console_logs: console_logger.into_encoded_messages(),
         })
     }
@@ -273,7 +273,7 @@ impl EvmObserver {
                 .map_err(EvmObserverCollectionError::OnCollectedCoverageCallback)?;
         }
 
-        let call_trace_arena = tracing_inspector
+        let execution_trace = tracing_inspector
             .take(&address_to_executed_code, precompile_addresses)
             .map_err(EvmObserverCollectionError::AbiDecoding)?;
 
@@ -281,7 +281,7 @@ impl EvmObserver {
 
         Ok(EvmObservedData {
             address_to_executed_code,
-            call_trace_arena,
+            execution_trace,
             encoded_console_logs,
         })
     }
@@ -428,11 +428,11 @@ impl<ExecutionResultT: WithExecutionResult> ObservedExecution<ExecutionResultT> 
     pub fn into_result_and_filtered_traces(self) -> (ExecutionResultT, Option<RecordedTraceArena>) {
         let is_success = self.execution_result.result().is_success();
 
-        let call_trace_arena = self
+        let execution_trace = self
             .evm_observed_data
             .into_call_traces(self.include_call_traces, is_success);
 
-        (self.execution_result, call_trace_arena)
+        (self.execution_result, execution_trace)
     }
 }
 

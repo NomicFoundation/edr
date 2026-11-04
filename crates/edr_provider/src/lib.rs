@@ -69,7 +69,7 @@ pub type ProviderResultWithCallTraces<T, ChainSpecT> =
 pub struct ResponseWithCallTraces {
     /// The serialized JSON-RPC result.
     pub result: Box<serde_json::value::RawValue>,
-    pub call_trace_arenas: Vec<RecordedTraceArena>,
+    pub execution_traces: Vec<RecordedTraceArena>,
 }
 
 impl ResponseWithCallTraces {
@@ -92,7 +92,7 @@ fn to_json<
 
     Ok(ResponseWithCallTraces {
         result: response,
-        call_trace_arenas: Vec::new(),
+        execution_traces: Vec::new(),
     })
 }
 
@@ -108,7 +108,7 @@ fn to_json_with_trace<
 
     Ok(ResponseWithCallTraces {
         result: response,
-        call_trace_arenas: value.1.into_iter().collect(),
+        execution_traces: value.1.into_iter().collect(),
     })
 }
 
@@ -124,6 +124,6 @@ fn to_json_with_traces<
 
     Ok(ResponseWithCallTraces {
         result: response,
-        call_trace_arenas: value.1,
+        execution_traces: value.1,
     })
 }

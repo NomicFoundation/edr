@@ -302,7 +302,7 @@ fn send_raw_transaction_and_log<
                     execution_result,
                     Some(&result.transaction_hash),
                     &observed_data.address_to_executed_code,
-                    &observed_data.call_trace_arena,
+                    &observed_data.execution_trace,
                     data.contract_decoder(),
                 )
             },
@@ -315,7 +315,7 @@ fn send_raw_transaction_and_log<
             return Err(ProviderError::TransactionFailed(Box::new(
                 TransactionFailureWithCallTraces {
                     failure,
-                    call_trace_arenas: traces,
+                    execution_traces: traces,
                 },
             )));
         }

@@ -607,7 +607,7 @@ impl<
 pub struct EstimateGasFailure<HaltReasonT: HaltReasonTrait> {
     /// Mapping of contract address to executed bytecode
     pub address_to_executed_code: HashMap<Address, Bytes>,
-    pub call_trace_arena: RecordedTraceArena,
+    pub execution_trace: RecordedTraceArena,
     pub encoded_console_logs: Vec<Bytes>,
     /// The set of precompile addresses that were available during execution.
     pub precompile_addresses: HashSet<Address>,
@@ -623,7 +623,7 @@ impl<HaltReasonT: HaltReasonTrait> std::fmt::Display for EstimateGasFailure<Halt
 #[derive(Clone, Debug, thiserror::Error)]
 pub struct TransactionFailureWithCallTraces<HaltReasonT: HaltReasonTrait> {
     pub failure: TransactionFailure<HaltReasonT>,
-    pub call_trace_arenas: Vec<RecordedTraceArena>,
+    pub execution_traces: Vec<RecordedTraceArena>,
 }
 
 impl<HaltReasonT: HaltReasonTrait> std::fmt::Display
@@ -653,7 +653,7 @@ impl<HaltReasonT: HaltReasonTrait> TransactionFailure<HaltReasonT> {
         execution_result: &ExecutionResult<HaltReasonT>,
         transaction_hash: Option<&B256>,
         address_to_executed_code: &HashMap<Address, Bytes>,
-        call_trace_arena: &RecordedTraceArena,
+        execution_trace: &RecordedTraceArena,
         contract_decoder: &RwLock<ContractDecoder>,
     ) -> Option<TransactionFailure<HaltReasonT>> {
         match execution_result {
@@ -662,14 +662,14 @@ impl<HaltReasonT: HaltReasonTrait> TransactionFailure<HaltReasonT> {
                 output.clone(),
                 transaction_hash.copied(),
                 address_to_executed_code,
-                call_trace_arena,
+                execution_trace,
                 contract_decoder,
             )),
             ExecutionResult::Halt { reason, .. } => Some(TransactionFailure::halt(
                 NewChainSpecT::cast_halt_reason(reason.clone()),
                 transaction_hash.copied(),
                 address_to_executed_code,
-                call_trace_arena,
+                execution_trace,
                 contract_decoder,
             )),
         }
@@ -679,12 +679,12 @@ impl<HaltReasonT: HaltReasonTrait> TransactionFailure<HaltReasonT> {
         reason: TransactionFailureReason<HaltReasonT>,
         tx_hash: Option<B256>,
         address_to_executed_code: &HashMap<Address, Bytes>,
-        call_trace_arena: &RecordedTraceArena,
+        execution_trace: &RecordedTraceArena,
         contract_decoder: &RwLock<ContractDecoder>,
     ) -> Self {
         let stack_trace_result = get_stack_trace(
             contract_decoder,
-            call_trace_arena,
+            execution_trace,
             std::iter::empty(),
             DeployedCode {
                 creation: None,
@@ -705,13 +705,13 @@ impl<HaltReasonT: HaltReasonTrait> TransactionFailure<HaltReasonT> {
         output: Bytes,
         transaction_hash: Option<B256>,
         address_to_executed_code: &HashMap<Address, Bytes>,
-        call_trace_arena: &RecordedTraceArena,
+        execution_trace: &RecordedTraceArena,
         contract_decoder: &RwLock<ContractDecoder>,
     ) -> Self {
         let data = format!("0x{}", hex::encode(output.as_ref()));
         let stack_trace_result = get_stack_trace(
             contract_decoder,
-            call_trace_arena,
+            execution_trace,
             std::iter::empty(),
             DeployedCode {
                 creation: None,

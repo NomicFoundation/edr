@@ -129,14 +129,14 @@ const DEFAULT_SKIP_UNSUPPORTED_TRANSACTION_TYPES: bool = false;
 /// The result of executing an `eth_call`.
 #[derive(Clone, Debug)]
 pub struct CallResult<HaltReasonT: HaltReasonTrait> {
-    pub call_trace_arena: Option<RecordedTraceArena>,
+    pub execution_trace: Option<RecordedTraceArena>,
     pub execution_result: ExecutionResult<HaltReasonT>,
 }
 
 pub struct CallResultWithMetadata<HaltReasonT: HaltReasonTrait> {
     /// Mapping of contract address to executed bytecode
     pub address_to_executed_code: HashMap<Address, Bytes>,
-    pub call_trace_arena: RecordedTraceArena,
+    pub execution_trace: RecordedTraceArena,
     pub console_log_inputs: Vec<Bytes>,
     pub execution_result: ExecutionResult<HaltReasonT>,
     /// The set of precompile addresses that were available during execution.
@@ -147,9 +147,9 @@ impl<HaltReasonT: HaltReasonTrait> CallResultWithMetadata<HaltReasonT> {
     /// Converts into a [`CallResult`], discarding metadata.
     pub fn into_call_result(self, include_traces: IncludeTraces) -> CallResult<HaltReasonT> {
         CallResult {
-            call_trace_arena: include_traces
+            execution_trace: include_traces
                 .should_include(|| !self.execution_result.is_success())
-                .then_some(self.call_trace_arena),
+                .then_some(self.execution_trace),
             execution_result: self.execution_result,
         }
     }
@@ -158,7 +158,7 @@ impl<HaltReasonT: HaltReasonTrait> CallResultWithMetadata<HaltReasonT> {
     pub fn into_call_traces(self, include_traces: IncludeTraces) -> Option<RecordedTraceArena> {
         include_traces
             .should_include(|| !self.execution_result.is_success())
-            .then_some(self.call_trace_arena)
+            .then_some(self.execution_trace)
     }
 }
 
@@ -168,7 +168,7 @@ impl<HaltReasonT: HaltReasonTrait> From<ObservedExecution<ExecutionResultWithMet
     fn from(value: ObservedExecution<ExecutionResultWithMetadata<HaltReasonT>>) -> Self {
         Self {
             address_to_executed_code: value.evm_observed_data.address_to_executed_code,
-            call_trace_arena: value.evm_observed_data.call_trace_arena,
+            execution_trace: value.evm_observed_data.execution_trace,
             console_log_inputs: value.evm_observed_data.encoded_console_logs,
             execution_result: value.execution_result.result,
             precompile_addresses: value.execution_result.precompile_addresses,
@@ -1711,7 +1711,7 @@ where
                     execution_result,
                     transaction.kind(),
                     transaction.data().clone(),
-                    inspector_data.call_trace_arena.as_call_trace_arena(),
+                    inspector_data.execution_trace.as_call_trace_arena(),
                     &inspector_data.address_to_executed_code,
                 ) {
                     Ok(()) => (),
@@ -2039,7 +2039,7 @@ where
                 state: state.as_ref(),
             });
 
-            let (execution_result, call_trace_arena) =
+            let (execution_result, execution_trace) =
                 observed_execution.into_result_and_filtered_traces();
 
             let geth_trace = debug_inspector
@@ -2054,7 +2054,7 @@ where
 
             Ok(DebugTraceResultWithCallTraces {
                 result: geth_trace,
-                call_trace_arenas: call_trace_arena.into_iter().collect(),
+                execution_traces: execution_trace.into_iter().collect(),
             })
         })?
     }
@@ -2457,14 +2457,14 @@ where
                 &call_result.execution_result,
                 None,
                 &call_result.address_to_executed_code,
-                &call_result.call_trace_arena,
+                &call_result.execution_trace,
                 self.contract_decoder.as_ref(),
             )
         {
             return Err(ProviderError::TransactionFailed(Box::new(
                 TransactionFailureWithCallTraces {
                     failure,
-                    call_trace_arenas: call_result
+                    execution_traces: call_result
                         .into_call_traces(self.observability.include_call_traces)
                         .into_iter()
                         .collect(),
@@ -2541,7 +2541,7 @@ where
                     input.clone(),
                     observed_execution
                         .evm_observed_data
-                        .call_trace_arena
+                        .execution_trace
                         .as_call_trace_arena(),
                     &observed_execution.evm_observed_data.address_to_executed_code,
                 ) {
@@ -3833,7 +3833,7 @@ mod tests {
 
             let has_nested_inner_frame = observed
                 .evm_observed_data
-                .call_trace_arena
+                .execution_trace
                 .as_call_trace_arena()
                 .nodes()
                 .iter()

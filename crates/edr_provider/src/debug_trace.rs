@@ -71,7 +71,7 @@ pub fn debug_trace_transaction<'header, ChainSpecT: BlockChainSpec<SignedTransac
                 state: state.as_ref(),
             });
 
-            let (execution_result, call_trace_arena) =
+            let (execution_result, execution_trace) =
                 observed_execution.into_result_and_filtered_traces();
 
             let geth_trace = debug_inspector
@@ -89,7 +89,7 @@ pub fn debug_trace_transaction<'header, ChainSpecT: BlockChainSpec<SignedTransac
                 .map_err(DebugTraceError::from_debug_inspector_result_error)?;
 
             return Ok(DebugTraceResultWithCallTraces {
-                call_trace_arenas: call_trace_arena.into_iter().collect(),
+                execution_traces: execution_trace.into_iter().collect(),
                 result: geth_trace,
             });
         } else {
@@ -244,7 +244,7 @@ impl<TransactionValidationErrorT> JsonRpcError for DebugTraceError<TransactionVa
 /// Result of a `debug_traceTransaction` call with call trace.
 pub struct DebugTraceResultWithCallTraces {
     /// The raw traces of the debugged transaction.
-    pub call_trace_arenas: Vec<RecordedTraceArena>,
+    pub execution_traces: Vec<RecordedTraceArena>,
     /// The result of the transaction.
     pub result: GethTrace,
 }

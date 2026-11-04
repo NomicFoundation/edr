@@ -71,7 +71,7 @@ async fn transaction_call_trace_includes_logs() -> anyhow::Result<()> {
     ))?;
 
     let arena = response
-        .call_trace_arenas
+        .execution_traces
         .first()
         .expect("Transaction should have a call trace");
 
