@@ -343,10 +343,10 @@ mod tests {
         let mut recorder = SourceRecorder::expecting([]);
         let mut provider = SourceProvider::new(&resolver, &mut recorder);
 
-        assert_resolves(provider.resolve_import(&first_id, "./Dep.sol"), &dep_id);
+        assert_resolves(provider.resolve_import(&first_id, "./Dep.sol"), &dep);
         std::fs::remove_file(&dep).expect("remove dependency");
 
-        assert_resolves(provider.resolve_import(&second_id, "./Dep.sol"), &dep_id);
+        assert_resolves(provider.resolve_import(&second_id, "./Dep.sol"), &dep);
         assert_eq!(provider.read_file(&dep_id), Ok("on disk".to_owned()));
     }
 
