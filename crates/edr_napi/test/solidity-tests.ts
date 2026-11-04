@@ -321,6 +321,7 @@ describe("Solidity Tests", () => {
 
     assert.equal(suite.testResults.length, 1);
     assert.equal(suite.testResults[0].status, "Failure");
+    assert.include(suite.testResults[0].reason, "conflicting definitions");
   });
 
   it("rejects an exclusion glob that cannot be compiled", async function () {

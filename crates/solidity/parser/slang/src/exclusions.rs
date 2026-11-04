@@ -65,11 +65,6 @@ impl SourceExclusions {
         })
     }
 
-    /// Whether no glob was configured, so nothing is excluded.
-    pub fn is_empty(&self) -> bool {
-        self.globs.is_empty()
-    }
-
     /// Whether the file held under `file_id` is excluded.
     pub fn excludes(&self, file_id: &str) -> bool {
         self.globs.is_match(self.match_path(file_id))
@@ -156,7 +151,6 @@ mod tests {
     fn an_empty_set_matches_nothing() {
         let exclusions = exclusions(&[]);
 
-        assert!(exclusions.is_empty());
         assert!(!exclusions.excludes(&file_in_root("contracts/vendor/Permit.sol")));
     }
 

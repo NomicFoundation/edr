@@ -262,12 +262,15 @@ fn collect_root(
     )?;
     // The root stays the scoping id even when it is excluded, so a clash it
     // would otherwise settle is left to the remaining files.
-    let collected_from: HashSet<&str> = reachable
+    let (excluded_from, collected_from): (HashSet<&str>, HashSet<&str>) = reachable
         .iter()
         .copied()
-        .filter(|reached| !exclusions.excludes(reached))
-        .collect();
-    let eip712_types = Arc::new(version_unit.structs.types_for(file_id, &collected_from));
+        .partition(|reached| exclusions.excludes(reached));
+    let eip712_types = Arc::new(version_unit.structs.types_for(
+        file_id,
+        &collected_from,
+        &excluded_from,
+    ));
 
     Ok(SourceCollections {
         eip712_types,
@@ -408,7 +411,7 @@ mod tests {
     fn collect_with_defaults(
         roots: &[TestSourceRoot],
     ) -> Result<HashMap<PathBuf, SourceCollections>, Vec<TestSourceErrorItem>> {
-        collect_excluding(roots, Path::new(""), &[])
+        collect_excluding(roots, &std::env::temp_dir(), &[])
     }
 
     fn unwrap_collected<T>(result: Result<T, Vec<TestSourceErrorItem>>) -> T {
@@ -1293,9 +1296,16 @@ contract BadContractLevel {
 
         let collected = unwrap_collected(collect_excluding(&[root], dir.path(), &[VENDOR_GLOB]));
 
-        assert!(collected_for(&collected, FIXTURE_SOURCE)
+        let error = collected_for(&collected, FIXTURE_SOURCE)
             .eip712_types
-            .is_empty());
+            .get("Permit")
+            .expect_err("the excluded source's own struct is not served");
+        assert!(
+            error
+                .to_string()
+                .contains("excluded from EIP-712 type collection"),
+            "{error}"
+        );
     }
 
     #[test]
