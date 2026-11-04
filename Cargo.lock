@@ -3748,7 +3748,7 @@ dependencies = [
  "edr_solidity_parser_slang",
  "semver 1.0.28",
  "slang_solidity_v2",
- "thiserror 2.0.20",
+ "thiserror 2.0.21",
 ]
 
 [[package]]
@@ -3759,7 +3759,7 @@ dependencies = [
  "semver 1.0.28",
  "slang_solidity_v2",
  "tempfile",
- "thiserror 2.0.20",
+ "thiserror 2.0.21",
 ]
 
 [[package]]
