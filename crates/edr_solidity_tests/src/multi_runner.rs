@@ -314,8 +314,9 @@ impl<
     /// Reads and parses the sources of the selected `test_contracts`, keyed by
     /// source name, or `None` when collection is disabled.
     ///
-    /// Several suites can share one source, which is parsed once. Every source
-    /// that is not in the result failed, and fails the run.
+    /// Several suites can share one source, which is parsed once. A selected
+    /// source missing from the result was reported as a problem, which fails
+    /// the run before the result is used.
     fn collect_sources<'a>(
         &self,
         test_contracts: impl IntoIterator<Item = &'a ArtifactId>,

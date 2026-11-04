@@ -238,15 +238,21 @@ impl CompilationBuilderConfig for SourceProvider<'_> {
             .import_resolver
             .resolve_import(source_file_id, import_path)?;
 
-        if !self.import_texts.contains_key(&resolved) {
-            let text = std::fs::read_to_string(Path::new(&resolved)).map_err(|error| {
-                format!(
-                    "import '{import_path}' resolves to '{resolved}', which could not be read: \
-                     {error}"
-                )
-            })?;
+        // A root Slang already read is neither read again nor served again,
+        // because Slang reads every file once.
+        match self.recorder.roots.get(&resolved) {
+            Some(RootRead::Read(_)) => {}
+            Some(RootRead::Unreadable(error)) => {
+                return Err(unreadable_import(import_path, &resolved, error));
+            }
+            Some(RootRead::Pending) | None => {
+                if !self.import_texts.contains_key(&resolved) {
+                    let text = std::fs::read_to_string(Path::new(&resolved))
+                        .map_err(|error| unreadable_import(import_path, &resolved, &error))?;
 
-            self.import_texts.insert(resolved.clone(), Some(text));
+                    self.import_texts.insert(resolved.clone(), Some(text));
+                }
+            }
         }
 
         self.recorder
@@ -257,6 +263,10 @@ impl CompilationBuilderConfig for SourceProvider<'_> {
 
         Ok(resolved)
     }
+}
+
+fn unreadable_import(import_path: &str, resolved: &str, error: &std::io::Error) -> String {
+    format!("import '{import_path}' resolves to '{resolved}', which could not be read: {error}")
 }
 
 /// Whether an import path is relative (resolved against the importer) rather

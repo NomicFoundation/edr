@@ -58,9 +58,9 @@ impl Eip712Type {
                     reason: error.to_string(),
                 })?;
 
-        // The primary type heads the canonical form whatever order the input
-        // listed its types in, so its name has to come from there.
-        let (name, _members) = canonical_definition
+        // The canonical form starts with the primary type whatever order the
+        // input listed its types in.
+        let (name, _) = canonical_definition
             .split_once(MEMBER_LIST_START)
             .expect("a canonicalized type definition opens its primary type's member list");
 
