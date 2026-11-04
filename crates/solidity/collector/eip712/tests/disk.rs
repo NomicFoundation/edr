@@ -6,12 +6,13 @@
 
 use std::{collections::HashMap, path::PathBuf};
 
-use edr_solidity_collector_eip712::{
-    collector::{Eip712TypeCollection, UnitStructs},
-    ImportResolver,
-};
-use edr_solidity_parser_slang::compilation::{
-    build_multi_root_compilation_unit, file_id_of, language_version_for_solc, MultiRootCompilation,
+use edr_solidity_collector_eip712::collector::{Eip712TypeCollection, UnitStructs};
+use edr_solidity_parser_slang::{
+    compilation::{
+        build_multi_root_compilation_unit, file_id_of, language_version_for_solc,
+        MultiRootCompilation,
+    },
+    resolver::ImportResolver,
 };
 use semver::Version;
 
