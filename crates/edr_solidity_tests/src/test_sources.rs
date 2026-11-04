@@ -10,14 +10,12 @@
 //! The units are dropped afterwards, so nothing is cached beyond the extracted
 //! data.
 //!
-//! Only the sources of the suites a run selects are parsed.
-//! `MultiContractRunner::test` applies the test filter before collection runs,
-//! and `test_source_roots` builds roots only from the selected artifacts, so an
-//! entry in `test_source_paths` that no selected suite uses is never opened.
-//! Problems are accumulated across every source that is read, such as an
-//! unreadable file, a solc version with no grammar, a source that does not
-//! parse, or an ill-formed directive, and returned together, so one run reports
-//! every problem rather than the first.
+//! Only the sources of the suites a run selects are parsed as roots, so an
+//! entry in `test_source_paths` that no selected suite uses is parsed only when
+//! a selected source imports it. Every problem is accumulated and returned
+//! together, whether an unreadable file, a solc version with no grammar, a
+//! source that does not parse, or an ill-formed directive, so one run reports
+//! them all rather than the first.
 
 use std::{
     borrow::Cow,
