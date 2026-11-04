@@ -35,7 +35,7 @@ pub fn handle_call_request<
     let result = data.run_call(transaction, &block_spec, &state_overrides)?;
 
     let output = result.execution_result.into_output().unwrap_or_default();
-    Ok((output, result.call_trace_arena))
+    Ok((output, result.execution_trace))
 }
 
 pub(crate) fn resolve_block_spec_for_call_request(block_spec: Option<BlockSpec>) -> BlockSpec {
