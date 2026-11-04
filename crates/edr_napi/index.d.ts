@@ -853,8 +853,6 @@ export declare enum IncludeTraces {
  * Its tag names the half of the `TestSourceError` union it belongs to,
  * not its own type, because the two halves differ in shape rather than in
  * what went wrong.
- *
- * Build it with [`Self::new`], which sets the `kind` tag.
  */
 export interface InlineConfigDirectiveError {
   /** Discriminant tag for the union this belongs to. */
@@ -879,16 +877,11 @@ export interface InlineConfigDirectiveError {
 
 /**
  * The problem in a single inline-config directive, as a discriminated union
- * over its `kind` tag — mirroring the Rust-side `InlineConfigError` enum so
- * consumers can map each problem onto their own error types.
+ * over its `kind` tag.
  */
 export type InlineConfigDirectiveProblem = InlineConfigInvalidSyntax | InlineConfigUndeclaredProfile | InlineConfigInvalidKey | InlineConfigInvalidKeyForTestType | InlineConfigInvalidValue | InlineConfigDuplicateKey
 
-/**
- * The same key was set twice for the same target.
- *
- * Build it with [`Self::new`], which sets the `kind` tag.
- */
+/** The same key was set twice for the same target. */
 export interface InlineConfigDuplicateKey {
   /** Discriminant tag for the union this belongs to. */
   kind: "InlineConfigDuplicateKey"
@@ -896,11 +889,7 @@ export interface InlineConfigDuplicateKey {
   key: string
 }
 
-/**
- * An unknown configuration key was used.
- *
- * Build it with [`Self::new`], which sets the `kind` tag.
- */
+/** An unknown configuration key was used. */
 export interface InlineConfigInvalidKey {
   /** Discriminant tag for the union this belongs to. */
   kind: "InlineConfigInvalidKey"
@@ -910,9 +899,7 @@ export interface InlineConfigInvalidKey {
 
 /**
  * A key was used on a test of the wrong kind (e.g. `fuzz.*` on an
- * invariant test).
- *
- * Build it with [`Self::new`], which sets the `kind` tag.
+ * invariant test). Only function-level directives can produce this.
  */
 export interface InlineConfigInvalidKeyForTestType {
   /** Discriminant tag for the union this belongs to. */
@@ -923,11 +910,7 @@ export interface InlineConfigInvalidKeyForTestType {
   testType: string
 }
 
-/**
- * A directive was missing the `=` separator.
- *
- * Build it with [`Self::new`], which sets the `kind` tag.
- */
+/** A directive was missing the `=` separator. */
 export interface InlineConfigInvalidSyntax {
   /** Discriminant tag for the union this belongs to. */
   kind: "InlineConfigInvalidSyntax"
@@ -935,11 +918,7 @@ export interface InlineConfigInvalidSyntax {
   directive: string
 }
 
-/**
- * A value did not match the expected type for its key.
- *
- * Build it with [`Self::new`], which sets the `kind` tag.
- */
+/** A value did not match the expected type for its key. */
 export interface InlineConfigInvalidValue {
   /** Discriminant tag for the union this belongs to. */
   kind: "InlineConfigInvalidValue"
@@ -951,11 +930,7 @@ export interface InlineConfigInvalidValue {
   expected: string
 }
 
-/**
- * A directive named a profile the project does not declare.
- *
- * Build it with [`Self::new`], which sets the `kind` tag.
- */
+/** A directive named a profile the project does not declare. */
 export interface InlineConfigUndeclaredProfile {
   /** Discriminant tag for the union this belongs to. */
   kind: "InlineConfigUndeclaredProfile"
@@ -1870,8 +1845,6 @@ export interface SuiteResult {
  * A directive's offset could not be resolved to a line number within its
  * source, meaning the parsing stages disagree about the source text, so
  * its directives cannot be trusted.
- *
- * Build it with [`Self::new`], which sets the `kind` tag.
  */
 export interface TestSourceDirectiveLocation {
   /** Discriminant tag for the union this belongs to. */
@@ -1907,8 +1880,6 @@ export type TestSourceError = TestSourceFileError | InlineConfigDirectiveError
  * Its tag names the half of the `TestSourceError` union it belongs to,
  * not its own type, because the two halves differ in shape rather than in
  * what went wrong.
- *
- * Build it with [`Self::new`], which sets the `kind` tag.
  */
 export interface TestSourceFileError {
   /** Discriminant tag for the union this belongs to. */
@@ -1922,11 +1893,7 @@ export interface TestSourceFileError {
   problem: TestSourceFileProblem
 }
 
-/**
- * The source's file could not be read at the path it was declared at.
- *
- * Build it with [`Self::new`], which sets the `kind` tag.
- */
+/** The source's file could not be read at the path it was declared at. */
 export interface TestSourceFileNotFound {
   /** Discriminant tag for the union this belongs to. */
   kind: "TestSourceFileNotFound"
@@ -1947,8 +1914,6 @@ export type TestSourceFileProblem = TestSourceFileNotFound | TestSourceDirective
  * collected from it. A partially-parsed file would silently miss struct
  * definitions and directives, so it is reported rather than
  * half-collected.
- *
- * Build it with [`Self::new`], which sets the `kind` tag.
  */
 export interface TestSourceParseErrors {
   /** Discriminant tag for the union this belongs to. */
@@ -1964,8 +1929,6 @@ export interface TestSourceParseErrors {
 /**
  * The test source has no `testSourcePaths` entry, so it is not located,
  * read, or parsed.
- *
- * Build it with [`Self::new`], which sets the `kind` tag.
  */
 export interface TestSourcePathNotProvided {
   /** Discriminant tag for the union this belongs to. */
@@ -1979,8 +1942,6 @@ export interface TestSourcePathNotProvided {
  * solc 0.8.0 or newer, and no source is exempt. A run that selects this
  * one can only proceed with collection disabled entirely, by omitting
  * `testSourcePaths`.
- *
- * Build it with [`Self::new`], which sets the `kind` tag.
  */
 export interface TestSourceUnsupportedSolcVersion {
   /** Discriminant tag for the union this belongs to. */

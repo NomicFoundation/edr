@@ -38,7 +38,7 @@ impl_structured_napi_error! {
 
 impl_structured_napi_error! {
     /// A key was used on a test of the wrong kind (e.g. `fuzz.*` on an
-    /// invariant test).
+    /// invariant test). Only function-level directives can produce this.
     pub struct InlineConfigInvalidKeyForTestType {
         /// The offending key, exactly as written.
         pub key: String,
@@ -68,8 +68,7 @@ impl_structured_napi_error! {
 }
 
 /// The problem in a single inline-config directive, as a discriminated union
-/// over its `kind` tag — mirroring the Rust-side `InlineConfigError` enum so
-/// consumers can map each problem onto their own error types.
+/// over its `kind` tag.
 #[napi]
 pub type InlineConfigDirectiveProblem = Either6<
     InlineConfigInvalidSyntax,

@@ -10,10 +10,13 @@
 //! The units are dropped afterwards, so nothing is cached beyond the extracted
 //! data.
 //!
-//! Every source named by `test_source_paths` is parsed; nothing is exempt and
-//! nothing is skipped. Problems are accumulated across all of them — an
+//! Only the sources of the suites a run selects are parsed.
+//! `MultiContractRunner::test` applies the test filter before collection runs,
+//! and `test_source_roots` builds roots only from the selected artifacts, so an
+//! entry in `test_source_paths` that no selected suite uses is never opened.
+//! Problems are accumulated across every source that is read, such as an
 //! unreadable file, a solc version with no grammar, a source that does not
-//! parse, ill-formed directives — and returned together, so one run reports
+//! parse, or an ill-formed directive, and returned together, so one run reports
 //! every problem rather than the first.
 
 use std::{

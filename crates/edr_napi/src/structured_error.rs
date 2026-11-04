@@ -51,8 +51,6 @@ macro_rules! impl_structured_napi_error {
             // pastey re-emits it as a plain string literal. Otherwise, napi-rs
             // renders it into the `.d.ts` with its `r"` prefix intact.
             $(#[doc = "" $type_doc])*
-            ///
-            /// Build it with [`Self::new`], which sets the `kind` tag.
             #[napi_derive::napi(object)]
             #[non_exhaustive]
             pub struct $name {
