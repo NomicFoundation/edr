@@ -10,9 +10,9 @@ use edr_chain_spec_evm::interpreter::{return_revert, InstructionResult, SuccessO
 use edr_primitives::{bytecode::opcode::OpCode, Address};
 use edr_solidity::{
     nested_trace::is_calllike_opcode,
-    recorded_steps::{FrameSteps, RecordedTraceArena},
+    recorded_trace_arena::{FrameSteps, RecordedNode, RecordedTraceArena},
 };
-use edr_solidity_tests::traces::{CallKind, CallTrace, CallTraceNode};
+use edr_solidity_tests::traces::{CallKind, CallTrace};
 use napi::bindgen_prelude::{BigInt, Either, Either3, Uint8Array};
 use napi_derive::napi;
 
@@ -128,11 +128,10 @@ type RawTrace = Either3<TracingMessage, TracingStep, TracingMessageResult>;
 /// following the order that `EthereumJS` would have produced.
 pub(crate) fn raw_trace_from_call_trace_arena(arena: &RecordedTraceArena) -> Vec<RawTrace> {
     let mut result = Vec::new();
-    if let Some(node) = arena.nodes().first()
-        && (node.trace.kind.is_any_create()
-            || !should_skip_call(&node.trace, node_steps(arena, node)))
+    if let Some(root) = arena.node(0)
+        && (root.trace().kind.is_any_create() || !should_skip_call(root.trace(), root.steps()))
     {
-        convert_node(arena, node, false, node.trace.caller, &mut result);
+        convert_node(root, false, root.trace().caller, &mut result);
     }
     result
 }
@@ -140,13 +139,12 @@ pub(crate) fn raw_trace_from_call_trace_arena(arena: &RecordedTraceArena) -> Vec
 /// DFS traversal of the arena, emitting Before/Step/After messages in the flat
 /// order that the old `TraceCollector` used to produce.
 fn convert_node(
-    arena: &RecordedTraceArena,
-    node: &CallTraceNode,
+    node: RecordedNode<'_>,
     mut is_static_call: bool,
     original_caller: Address,
     output: &mut Vec<Either3<TracingMessage, TracingStep, TracingMessageResult>>,
 ) {
-    let trace = &node.trace;
+    let trace = node.trace();
 
     // 1. Emit BeforeMessage (TracingMessage)
     let is_create = trace.kind.is_any_create();
@@ -176,7 +174,7 @@ fn convert_node(
     }));
 
     // 2. Emit Step messages (TracingStep) and recursively convert child calls
-    let mut steps = node_steps(arena, node).iter().peekable();
+    let mut steps = node.steps().iter().peekable();
     if !is_create
         && let Some(first_step) = steps.peek()
         && first_step.op == OpCode::STOP
@@ -206,24 +204,19 @@ fn convert_node(
         if is_calllike_opcode(step.op.get()) {
             // The opcode of this step is a call, but it's possible that this step resulted
             // in a revert or out of gas error in which case there's no actual child call executed and recorded: <https://github.com/paradigmxyz/reth/issues/3915>
-            if let Some(call_id) = node.children.get(child_index).copied() {
+            if let Some(child) = node.child(child_index) {
                 child_index += 1;
 
-                let child_node = arena
-                    .nodes()
-                    .get(call_id)
-                    .expect("child index should be valid");
-
+                let child_trace = child.trace();
                 if matches!(step.op, OpCode::CREATE | OpCode::CREATE2)
-                    || !should_skip_call(&child_node.trace, node_steps(arena, child_node))
+                    || !should_skip_call(child_trace, child.steps())
                 {
                     convert_node(
-                        arena,
-                        child_node,
+                        child,
                         is_static_call,
-                        match child_node.trace.kind {
+                        match child_trace.kind {
                             CallKind::DelegateCall => original_caller,
-                            _ => child_node.trace.caller,
+                            _ => child_trace.caller,
                         },
                         output,
                     );
@@ -269,15 +262,6 @@ fn convert_status(
             None
         }
     }
-}
-
-fn node_steps<'arena>(
-    arena: &'arena RecordedTraceArena,
-    node: &CallTraceNode,
-) -> &'arena FrameSteps {
-    arena
-        .node_steps(node.idx)
-        .expect("node belongs to the arena")
 }
 
 // Historically, Hardhat 2 didn't emit a before message for calls that failed

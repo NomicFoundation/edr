@@ -25,7 +25,7 @@ use edr_runtime::{overrides::AccountOverrideConversionError, transaction};
 use edr_signer::SignatureError;
 use edr_solidity::{
     contract_decoder::{ContractDecoder, ContractDecoderError},
-    recorded_steps::RecordedTraceArena,
+    recorded_trace_arena::RecordedTraceArena,
     solidity_stack_trace::{get_recorded_stack_trace, DeployedCode, StackTraceCreationResult},
 };
 use edr_state_api::StateError;

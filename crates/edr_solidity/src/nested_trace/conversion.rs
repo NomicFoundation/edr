@@ -9,7 +9,7 @@ use revm_interpreter::{InternalResult, SuccessOrHalt};
 use super::{CallMessage, CreateMessage, EvmStep, NestedTrace, NestedTraceStep, PrecompileMessage};
 use crate::{
     exit_code::ExitCode,
-    recorded_steps::{FrameSteps, RecordedStep},
+    recorded_trace_arena::{RecordedStep, RecordedTraceArena},
 };
 
 /// Error type for converting `CallTraceArena` to `NestedTrace`.
@@ -20,57 +20,68 @@ pub enum CallTraceArenaConversionError {
     InvalidRootNode,
 }
 
-/// Converts a `CallTraceArena` into a `NestedTrace`.
+/// An arena to convert, with where its steps are read from.
+#[derive(Clone, Copy)]
+pub(super) enum StepSource<'arena> {
+    /// Steps recorded by the arena's own `TracingInspector`.
+    Traced(&'arena CallTraceArena),
+    /// Steps recorded next to the arena.
+    Recorded(&'arena RecordedTraceArena),
+}
+
+impl<'arena> StepSource<'arena> {
+    fn arena(self) -> &'arena CallTraceArena {
+        match self {
+            StepSource::Traced(arena) => arena,
+            StepSource::Recorded(recorded) => recorded.as_call_trace_arena(),
+        }
+    }
+
+    /// Returns the steps of `node`, a node of the arena.
+    fn node_steps(
+        self,
+        node: &'arena CallTraceNode,
+    ) -> Box<dyn Iterator<Item = RecordedStep> + 'arena> {
+        match self {
+            StepSource::Traced(_) => Box::new(node.trace.steps.iter().map(|step| RecordedStep {
+                pc: step.pc as u32,
+                op: step.op,
+            })),
+            StepSource::Recorded(recorded) => Box::new(
+                recorded
+                    .node(node.idx)
+                    .expect("node belongs to the arena")
+                    .steps()
+                    .steps
+                    .iter()
+                    .copied(),
+            ),
+        }
+    }
+}
+
+/// Converts an arena into a `NestedTrace`.
 pub(super) fn convert_from_arena<HaltReasonT: HaltReasonTrait>(
     address_to_creation_code: &HashMap<Address, &Bytes>,
     address_to_runtime_code: &HashMap<Address, &Bytes>,
-    arena: &CallTraceArena,
-    recorded_steps: Option<&[FrameSteps]>,
+    source: StepSource<'_>,
 ) -> Result<NestedTrace<HaltReasonT>, CallTraceArenaConversionError> {
     // Start conversion from the root node (index 0)
-    if arena.nodes().is_empty() {
+    if source.arena().nodes().is_empty() {
         return Err(CallTraceArenaConversionError::InvalidRootNode);
     }
 
-    convert_node(
-        address_to_creation_code,
-        address_to_runtime_code,
-        arena,
-        recorded_steps,
-        0,
-    )
-}
-
-/// Returns the node's steps, from `recorded_steps` if provided, otherwise from
-/// the node.
-fn node_steps<'a>(
-    node: &'a CallTraceNode,
-    recorded_steps: Option<&'a [FrameSteps]>,
-) -> Box<dyn Iterator<Item = RecordedStep> + 'a> {
-    match recorded_steps {
-        Some(recorded_steps) => Box::new(
-            recorded_steps
-                .get(node.idx)
-                .expect("steps are recorded for every node of the arena")
-                .steps
-                .iter()
-                .copied(),
-        ),
-        None => Box::new(node.trace.steps.iter().map(|step| RecordedStep {
-            pc: step.pc as u32,
-            op: step.op,
-        })),
-    }
+    convert_node(address_to_creation_code, address_to_runtime_code, source, 0)
 }
 
 fn convert_node<HaltReasonT: HaltReasonTrait>(
     address_to_creation_code: &HashMap<Address, &Bytes>,
     address_to_runtime_code: &HashMap<Address, &Bytes>,
-    arena: &CallTraceArena,
-    recorded_steps: Option<&[FrameSteps]>,
+    source: StepSource<'_>,
     node_idx: usize,
 ) -> Result<NestedTrace<HaltReasonT>, CallTraceArenaConversionError> {
-    let node = arena
+    let node = source
+        .arena()
         .nodes()
         .get(node_idx)
         .expect("node index should be valid");
@@ -79,7 +90,7 @@ fn convert_node<HaltReasonT: HaltReasonTrait>(
     // Based on https://github.com/paradigmxyz/revm-inspectors/blob/ceef3f3624ca51bf3c41c97d6c013606db3a6019/src/tracing/types.rs#L257
     let mut steps = Vec::new();
     let mut child_index = 0;
-    for step in node_steps(node, recorded_steps) {
+    for step in source.node_steps(node) {
         steps.push(NestedTraceStep::Evm(EvmStep { pc: step.pc }));
 
         if is_calllike_opcode(step.op.get()) {
@@ -90,8 +101,7 @@ fn convert_node<HaltReasonT: HaltReasonTrait>(
                 let child_trace = convert_node(
                     address_to_creation_code,
                     address_to_runtime_code,
-                    arena,
-                    recorded_steps,
+                    source,
                     call_id,
                 )?;
 
@@ -251,7 +261,9 @@ mod tests {
         arena.nodes_mut()[0].trace.address = address;
 
         let no_code = HashMap::default();
-        match convert_from_arena(&no_code, &no_code, &arena, None).expect("arena has a root node") {
+        match convert_from_arena(&no_code, &no_code, StepSource::Traced(&arena))
+            .expect("arena has a root node")
+        {
             NestedTrace::Call(call) => call,
             _ => panic!("root node is a call"),
         }

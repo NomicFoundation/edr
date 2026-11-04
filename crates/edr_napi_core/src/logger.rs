@@ -277,7 +277,7 @@ impl<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>
         let contract_decoder = self.contract_decoder.clone();
         self.indented(|logger| {
             logger.log_contract_and_function_name::<true>(
-                call_trace_arena,
+                call_trace_arena.as_call_trace_arena(),
                 address_to_executed_code,
                 precompile_addresses,
             );
@@ -325,7 +325,7 @@ impl<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>
 
         self.indented(|logger| {
             logger.log_contract_and_function_name::<true>(
-                call_trace_arena,
+                call_trace_arena.as_call_trace_arena(),
                 address_to_executed_code,
                 precompile_addresses,
             );
@@ -654,7 +654,7 @@ impl<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>
         let contract_decoder = self.contract_decoder.clone();
         self.indented(|logger| {
             logger.log_contract_and_function_name::<false>(
-                &observed_data.call_trace_arena,
+                observed_data.call_trace_arena.as_call_trace_arena(),
                 &observed_data.address_to_executed_code,
                 precompile_addresses,
             );
@@ -1039,7 +1039,9 @@ impl<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>
         let contract_decoder = self.contract_decoder.clone();
         self.indented(|logger| {
             logger.log_contract_and_function_name::<false>(
-                &transaction_observed_data.call_trace_arena,
+                transaction_observed_data
+                    .call_trace_arena
+                    .as_call_trace_arena(),
                 &transaction_observed_data.address_to_executed_code,
                 &block_result.precompile_addresses,
             );

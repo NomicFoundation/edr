@@ -12,7 +12,7 @@ use revm_interpreter::{interpreter_types::Jumps, CallOutcome};
 
 use crate::{
     contract_decoder::ContractDecoder,
-    recorded_steps::{FrameSteps, RecordedStep, RecordedTraceArena},
+    recorded_trace_arena::{RecordedStep, RecordedTraceArena, StepRecorder, StepSnapshot},
 };
 
 /// Marks the calls to `precompile_addresses` in `arena`, so that
@@ -47,7 +47,7 @@ pub struct SolidityTracingInspector {
     decoder: Arc<RwLock<ContractDecoder>>,
     inspector: TracingInspector,
     /// Steps of each node in the inspector's arena.
-    steps: Vec<FrameSteps>,
+    step_recorder: StepRecorder,
 }
 
 impl SolidityTracingInspector {
@@ -61,7 +61,7 @@ impl SolidityTracingInspector {
         Self {
             decoder,
             inspector,
-            steps: Vec::new(),
+            step_recorder: StepRecorder::default(),
         }
     }
 
@@ -73,7 +73,7 @@ impl SolidityTracingInspector {
         precompile_addresses: &HashSet<Address>,
     ) -> Result<RecordedTraceArena, serde_json::Error> {
         let mut arena = self.inspector.into_traces();
-        let steps = self.steps;
+        let step_recorder = self.step_recorder;
 
         let mut decoder = self.decoder.write();
         decoder.populate_call_trace_arena(
@@ -82,7 +82,7 @@ impl SolidityTracingInspector {
             precompile_addresses,
         )?;
 
-        Ok(RecordedTraceArena::new(arena, steps))
+        Ok(step_recorder.finish(arena))
     }
 
     /// Takes the [`TracingInspector`]'s traces with the recorded steps and ABI
@@ -93,7 +93,7 @@ impl SolidityTracingInspector {
         precompile_addresses: &HashSet<Address>,
     ) -> Result<RecordedTraceArena, serde_json::Error> {
         let mut arena = std::mem::take(self.inspector.traces_mut());
-        let steps = std::mem::take(&mut self.steps);
+        let step_recorder = std::mem::take(&mut self.step_recorder);
 
         // Reset the inspector
         self.inspector.fuse();
@@ -105,7 +105,7 @@ impl SolidityTracingInspector {
             precompile_addresses,
         )?;
 
-        Ok(RecordedTraceArena::new(arena, steps))
+        Ok(step_recorder.finish(arena))
     }
 
     /// Records the step about to execute in the call that the
@@ -116,59 +116,50 @@ impl SolidityTracingInspector {
         interp: &revm_interpreter::Interpreter<revm_interpreter::interpreter::EthInterpreter>,
     ) {
         let config = self.inspector.config();
-        let record_memory = config.record_memory_snapshots;
+        let stack_data = interp.stack.data();
         let record_stack = config.record_stack_snapshots;
-
-        let node = self.current_node_steps_mut();
-        let prev_op = node.steps.last().map(|step| step.op);
-
-        // Only what EDR reads, unlike `TracingInspector`'s steps; see `RecordedStep`.
-        node.steps.push(RecordedStep {
-            pc: u32::try_from(interp.bytecode.pc()).expect("PC larger than u32::MAX"),
-            op: OpCode::new_or_unknown(interp.bytecode.opcode()),
-        });
-
-        // Taken from `TracingInspector::start_step` (revm-inspectors 0.44.2);
-        // revalidate when bumping revm-inspectors.
-        if record_memory {
-            // Reuse the previous step's memory if that step did not modify it.
-            let memory = match (prev_op, node.memories.last()) {
-                (Some(prev_op), Some(memory)) if !prev_op.modifies_memory() => memory.clone(),
-                _ => Bytes::copy_from_slice(&interp.memory.context_memory()),
-            };
-            node.memories.push(memory);
-        }
-
-        let stack = interp.stack.data();
-        if record_stack.is_all() || record_stack.is_full() {
-            node.stacks.push(stack.as_slice().into());
-        } else if record_stack.is_top() {
-            node.stacks.push(
-                stack
-                    .last()
-                    .map(std::slice::from_ref)
-                    .unwrap_or_default()
-                    .into(),
-            );
-        }
-    }
-
-    /// Returns the steps of the call the [`TracingInspector`] is tracing.
-    ///
-    /// Calls that executed no opcodes before it keep an empty entry, so the
-    /// steps stay indexed like the arena's nodes.
-    fn current_node_steps_mut(&mut self) -> &mut FrameSteps {
         let node_idx = self
             .inspector
             .active_trace()
             .expect("steps execute inside a call")
             .idx;
-        if self.steps.len() <= node_idx {
-            self.steps.resize_with(node_idx + 1, FrameSteps::default);
-        }
-        self.steps
-            .get_mut(node_idx)
-            .expect("steps were extended to include the node")
+
+        let stack: Option<Box<[U256]>> = if record_stack.is_all() || record_stack.is_full() {
+            Some(stack_data.as_slice().into())
+        } else if record_stack.is_top() {
+            Some(
+                stack_data
+                    .last()
+                    .map(std::slice::from_ref)
+                    .unwrap_or_default()
+                    .into(),
+            )
+        } else {
+            None
+        };
+
+        // Reuses the previous step's memory if that step did not modify it.
+        // Taken from `TracingInspector::start_step` (revm-inspectors 0.44.2);
+        // revalidate when bumping revm-inspectors.
+        let memory = config.record_memory_snapshots.then(|| {
+            let prev_step = self.step_recorder.last_step(node_idx);
+            match prev_step {
+                Some(StepSnapshot {
+                    op,
+                    memory: Some(prev_memory),
+                    ..
+                }) if !op.modifies_memory() => prev_memory.clone(),
+                _ => Bytes::copy_from_slice(&interp.memory.context_memory()),
+            }
+        });
+
+        // Only what EDR reads, unlike `TracingInspector`'s steps; see `RecordedStep`.
+        let step = RecordedStep {
+            pc: u32::try_from(interp.bytecode.pc()).expect("PC larger than u32::MAX"),
+            op: OpCode::new_or_unknown(interp.bytecode.opcode()),
+        };
+
+        self.step_recorder.record(node_idx, step, stack, memory);
     }
 }
 

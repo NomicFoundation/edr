@@ -20,7 +20,7 @@ use edr_evm::ExecutionResultWithMetadata;
 use edr_precompile::PrecompileFn;
 use edr_primitives::{Address, HashMap, U256};
 use edr_receipt::ReceiptTrait as _;
-use edr_solidity::{contract_decoder::ContractDecoder, recorded_steps::RecordedTraceArena};
+use edr_solidity::{contract_decoder::ContractDecoder, recorded_trace_arena::RecordedTraceArena};
 use edr_state_api::DynState;
 use edr_transaction::TransactionMut;
 use itertools::Itertools;
@@ -100,7 +100,7 @@ impl GasEstimationMode {
 /// out-of-gas variant. The OOG variants mirror REVM's
 /// `InstructionResult::is_out_of_gas` macro.
 fn has_internal_oog(arena: &RecordedTraceArena) -> bool {
-    arena.nodes().iter().any(|node| {
+    arena.as_call_trace_arena().nodes().iter().any(|node| {
         // Skip the root call — only sub-calls count as "internal".
         node.parent.is_some()
             && matches!(

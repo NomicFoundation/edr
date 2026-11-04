@@ -144,7 +144,9 @@ impl Response {
         self.inner
             .call_trace_arenas
             .iter()
-            .map(|call_trace_arena| CallTrace::from_arena_node(call_trace_arena, 0))
+            .map(|call_trace_arena| {
+                CallTrace::from_arena_node(call_trace_arena.as_call_trace_arena(), 0)
+            })
             .collect()
     }
 
@@ -163,7 +165,7 @@ impl Response {
 
 #[cfg(test)]
 mod tests {
-    use edr_solidity::recorded_steps::RecordedTraceArena;
+    use edr_solidity::recorded_trace_arena::RecordedTraceArena;
 
     use super::*;
 
