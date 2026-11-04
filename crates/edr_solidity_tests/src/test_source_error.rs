@@ -1,15 +1,17 @@
-//! The errors surfaced while resolving inline configuration.
+//! The errors surfaced while collecting the test sources.
 //!
-//! These also cover failures to locate or read a test source, which EIP-712
-//! type collection shares, so a run using no inline configuration can still
-//! fail with one.
+//! These cover every test-source problem, such as a missing path, an
+//! unsupported solc version, an unreadable file, a parse error, or an
+//! ill-formed directive. A run using no inline configuration can still fail
+//! with one, since EIP-712 type collection and locating the source itself
+//! share these errors too.
 
 use std::path::PathBuf;
 
 use semver::Version;
 
-/// Errors produced while collecting a source's inline configuration before the
-/// individual directives are parsed (see [`InlineConfigError`]).
+/// Errors produced while collecting a test source, before its individual
+/// directives are parsed (see [`InlineConfigError`]).
 #[derive(Clone, Debug, thiserror::Error, PartialEq)]
 pub enum TestSourceCollectError {
     /// The solc version the source was compiled with predates the oldest
@@ -17,7 +19,7 @@ pub enum TestSourceCollectError {
     #[error(
         "solc version {version} is not supported: collection requires solc 0.8.0 or newer, so \
          this source rejects the whole run. Compile it with 0.8.0+, or pass an empty \
-         `test_source_paths` to disable collection"
+         `testSourcePaths` to disable collection"
     )]
     UnsupportedSolcVersion {
         /// The solc version the source's artifact was compiled with.
@@ -40,9 +42,9 @@ pub enum TestSourceCollectError {
         /// Why reading it failed.
         reason: String,
     },
-    /// The test source has no `test_source_paths` entry, so it is not located,
+    /// The test source has no `testSourcePaths` entry, so it is not located,
     /// read, or parsed.
-    #[error("no `test_source_paths` entry for this source")]
+    #[error("no `testSourcePaths` entry for this source")]
     SourcePathNotProvided,
     /// A directive's offset could not be resolved to a line number. It lies
     /// outside the source text, or the line count overflows. The parsing stages
@@ -175,8 +177,8 @@ pub struct InlineConfigDirectiveError {
     pub error: InlineConfigError,
 }
 
-/// A single inline-config problem together with enough location to point the
-/// user at it — modeled on the stack-trace `SourceReference` surfaced to
+/// A single test-source problem together with enough location to point the
+/// user at it, modeled on the stack-trace `SourceReference` surfaced to
 /// consumers.
 #[derive(Clone, Debug, thiserror::Error, PartialEq)]
 #[error("{}: {problem}", source_name.display())]
@@ -188,7 +190,7 @@ pub struct TestSourceErrorItem {
     pub problem: TestSourceProblem,
 }
 
-/// An inline-config problem, split by whether it can be pinned to a single
+/// A test-source problem, split by whether it can be pinned to a single
 /// directive line.
 ///
 /// A source-level problem carries no contract, function or line, because
@@ -212,11 +214,12 @@ pub enum TestSourceProblem {
     Directive(#[from] InlineConfigDirectiveError),
 }
 
-/// Every inline-config problem found while collecting the test sources.
+/// Every test-source problem found while collecting the test sources.
 ///
 /// When collection surfaces any problem, the run fails before any suite
 /// executes. At most one problem is reported per directive target across
-/// every source — each test function, plus each contract's own directives.
+/// every source, covering each test function and each contract's own
+/// directives.
 #[derive(Clone, Debug, PartialEq)]
 pub struct TestSourceErrors {
     items: Vec<TestSourceErrorItem>,
@@ -267,5 +270,5 @@ impl TryFrom<Vec<TestSourceErrorItem>> for TestSourceErrors {
 /// Returned when [`TestSourceErrors`] is built from an empty set of
 /// problems, which would describe a failure that did not happen.
 #[derive(Clone, Copy, Debug, thiserror::Error)]
-#[error("no inline-config problems to report")]
+#[error("no test-source problems to report")]
 pub struct NoTestSourceProblems;

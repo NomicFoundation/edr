@@ -31,7 +31,6 @@ BREAKING CHANGE: the structured error array on the thrown error is renamed from 
 - `InlineConfigSourceError` changed to `TestSourceFileError`;
 - `InlineConfigSourceProblem` changed to `TestSourceFileProblem`;
 - `InlineConfigSourceFileNotFound` changed to `TestSourceFileNotFound`;
-- `InlineConfigSourcePathNotProvided` changed to `TestSourcePathNotProvided`;
 - `InlineConfigDirectiveLocation` changed to `TestSourceDirectiveLocation`.
 
 The directive-level types keep their `InlineConfig` names, because they do describe inline configuration.
