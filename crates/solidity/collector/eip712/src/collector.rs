@@ -235,7 +235,7 @@ impl UnitStructs {
             .iter()
             .map(|struct_def| struct_def.name.as_str())
             .collect();
-        let mut excluded_only: HashMap<String, RejectReason> = HashMap::new();
+        let mut excluded_files_by_name: HashMap<String, Vec<String>> = HashMap::new();
         for (file_id, structs) in &self.by_file {
             if !excluded_file_ids.contains(file_id.as_str()) {
                 continue;
@@ -245,18 +245,19 @@ impl UnitStructs {
                     continue;
                 }
 
-                match excluded_only
+                excluded_files_by_name
                     .entry(struct_def.name.clone())
-                    .or_insert_with(|| RejectReason::DeclaredInExcludedFiles {
-                        file_ids: Vec::new(),
-                    }) {
-                    RejectReason::DeclaredInExcludedFiles { file_ids } => {
-                        file_ids.push(file_id.clone());
-                    }
-                    _ => unreachable!("only exclusion reasons are seeded here"),
-                }
+                    .or_default()
+                    .push(file_id.clone());
             }
         }
+        let excluded_only = excluded_files_by_name
+            .into_iter()
+            .map(|(name, mut file_ids)| {
+                file_ids.dedup();
+                (name, RejectReason::DeclaredInExcludedFiles { file_ids })
+            })
+            .collect();
 
         into_collection(collected, root_file_id, excluded_only)
     }
@@ -484,13 +485,11 @@ fn encode_member_type(ty: &Type) -> Option<String> {
 /// Renders `noun` for `count` items, so an error naming one member or type
 /// does not read as if it named several.
 fn pluralize(count: usize, noun: &str) -> String {
-    if count == 1 {
-        noun.to_owned()
-    } else {
-        format!("{noun}s")
-    }
+    pluralize_with(count, noun, &format!("{noun}s"))
 }
 
+/// Picks the form of a noun for `count`, for nouns whose forms are not a
+/// matter of an `s`.
 fn pluralize_with(count: usize, singular: &str, plural: &str) -> String {
     if count == 1 {
         singular.to_owned()
@@ -505,7 +504,8 @@ pub enum RejectReason {
     /// Every file declaring the struct is excluded from collection, so neither
     /// it nor a struct referencing it can be encoded.
     #[error(
-        "struct is declared only in {} excluded from EIP-712 type collection: {}",
+        "struct is declared only in {} excluded from EIP-712 type collection: {}. Declare it in a \
+         collected file, or narrow the exclusion",
         pluralize_with(.file_ids.len(), "a file", "files"),
         .file_ids.join(", ")
     )]
