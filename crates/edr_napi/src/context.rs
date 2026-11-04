@@ -33,12 +33,12 @@ use crate::{
     subscription::SubscriptionConfig,
 };
 
-/// The result of a Solidity test run, distinguishing an inline-config failure —
+/// The result of a Solidity test run, distinguishing a test-source failure —
 /// which we surface as a structured JS error built on the JS thread — from a
 /// completed run.
 enum RunOutcome {
     Completed(edr_solidity_tests::multi_runner::SolidityTestResult),
-    InvalidInlineConfig(edr_solidity_tests::test_source_error::TestSourceErrors),
+    TestSources(edr_solidity_tests::test_source_error::TestSourceErrors),
 }
 
 /// Unwraps `$expr`, or rejects `$deferred` with the error and returns
@@ -364,14 +364,14 @@ impl EdrContext {
 
                     match run_result {
                         Ok(test_result) => RunOutcome::Completed(test_result),
-                        // An inline-config failure carries structured, located
+                        // A test-source failure carries structured, located
                         // problems that we surface on the rejected promise's
                         // error as `testSourceErrors`. Building that JS object
                         // requires the JS thread, so route it through the
                         // deferred's resolver (which runs there) rather than
                         // `deferred.reject`, which only carries a message.
-                        Err(solidity::RunTestsError::InvalidInlineConfig(errors)) => {
-                            RunOutcome::InvalidInlineConfig(errors)
+                        Err(solidity::RunTestsError::TestSources(errors)) => {
+                            RunOutcome::TestSources(errors)
                         }
                         Err(solidity::RunTestsError::Failed(error)) => {
                             deferred.reject(error);
@@ -383,7 +383,7 @@ impl EdrContext {
 
             deferred.resolve(move |env| match outcome {
                 RunOutcome::Completed(test_result) => Ok(SolidityTestResult::from(test_result)),
-                RunOutcome::InvalidInlineConfig(errors) => {
+                RunOutcome::TestSources(errors) => {
                     Err(test_source_error::to_napi_error(&env, errors))
                 }
             });
