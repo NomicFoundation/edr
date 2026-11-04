@@ -211,3 +211,58 @@ impl<'arena> RecordedNode<'arena> {
         )
     }
 }
+
+/// A call trace arena, with where the steps of its nodes are read from.
+#[derive(Clone, Copy, Debug)]
+pub enum ArenaWithSteps<'arena> {
+    /// Steps recorded by the arena's own `TracingInspector`.
+    Traced(&'arena CallTraceArena),
+    /// Steps recorded next to the arena.
+    Recorded(&'arena RecordedTraceArena),
+}
+
+impl<'arena> ArenaWithSteps<'arena> {
+    /// Returns the call trace arena.
+    pub(crate) fn as_call_trace_arena(self) -> &'arena CallTraceArena {
+        match self {
+            ArenaWithSteps::Traced(arena) => arena,
+            ArenaWithSteps::Recorded(recorded) => recorded.as_call_trace_arena(),
+        }
+    }
+
+    /// Returns the steps of `node`, a node of the arena.
+    pub(crate) fn node_steps(
+        self,
+        node: &'arena CallTraceNode,
+    ) -> Box<dyn Iterator<Item = RecordedStep> + 'arena> {
+        match self {
+            ArenaWithSteps::Traced(_) => {
+                Box::new(node.trace.steps.iter().map(|step| RecordedStep {
+                    pc: step.pc as u32,
+                    op: step.op,
+                }))
+            }
+            ArenaWithSteps::Recorded(recorded) => Box::new(
+                recorded
+                    .node(node.idx)
+                    .expect("node belongs to the arena")
+                    .steps()
+                    .steps
+                    .iter()
+                    .copied(),
+            ),
+        }
+    }
+}
+
+impl<'arena> From<&'arena CallTraceArena> for ArenaWithSteps<'arena> {
+    fn from(arena: &'arena CallTraceArena) -> Self {
+        ArenaWithSteps::Traced(arena)
+    }
+}
+
+impl<'arena> From<&'arena RecordedTraceArena> for ArenaWithSteps<'arena> {
+    fn from(arena: &'arena RecordedTraceArena) -> Self {
+        ArenaWithSteps::Recorded(arena)
+    }
+}
