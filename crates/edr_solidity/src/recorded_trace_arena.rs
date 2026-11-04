@@ -201,14 +201,13 @@ impl<'arena> RecordedNode<'arena> {
         self.steps
     }
 
-    /// Returns the `child_idx`-th child call of the node, if any.
-    pub fn child(&self, child_idx: usize) -> Option<RecordedNode<'arena>> {
-        let node_idx = *self.node.children.get(child_idx)?;
-        Some(
-            self.arena
-                .node(node_idx)
-                .expect("children belong to the arena"),
-        )
+    /// Returns the node's child calls, in execution order.
+    pub fn children(&self) -> impl Iterator<Item = RecordedNode<'arena>> + 'arena {
+        let arena = self.arena;
+        self.node
+            .children
+            .iter()
+            .map(move |&node_idx| arena.node(node_idx).expect("children belong to the arena"))
     }
 }
 

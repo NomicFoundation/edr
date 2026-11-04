@@ -183,7 +183,7 @@ fn convert_node(
         steps.next();
     }
 
-    let mut child_index = 0;
+    let mut children = node.children();
     for step in steps {
         output.push(Either3::B(TracingStep {
             pc: step.pc,
@@ -204,9 +204,7 @@ fn convert_node(
         if is_calllike_opcode(step.op.get()) {
             // The opcode of this step is a call, but it's possible that this step resulted
             // in a revert or out of gas error in which case there's no actual child call executed and recorded: <https://github.com/paradigmxyz/reth/issues/3915>
-            if let Some(child) = node.child(child_index) {
-                child_index += 1;
-
+            if let Some(child) = children.next() {
                 let child_trace = child.trace();
                 if matches!(step.op, OpCode::CREATE | OpCode::CREATE2)
                     || !should_skip_call(child_trace, child.steps())
