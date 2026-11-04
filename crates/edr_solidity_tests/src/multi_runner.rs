@@ -311,18 +311,20 @@ impl<
         TransactionT,
     >
 {
-    /// Reads and parses the sources of `contracts`, pairing each suite with
-    /// the inline configuration and EIP-712 types extracted from its own.
+    /// Reads and parses the sources of the selected `test_contracts`, keyed by
+    /// source name, or `None` when collection is disabled.
     ///
-    /// Several suites can share one source, which is parsed once. A suite
-    /// whose source was not collected — because `test_source_paths` is empty,
-    /// disabling collection — runs with neither.
-    fn collect_suite_sources(
+    /// Several suites can share one source, which is parsed once. Every source
+    /// that is not in the result failed, and fails the run.
+    fn collect_sources<'a>(
         &self,
-        contracts: Vec<(ArtifactId, TestContract)>,
-    ) -> Result<Vec<(ArtifactId, TestContract, SuiteSourceData)>, TestRunnerError> {
-        let (roots, mut source_errors) =
-            test_source_roots(&self.test_source_paths, contracts.iter().map(|(id, _)| id));
+        test_contracts: impl IntoIterator<Item = &'a ArtifactId>,
+    ) -> Result<Option<HashMap<PathBuf, SourceCollections>>, TestRunnerError> {
+        let Some((roots, mut source_errors)) =
+            test_source_roots(&self.test_source_paths, test_contracts)
+        else {
+            return Ok(None);
+        };
 
         // The sources that could not be located are reported together with the
         // problems found in the ones that could, so a run surfaces every
@@ -336,21 +338,39 @@ impl<
                     HashMap::new()
                 }
             };
+
         if !source_errors.is_empty() {
             let errors = TestSourceErrors::try_from(source_errors)
                 .expect("the problems were just checked to be non-empty");
             return Err(TestRunnerError::TestSources(errors));
         }
 
+        Ok(Some(collected_sources))
+    }
+
+    /// Pairs each suite of `contracts` with the inline configuration and
+    /// EIP-712 types extracted from its own source.
+    ///
+    /// With collection disabled every suite runs with neither.
+    fn collect_suite_sources(
+        &self,
+        contracts: Vec<(ArtifactId, TestContract)>,
+    ) -> Result<Vec<(ArtifactId, TestContract, SuiteSourceData)>, TestRunnerError> {
+        let collected_sources = self.collect_sources(contracts.iter().map(|(id, _)| id))?;
+
         Ok(contracts
             .into_iter()
             .map(|(artifact_id, contract)| {
-                let source = collected_sources
-                    .get(&artifact_id.source)
-                    .map(|collections| {
+                let source = collected_sources.as_ref().map_or_else(
+                    SuiteSourceData::default,
+                    |collected_sources| {
+                        let collections = collected_sources
+                            .get(&artifact_id.source)
+                            .expect("every selected source was collected or reported");
+
                         SuiteSourceData::new(collections, &artifact_id, &contract.abi)
-                    })
-                    .unwrap_or_default();
+                    },
+                );
 
                 (artifact_id, contract, source)
             })
@@ -468,7 +488,7 @@ impl<
             test_outcomes,
             mut warnings,
         } = runner.run_tests(filter, handle)?;
-        warnings.extend(inline_config_warnings.iter().cloned());
+        warnings.extend(inline_config_warnings);
 
         let mut gas_report = self
             .generate_gas_report
@@ -697,18 +717,19 @@ fn matches_contract(id: &ArtifactId, filter: &dyn TestFilter) -> bool {
 /// contracts is parsed once) and both results are sorted by source, so
 /// problems are reported in a deterministic order.
 ///
-/// An empty `test_source_paths` disables collection entirely (for callers
-/// using neither inline configuration nor the EIP-712 cheatcodes, and for
-/// those whose sources predate the oldest grammar Slang ships). A *non-empty*
-/// map must name the source of every selected test contract, with no
-/// exceptions: one without an entry, or one whose solc version has no grammar,
-/// is reported as a problem rather than silently going uncollected.
+/// Yields `None` when `test_source_paths` is empty, which disables collection
+/// entirely (for callers using neither inline configuration nor the EIP-712
+/// cheatcodes, and for those whose sources predate the oldest grammar Slang
+/// ships). A *non-empty* map must name the source of every selected test
+/// contract, with no exceptions: one without an entry, or one whose solc
+/// version has no grammar, is reported as a problem rather than silently going
+/// uncollected.
 fn test_source_roots<'a>(
     test_source_paths: &HashMap<PathBuf, PathBuf>,
     test_contracts: impl IntoIterator<Item = &'a ArtifactId>,
-) -> (Vec<TestSourceRoot>, Vec<TestSourceErrorItem>) {
+) -> Option<(Vec<TestSourceRoot>, Vec<TestSourceErrorItem>)> {
     if test_source_paths.is_empty() {
-        return (Vec::new(), Vec::new());
+        return None;
     }
 
     // One source can back several artifacts. A file can declare multiple
@@ -751,14 +772,14 @@ fn test_source_roots<'a>(
         });
     }
 
-    (roots, errors)
+    Some((roots, errors))
 }
 
 /// The data extracted from a test suite's source when the run starts: its
 /// inline configuration resolved against the contract's ABI, and the EIP-712
 /// struct definitions served to the `eip712HashType`/`eip712HashStruct`
 /// cheatcodes.
-#[derive(Clone, Debug, Default)]
+#[derive(Debug, Default)]
 struct SuiteSourceData {
     /// Per-test-function config overrides.
     test_function_overrides: HashMap<TestFunctionIdentifier, TestFunctionConfigOverride>,
@@ -870,6 +891,14 @@ mod tests {
 
     use super::*;
 
+    /// [`test_source_roots`] of a non-empty map, which enables collection.
+    fn enabled_test_source_roots<'a>(
+        test_source_paths: &HashMap<PathBuf, PathBuf>,
+        test_contracts: impl IntoIterator<Item = &'a ArtifactId>,
+    ) -> (Vec<TestSourceRoot>, Vec<TestSourceErrorItem>) {
+        test_source_roots(test_source_paths, test_contracts).expect("collection is enabled")
+    }
+
     fn test_contracts(entries: &[(&str, Version)]) -> TestContracts {
         entries
             .iter()
@@ -893,10 +922,7 @@ mod tests {
     fn empty_source_paths_disable_collection() {
         let contracts = test_contracts(&[("test/A.t.sol", Version::new(0, 8, 24))]);
 
-        let (roots, errors) = test_source_roots(&HashMap::new(), contracts.keys());
-
-        assert!(roots.is_empty());
-        assert!(errors.is_empty());
+        assert!(test_source_roots(&HashMap::new(), contracts.keys()).is_none());
     }
 
     #[test]
@@ -911,7 +937,7 @@ mod tests {
         )]
         .into();
 
-        let (roots, errors) = test_source_roots(&paths, contracts.keys());
+        let (roots, errors) = enabled_test_source_roots(&paths, contracts.keys());
 
         assert_eq!(roots.len(), 1);
         assert_eq!(roots[0].source, PathBuf::from("test/A.t.sol"));
@@ -944,7 +970,7 @@ mod tests {
         ]
         .into();
 
-        let (roots, errors) = test_source_roots(&paths, contracts.keys());
+        let (roots, errors) = enabled_test_source_roots(&paths, contracts.keys());
 
         assert_eq!(roots.len(), 1);
         assert_eq!(roots[0].source, PathBuf::from("test/A.t.sol"));
@@ -968,10 +994,7 @@ mod tests {
     fn pre_0_8_source_is_fine_when_collection_is_disabled() {
         let contracts = test_contracts(&[("test/Legacy.t.sol", Version::new(0, 6, 12))]);
 
-        let (roots, errors) = test_source_roots(&HashMap::new(), contracts.keys());
-
-        assert!(roots.is_empty());
-        assert!(errors.is_empty(), "{errors:?}");
+        assert!(test_source_roots(&HashMap::new(), contracts.keys()).is_none());
     }
 
     /// A source backing artifacts compiled at several versions is parsed with
@@ -989,7 +1012,7 @@ mod tests {
         )]
         .into();
 
-        let (roots, errors) = test_source_roots(&paths, contracts.keys());
+        let (roots, errors) = enabled_test_source_roots(&paths, contracts.keys());
 
         assert_eq!(roots.len(), 1);
         assert_eq!(roots[0].version, LanguageVersion::V0_8_24);
