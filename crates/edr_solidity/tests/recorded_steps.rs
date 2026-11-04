@@ -39,6 +39,8 @@ const MOCKED: Address = address!("0xd000000000000000000000000000000000000001");
 const REVERTER: Address = address!("0xe000000000000000000000000000000000000001");
 const HALTER: Address = address!("0xf000000000000000000000000000000000000001");
 const IDENTITY_PRECOMPILE: Address = address!("0x0000000000000000000000000000000000000004");
+/// An arbitrary value that frames write to memory.
+const MEMORY_WORD: u8 = 0x2a;
 
 /// Appends a call to `to` with `call_op`, discarding the success flag. `value`
 /// is only used by `CALL`.
@@ -65,12 +67,12 @@ fn root_code() -> Bytes {
     let init_code_len = u8::try_from(init_code.len()).expect("init code is short");
 
     let mut code = BytecodeBuilder::default();
-    code.push1(0x2a).push1(0).opcode(opcode::MSTORE);
+    code.push1(MEMORY_WORD).push1(0).opcode(opcode::MSTORE);
     call(&mut code, opcode::CALL, CALLEE, &[0]);
     call(&mut code, opcode::STATICCALL, IDENTITY_PRECOMPILE, &[]);
     call(&mut code, opcode::CALL, EMPTY, &[0]);
     call(&mut code, opcode::CALL, MOCKED, &[0]);
-    // Fails before the callee starts: the value exceeds ROOT's balance.
+    // Fails before the callee starts because the value exceeds ROOT's balance.
     call(&mut code, opcode::CALL, CALLEE, &[0xff; 32]);
     call(&mut code, opcode::DELEGATECALL, CALLEE, &[]);
     call(&mut code, opcode::CALL, REVERTER, &[0]);
@@ -92,7 +94,7 @@ fn root_code() -> Bytes {
 
 fn callee_code() -> Bytes {
     let mut code = BytecodeBuilder::default();
-    code.push1(0x2a)
+    code.push1(MEMORY_WORD)
         .push1(0)
         .opcode(opcode::MSTORE)
         .push1(0)
