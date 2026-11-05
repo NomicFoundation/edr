@@ -1474,14 +1474,15 @@ impl<
             return Ok(());
         }
 
-        // Update block number and timestamp of active fork (if any) with current env
-        // values, in order to preserve values changed by using `roll` and
-        // `warp` cheatcodes.
+        // Update block number, timestamp and slot number of active fork (if any)
+        // with current env values, in order to preserve values changed by using
+        // `roll`, `warp` and `rollSlot` cheatcodes.
         if let Some(active_fork_id) = self.active_fork_id() {
             self.forks.update_block(
                 self.ensure_fork_id(active_fork_id).cloned()?,
                 context.block.number(),
                 context.block.timestamp(),
+                context.block.slot_num(),
             )?;
         }
 

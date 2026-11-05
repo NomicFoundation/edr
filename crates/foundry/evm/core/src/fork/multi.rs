@@ -183,12 +183,19 @@ impl<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>
         Ok(rx.recv()?)
     }
 
-    /// Updates block number and timestamp of given fork with new values.
-    pub fn update_block(&self, fork: ForkId, number: U256, timestamp: U256) -> eyre::Result<()> {
-        trace!(?fork, ?number, ?timestamp, "update fork block");
+    /// Updates block number, timestamp and slot number of given fork with new
+    /// values.
+    pub fn update_block(
+        &self,
+        fork: ForkId,
+        number: U256,
+        timestamp: U256,
+        slot_num: u64,
+    ) -> eyre::Result<()> {
+        trace!(?fork, ?number, ?timestamp, ?slot_num, "update fork block");
         self.handler
             .clone()
-            .try_send(Request::UpdateBlock(fork, number, timestamp))
+            .try_send(Request::UpdateBlock(fork, number, timestamp, slot_num))
             .map_err(|e| eyre::eyre!("{:?}", e))
     }
 
@@ -260,8 +267,8 @@ enum Request<BlockT, TxT, HardforkT> {
     RollFork(ForkId, u64, CreateSender<BlockT, TxT, HardforkT>),
     /// Returns the environment of the fork.
     GetEnv(ForkId, GetEnvSender<BlockT, TxT, HardforkT>),
-    /// Updates the block number and timestamp of the fork.
-    UpdateBlock(ForkId, U256, U256),
+    /// Updates the block number, timestamp and slot number of the fork.
+    UpdateBlock(ForkId, U256, U256, u64),
     /// Updates the block the entire block env,
     UpdateEnv(ForkId, BlockT),
     /// Shutdowns the entire `MultiForkHandler`, see `ShutDownMultiFork`
@@ -395,12 +402,20 @@ impl<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>
             fork.opts.env.block = env;
         }
     }
-    /// Update fork block number and timestamp. Used to preserve values set by
-    /// `roll` and `warp` cheatcodes when new fork selected.
-    fn update_block(&mut self, fork_id: ForkId, block_number: U256, block_timestamp: U256) {
+    /// Update fork block number, timestamp and slot number. Used to preserve
+    /// values set by `roll`, `warp` and `rollSlot` cheatcodes when new fork
+    /// selected.
+    fn update_block(
+        &mut self,
+        fork_id: ForkId,
+        block_number: U256,
+        block_timestamp: U256,
+        slot_num: u64,
+    ) {
         if let Some(fork) = self.forks.get_mut(&fork_id) {
             fork.opts.env.block.set_number(block_number);
             fork.opts.env.block.set_timestamp(block_timestamp);
+            fork.opts.env.block.set_slot_num(slot_num);
         }
     }
 
@@ -424,8 +439,8 @@ impl<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>
             Request::GetEnv(fork_id, sender) => {
                 let _ = sender.send(self.forks.get(&fork_id).map(|fork| fork.opts.env.clone()));
             }
-            Request::UpdateBlock(fork_id, block_number, block_timestamp) => {
-                self.update_block(fork_id, block_number, block_timestamp);
+            Request::UpdateBlock(fork_id, block_number, block_timestamp, slot_num) => {
+                self.update_block(fork_id, block_number, block_timestamp, slot_num);
             }
             Request::UpdateEnv(fork_id, block_env) => {
                 self.update_env(fork_id, block_env);
