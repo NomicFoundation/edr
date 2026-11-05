@@ -1595,7 +1595,11 @@ impl<
 
         self.active_fork_ids = Some((id, idx));
         // Update current environment with environment of newly selected fork.
+        // Preserve the configured hardfork (`evm_version`): the fork's env is built
+        // with the default hardfork and must not override it.
+        let spec = context.cfg.spec;
         update_current_env_with_fork_env(context, fork_env);
+        crate::set_cfg_spec_id(context.cfg, spec);
 
         Ok(())
     }
@@ -1622,7 +1626,9 @@ impl<
             if active_id == id {
                 // need to update the block's env settings right away, which is otherwise set
                 // when forks are selected `select_fork`
+                let spec = context.cfg.spec;
                 update_current_env_with_fork_env(context, fork_env);
+                crate::set_cfg_spec_id(context.cfg, spec);
 
                 // we also need to update the journaled_state right away, this has essentially
                 // the same effect as selecting (`select_fork`) by discarding
