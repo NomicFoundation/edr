@@ -1264,6 +1264,91 @@ impl Cheatcode for getBlockNumberCall {
     }
 }
 
+impl_is_pure_true!(rollSlotCall);
+impl Cheatcode for rollSlotCall {
+    fn apply_stateful<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
+        HaltReasonT: HaltReasonTr,
+        HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
+        let Self { newSlotNumber } = *self;
+        ensure!(
+            ccx.ecx.cfg.spec.into() >= SpecId::AMSTERDAM,
+            "`rollSlot` is not supported before the Amsterdam hard fork; \
+             see EIP-7843: https://eips.ethereum.org/EIPS/eip-7843"
+        );
+        ccx.ecx.block.set_slot_num(newSlotNumber);
+        Ok(Vec::default())
+    }
+}
+
+impl_is_pure_true!(getSlotNumberCall);
+impl Cheatcode for getSlotNumberCall {
+    fn apply_stateful<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
+        HaltReasonT: HaltReasonTr,
+        HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
+        let Self {} = self;
+        ensure!(
+            ccx.ecx.cfg.spec.into() >= SpecId::AMSTERDAM,
+            "`getSlotNumber` is not supported before the Amsterdam hard fork; \
+             see EIP-7843: https://eips.ethereum.org/EIPS/eip-7843"
+        );
+        Ok(ccx.ecx.block.slot_num().abi_encode())
+    }
+}
+
 impl_is_pure_true!(txGasPriceCall);
 impl Cheatcode for txGasPriceCall {
     fn apply_stateful<
