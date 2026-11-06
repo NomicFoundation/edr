@@ -359,9 +359,11 @@ jsonpath_lib = "0.3"
 k256 = "0.13"
 log = { version = "0.4.17", default-features = false }
 lru = "0.18.0"
+# `free_use_pagemap` lifts mimalloc 3.5's 256 MiB arena object cap to 16 GiB.
 # `no_opt_arch` stops mimalloc from building for armv8.1-a, which would crash
 # older Linux arm64 CPUs.
-mimalloc-safe = { version = "0.1.67", default-features = false, features = [
+mimalloc-safe = { version = "0.1.68", default-features = false, features = [
+    "free_use_pagemap",
     "no_opt_arch",
     "v3",
 ] }
