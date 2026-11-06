@@ -1,7 +1,6 @@
 /// Test utilities for blob transactions.
 #[allow(dead_code)]
 pub mod blob;
-pub mod bytecode;
 pub mod gas_reporter;
 pub mod provider;
 

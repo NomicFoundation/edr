@@ -12,12 +12,10 @@ use edr_primitives::{address, Address, Bytes, U256};
 use edr_provider::{MethodInvocation, Provider, ProviderRequest};
 use edr_rpc_eth::{AccountOverrideOptions, StateOverrideOptions};
 use edr_runtime::transaction::calculate_initial_tx_gas_for_tx;
+use edr_test_utils::bytecode::{opcode::GAS, BytecodeBuilder};
 use edr_transaction::TxKind;
 
-use crate::common::{
-    bytecode::{opcode::GAS, BytecodeBuilder},
-    provider::{quantity_field, send_transaction},
-};
+use crate::common::provider::{quantity_field, send_transaction};
 
 pub const CALLER: Address = address!("0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266");
 pub const GAS_REPORTER_ADDRESS: Address = address!("0x1000000000000000000000000000000000000001");

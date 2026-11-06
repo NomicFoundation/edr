@@ -11,13 +11,10 @@
 use edr_chain_l1::{rpc::TransactionRequest, L1ChainSpec};
 use edr_primitives::{address, Address, Bytes, U256, U64};
 use edr_provider::{test_utils::transfer_value, Provider};
+use edr_test_utils::bytecode::{opcode, BytecodeBuilder};
 
-use crate::common::{
-    bytecode::{opcode, BytecodeBuilder},
-    provider::{
-        balance_at, code_at, new_provider, nonce_at, send_transaction, storage_at,
-        transaction_receipt,
-    },
+use crate::common::provider::{
+    balance_at, code_at, new_provider, nonce_at, send_transaction, storage_at, transaction_receipt,
 };
 
 const SENDER: Address = address!("0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266");

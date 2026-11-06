@@ -16,14 +16,12 @@ use edr_provider::{
     test_utils::deploy_contract, MethodInvocation, ProviderError, ProviderRequest,
     TransactionFailureReason,
 };
-
-use crate::common::{
-    bytecode::{
-        opcode::{DUPN, EXCHANGE, POP, SWAPN},
-        BytecodeBuilder,
-    },
-    provider::{new_provider, new_provider_with_config},
+use edr_test_utils::bytecode::{
+    opcode::{DUPN, EXCHANGE, POP, SWAPN},
+    BytecodeBuilder,
 };
+
+use crate::common::provider::{new_provider, new_provider_with_config};
 
 const SENDER: Address = address!("0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266");
 

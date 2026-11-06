@@ -63,7 +63,10 @@ use edr_runtime::{
 use edr_signer::{
     public_key_to_address, FakeSign as _, RecoveryMessage, Sign as _, SignatureWithRecoveryId,
 };
-use edr_solidity::{config::IncludeTraces, contract_decoder::ContractDecoder};
+use edr_solidity::{
+    config::IncludeTraces, contract_decoder::ContractDecoder,
+    recorded_trace_arena::RecordedTraceArena,
+};
 use edr_state_api::{
     account::{Account, AccountInfo, AccountStatus},
     irregular::IrregularState,
@@ -74,7 +77,6 @@ use edr_transaction::{
     TransactionAndBlock, TransactionMut, TransactionType, TxKind,
 };
 use edr_utils::{random::RandomHashGenerator, CastArcInto};
-use foundry_evm_traces::CallTraceArena;
 use gas::gas_used_ratio;
 use indexmap::IndexMap;
 use itertools::izip;
@@ -127,14 +129,14 @@ const DEFAULT_SKIP_UNSUPPORTED_TRANSACTION_TYPES: bool = false;
 /// The result of executing an `eth_call`.
 #[derive(Clone, Debug)]
 pub struct CallResult<HaltReasonT: HaltReasonTrait> {
-    pub call_trace_arena: Option<CallTraceArena>,
+    pub call_trace_arena: Option<RecordedTraceArena>,
     pub execution_result: ExecutionResult<HaltReasonT>,
 }
 
 pub struct CallResultWithMetadata<HaltReasonT: HaltReasonTrait> {
     /// Mapping of contract address to executed bytecode
     pub address_to_executed_code: HashMap<Address, Bytes>,
-    pub call_trace_arena: CallTraceArena,
+    pub call_trace_arena: RecordedTraceArena,
     pub console_log_inputs: Vec<Bytes>,
     pub execution_result: ExecutionResult<HaltReasonT>,
     /// The set of precompile addresses that were available during execution.
@@ -153,7 +155,7 @@ impl<HaltReasonT: HaltReasonTrait> CallResultWithMetadata<HaltReasonT> {
     }
 
     /// Returns the call traces if they should be included, consuming `self`.
-    pub fn into_call_traces(self, include_traces: IncludeTraces) -> Option<CallTraceArena> {
+    pub fn into_call_traces(self, include_traces: IncludeTraces) -> Option<RecordedTraceArena> {
         include_traces
             .should_include(|| !self.execution_result.is_success())
             .then_some(self.call_trace_arena)
@@ -194,7 +196,7 @@ impl<BlockT, HaltReasonT: HaltReasonTrait, SignedTransactionT>
     pub fn into_hash_and_call_traces(
         self,
         include_call_traces: IncludeTraces,
-    ) -> (B256, Vec<CallTraceArena>) {
+    ) -> (B256, Vec<RecordedTraceArena>) {
         let Self {
             transaction_hash,
             mining_results,
@@ -1709,7 +1711,7 @@ where
                     execution_result,
                     transaction.kind(),
                     transaction.data().clone(),
-                    &inspector_data.call_trace_arena,
+                    inspector_data.call_trace_arena.as_call_trace_arena(),
                     &inspector_data.address_to_executed_code,
                 ) {
                     Ok(()) => (),
@@ -2537,7 +2539,10 @@ where
                     observed_execution.result(),
                     kind,
                     input.clone(),
-                    &observed_execution.evm_observed_data.call_trace_arena,
+                    observed_execution
+                        .evm_observed_data
+                        .call_trace_arena
+                        .as_call_trace_arena(),
                     &observed_execution.evm_observed_data.address_to_executed_code,
                 ) {
                     Ok(report) => report,
@@ -3829,6 +3834,7 @@ mod tests {
             let has_nested_inner_frame = observed
                 .evm_observed_data
                 .call_trace_arena
+                .as_call_trace_arena()
                 .nodes()
                 .iter()
                 .any(|node| {

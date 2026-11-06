@@ -23,11 +23,9 @@ use edr_provider::{
     config::AccountOverride, MethodInvocation, Provider, ProviderError, ProviderErrorForChainSpec,
     ProviderRequest, TransactionFailureReason,
 };
+use edr_test_utils::bytecode::BytecodeBuilder;
 
-use crate::common::{
-    bytecode::BytecodeBuilder,
-    provider::{code_at, new_provider_with_config, send_transaction},
-};
+use crate::common::provider::{code_at, new_provider_with_config, send_transaction};
 
 const SENDER: Address = address!("0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266");
 
