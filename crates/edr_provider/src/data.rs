@@ -1108,11 +1108,20 @@ where
         let state_root = modified_state.state_root()?;
 
         let block_number = self.blockchain.last_block_number();
-        self.irregular_state
+        let diff = &mut self
+            .irregular_state
             .state_override_at_block_number(block_number)
             .or_insert_with(|| StateOverride::with_state_root(state_root))
-            .diff
-            .apply_storage_change(address, index, slot, account_info);
+            .diff;
+
+        // A storage change on an account that isn't in the diff yet marks it as
+        // created, which clears its storage from earlier blocks when the state is
+        // rebuilt from the diffs. Recording the account first avoids that. An account
+        // with only storage still has to be created, or it's removed as empty.
+        if let Some(account_info) = account_info.as_ref().filter(|info| !info.is_empty()) {
+            diff.apply_account_change(address, account_info.clone());
+        }
+        diff.apply_storage_change(address, index, slot, account_info);
 
         self.add_state_to_cache(modified_state, block_number);
 
@@ -3376,6 +3385,70 @@ mod tests {
 
         data.set_interval_config(None);
         assert!(data.take_interval_reconfigured());
+
+        Ok(())
+    }
+
+    /// Reads a storage slot from the latest state, rebuilt from the diffs
+    /// instead of taken from the state cache.
+    fn rebuilt_storage(
+        data: &ProviderData<L1ChainSpec, CurrentTime>,
+        address: Address,
+        index: u64,
+    ) -> anyhow::Result<U256> {
+        let state = data.blockchain.state_at_block_number(
+            data.last_block_number(),
+            data.irregular_state.state_overrides(),
+        )?;
+        Ok(state.storage(address, U256::from(index))?)
+    }
+
+    /// Sets storage slot 2 in one block and slot 1 in the next, then checks
+    /// both in the rebuilt state.
+    fn set_storage_in_two_blocks(
+        data: &mut ProviderData<L1ChainSpec, CurrentTime>,
+        address: Address,
+    ) -> anyhow::Result<()> {
+        data.set_account_storage_slot(address, U256::from(2), U256::from(8))?;
+        data.mine_and_commit_block(HeaderOverrides::default())?;
+        data.set_account_storage_slot(address, U256::from(1), U256::from(7))?;
+
+        assert_eq!(rebuilt_storage(data, address, 1)?, U256::from(7));
+        assert_eq!(rebuilt_storage(data, address, 2)?, U256::from(8));
+
+        Ok(())
+    }
+
+    #[test]
+    fn set_account_storage_slot_keeps_earlier_storage_of_a_funded_account() -> anyhow::Result<()> {
+        let mut fixture = ProviderTestFixture::<L1ChainSpec>::new_local()?;
+        let address = Address::repeat_byte(0xaa);
+        fixture.provider_data.set_balance(address, U256::from(1))?;
+
+        set_storage_in_two_blocks(&mut fixture.provider_data, address)
+    }
+
+    #[test]
+    fn set_account_storage_slot_keeps_earlier_storage_of_a_contract() -> anyhow::Result<()> {
+        let mut fixture = ProviderTestFixture::<L1ChainSpec>::new_local()?;
+        let address = Address::repeat_byte(0xaa);
+        fixture
+            .provider_data
+            .set_code(address, Bytes::from_static(&[0x60, 0x01]))?;
+
+        set_storage_in_two_blocks(&mut fixture.provider_data, address)
+    }
+
+    #[test]
+    fn set_account_storage_slot_keeps_an_account_with_only_storage() -> anyhow::Result<()> {
+        let mut fixture = ProviderTestFixture::<L1ChainSpec>::new_local()?;
+        let data = &mut fixture.provider_data;
+        let address = Address::repeat_byte(0xaa);
+
+        data.mine_and_commit_block(HeaderOverrides::default())?;
+        data.set_account_storage_slot(address, U256::from(1), U256::from(7))?;
+
+        assert_eq!(rebuilt_storage(data, address, 1)?, U256::from(7));
 
         Ok(())
     }
