@@ -51,7 +51,8 @@ pub struct SolidityTracingInspectorArgs {
 }
 
 /// Returns the config of the [`TracingInspector`] wrapped by
-/// [`SolidityTracingInspector`].
+/// [`SolidityTracingInspector`]. It sets no step limit or opcode filter, since
+/// every step should be recorded.
 fn tracing_inspector_config(args: &SolidityTracingInspectorArgs) -> TracingInspectorConfig {
     TracingInspectorConfig::none()
         .set_steps(false)
@@ -580,6 +581,14 @@ mod tests {
                     }
                 }
             }
+        }
+
+        #[test]
+        fn tracing_inspector_config_sets_no_step_limit_or_opcode_filter() {
+            let config = tracing_inspector_config(&args(true, StackSnapshotType::Full));
+
+            assert!(config.step_limit.is_none());
+            assert!(config.record_opcodes_filter.is_none());
         }
 
         #[test]
