@@ -28,7 +28,7 @@ pub struct Response {
     /// Error if there was an error computing the stack trace.
     pub stack_trace_result: Option<StackTraceCreationResult<String>>,
     /// This may contain zero or more traces, depending on the (batch) request
-    pub call_trace_arenas: Vec<RecordedTraceArena>,
+    pub execution_traces: Vec<RecordedTraceArena>,
 }
 
 impl From<String> for Response {
@@ -36,7 +36,7 @@ impl From<String> for Response {
         Response {
             data: Either::A(value),
             stack_trace_result: None,
-            call_trace_arenas: Vec::new(),
+            execution_traces: Vec::new(),
         }
     }
 }
@@ -111,10 +111,10 @@ pub fn cast_provider_result_to_response<
     });
 
     // We can take the traces as they won't be used for anything else
-    let call_trace_arenas = match &mut response {
-        Ok(response) => std::mem::take(&mut response.call_trace_arenas),
+    let execution_traces = match &mut response {
+        Ok(response) => std::mem::take(&mut response.execution_traces),
         Err(edr_provider::ProviderError::TransactionFailed(failure)) => {
-            std::mem::take(&mut failure.call_trace_arenas)
+            std::mem::take(&mut failure.execution_traces)
         }
         Err(_) => Vec::new(),
     };
@@ -124,7 +124,7 @@ pub fn cast_provider_result_to_response<
     marshal_response_data(response).map(|data| Response {
         data,
         stack_trace_result,
-        call_trace_arenas,
+        execution_traces,
     })
 }
 

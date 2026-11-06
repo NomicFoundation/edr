@@ -124,11 +124,13 @@ pub(crate) fn u256_to_bigint(v: &edr_primitives::U256) -> BigInt {
 
 type RawTrace = Either3<TracingMessage, TracingStep, TracingMessageResult>;
 
-/// Converts a `CallTraceArena` into a flat vector of `RawTrace` messages,
+/// Converts an execution trace into a flat vector of `RawTrace` messages,
 /// following the order that `EthereumJS` would have produced.
-pub(crate) fn raw_trace_from_call_trace_arena(arena: &RecordedTraceArena) -> Vec<RawTrace> {
+pub(crate) fn raw_trace_from_execution_trace(
+    execution_trace: &RecordedTraceArena,
+) -> Vec<RawTrace> {
     let mut result = Vec::new();
-    if let Some(root) = arena.node(0)
+    if let Some(root) = execution_trace.node(0)
         && (root.trace().kind.is_any_create() || !should_skip_call(root.trace(), root.steps()))
     {
         convert_node(root, false, root.trace().caller, &mut result);
