@@ -3003,29 +3003,11 @@ fn create_forked_blockchain_and_state<
             });
     }
 
-    let scheduled_blob_params = chain_configs
-        .get(&config.chain_id)
-        .and_then(|chain_config| chain_config.bpo_hardfork_schedule.clone());
-
-    let base_fee_params = config.base_fee_params.clone().unwrap_or_else(|| {
-        chain_configs.get(&config.chain_id).cloned().map_or_else(
-            || ChainSpecT::default_base_fee_params().clone(),
-            |chain_config| chain_config.base_fee_params,
-        )
-    });
-
-    let block_config = BlockConfig {
-        base_fee_params,
-        default_difficulty_fn: ChainSpecT::default_block_difficulty,
-        hardfork: config.hardfork.clone(),
-        scheduled_blob_params,
-    };
-
     let (blockchain, mut irregular_state) = tokio::task::block_in_place(
         || -> Result<_, ForkedCreationError<ChainSpecT::ProtocolHardfork>> {
             let mut irregular_state = IrregularState::default();
             let blockchain = runtime.block_on(ForkedBlockchainForChainSpec::<ChainSpecT>::new(
-                block_config.hardfork.clone(),
+                config.hardfork.clone(),
                 runtime.clone(),
                 rpc_client.clone(),
                 &mut irregular_state,
@@ -3038,6 +3020,29 @@ fn create_forked_blockchain_and_state<
             Ok((blockchain, irregular_state))
         },
     )?;
+
+    // Blocks mined on top of the fork continue the forked chain's protocol
+    // parameters, so they are looked up by the remote chain ID. The configured
+    // `chain_id` only determines the local chain's identity (e.g. EIP-155
+    // replay protection).
+    let remote_chain_config = chain_configs.get(&blockchain.remote_chain_id());
+
+    let scheduled_blob_params =
+        remote_chain_config.and_then(|chain_config| chain_config.bpo_hardfork_schedule.clone());
+
+    let base_fee_params = config.base_fee_params.clone().unwrap_or_else(|| {
+        remote_chain_config.map_or_else(
+            || ChainSpecT::default_base_fee_params().clone(),
+            |chain_config| chain_config.base_fee_params.clone(),
+        )
+    });
+
+    let block_config = BlockConfig {
+        base_fee_params,
+        default_difficulty_fn: ChainSpecT::default_block_difficulty,
+        hardfork: config.hardfork.clone(),
+        scheduled_blob_params,
+    };
 
     let fork_block_number = blockchain.last_block_number();
 
