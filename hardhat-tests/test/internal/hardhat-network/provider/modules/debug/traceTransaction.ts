@@ -72,16 +72,21 @@ describe("Debug module", function () {
         });
 
         it("Should throw an error when the value passed as tracer is not supported", async function () {
+          const txHash = await sendDummyTransaction(this.provider, 0, {
+            from: DEFAULT_ACCOUNTS_ADDRESSES[1],
+          });
+
           await assertInvalidArgumentsError(
             this.provider,
             "debug_traceTransaction",
             [
-              "0x1234567876543234567876543456765434567aeaeaed67616732632762762373",
+              txHash,
               {
                 tracer: "unsupportedTracer",
               },
             ],
-            "Hardhat currently only supports the default tracer, so no tracer parameter should be passed."
+            // TODO: https://github.com/NomicFoundation/edr/issues/1250
+            "JS Tracer is not enabled"
           );
         });
 

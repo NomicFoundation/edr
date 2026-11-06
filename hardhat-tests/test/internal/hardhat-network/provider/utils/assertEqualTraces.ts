@@ -1,9 +1,6 @@
 import { assert } from "chai";
 
-import {
-  RpcDebugTraceOutput,
-  RpcStructLog,
-} from "hardhat/internal/hardhat-network/provider/output";
+import { RpcDebugTraceOutput } from "hardhat/internal/hardhat-network/provider/output";
 
 export function assertEqualTraces(
   actual: RpcDebugTraceOutput,
@@ -16,8 +13,11 @@ export function assertEqualTraces(
   assert.equal(actual.failed, expected.failed);
   assert.equal(actual.gas, expected.gas);
 
-  // geth doesn't seem to include the returnValue
-  // assert.equal(actual.returnValue, expected.returnValue);
+  // The fixtures store returnValue without the 0x prefix that Hardhat 2 adds.
+  // TurboGeth recorded no return value for the reverted mainnet transaction.
+  if (!(expected.failed && expected.returnValue === "")) {
+    assert.equal(actual.returnValue.replace(/^0x/, ""), expected.returnValue);
+  }
 
   // EthereumJS doesn't include STOP at the end when REVM does.
   if (actual.structLogs.length === expected.structLogs.length + 1) {
@@ -35,19 +35,6 @@ export function assertEqualTraces(
     // we ignore the gasCost of the last step because
     // we don't guarantee that it's correct
     if (i === expected.structLogs.length - 1) {
-      actualLog.gasCost = 0;
-      expectedLog.gasCost = 0;
-    }
-
-    // We don't support gas computation for these opcodes yet in EDR and always return 0.
-    if (
-      expectedLog.op === "CREATE" ||
-      expectedLog.op === "CREATE2" ||
-      expectedLog.op === "CALL" ||
-      expectedLog.op === "CALLCODE" ||
-      expectedLog.op === "DELEGATECALL" ||
-      expectedLog.op === "STATICCALL"
-    ) {
       actualLog.gasCost = 0;
       expectedLog.gasCost = 0;
     }
@@ -75,22 +62,12 @@ export function assertEqualTraces(
     ) {
       // Check for memory expansion
       if (
-        expectedLog.memory!.length > expected.structLogs[i - 1].memory!.length
+        expectedLog.memory.length > expected.structLogs[i - 1].memory!.length
       ) {
-        while (expectedLog.memory!.length > actualLog.memory!.length) {
-          actualLog.memory!.push("0".repeat(64));
+        while (expectedLog.memory.length > actualLog.memory.length) {
+          actualLog.memory.push("0".repeat(64));
         }
       }
-    }
-
-    // revm-inspectors emits `refund: 0` on every step, whereas Geth only emits
-    // `refund` when non-zero. Normalize the expected log to match.
-    const refund = (actualLog as RpcStructLog & { refund?: number }).refund;
-    if (
-      refund === 0 &&
-      (expectedLog as RpcStructLog & { refund?: number }).refund === undefined
-    ) {
-      (expectedLog as RpcStructLog & { refund?: number }).refund = 0;
     }
 
     assert.deepEqual(

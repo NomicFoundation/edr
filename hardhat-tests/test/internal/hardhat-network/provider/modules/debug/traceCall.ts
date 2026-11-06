@@ -67,7 +67,7 @@ describe("Debug module", function () {
           assertEqualTraces(trace, contractAGetMessageTrace);
         });
 
-        it("should get the correct trace when calling a function from contract A with  a specific rpcDebugTracingConfig", async function () {
+        it("should get the correct trace when calling a function from contract A with a specific rpcDebugTracingConfig", async function () {
           const trace = await this.provider.send("debug_traceCall", [
             {
               from: deployerAddress,
@@ -133,7 +133,8 @@ describe("Debug module", function () {
                 tracer: "unsupportedTracer",
               },
             ],
-            "Hardhat currently only supports the default tracer, so no tracer parameter should be passed."
+            // TODO: https://github.com/NomicFoundation/edr/issues/1250
+            "JS Tracer is not enabled"
           );
         });
       });
