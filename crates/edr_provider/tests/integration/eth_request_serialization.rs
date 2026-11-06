@@ -8,7 +8,7 @@ use edr_eth::{
     Blob, BlockSpec, BlockTag, PreEip1898BlockSpec,
 };
 use edr_primitives::{Address, Bytes, B256, U160, U256};
-use edr_provider::{IntervalConfigRequest, MethodInvocation, Timestamp};
+use edr_provider::{IntervalConfigRequest, InvalidRequestReason, MethodInvocation, Timestamp};
 
 use crate::common::{
     help_test_method_invocation_serde, help_test_method_invocation_serde_with_expected,
@@ -595,4 +595,64 @@ fn test_eth_sign() {
         .unwrap_or_else(|_| panic!("should have successfully deserialized json {serialized}"));
 
     assert_eq!(call, call_deserialized);
+}
+
+#[test]
+fn test_serde_eth_requests_with_data_and_input() -> anyhow::Result<()> {
+    fn call_data(method: &str, fields: &str) -> serde_json::Result<Option<Bytes>> {
+        let tx = format!(
+            r#"{{"from":"0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266","to":"0x0000000000000000000000000000000000000004",{fields}}}"#
+        );
+        let params = if method == "eth_sendTransaction" {
+            format!("[{tx}]")
+        } else {
+            format!(r#"[{tx},"latest"]"#)
+        };
+        let json = format!(r#"{{"jsonrpc":"2.0","method":"{method}","params":{params},"id":1}}"#);
+        Ok(
+            match serde_json::from_str::<MethodInvocation<L1ChainSpec>>(&json)? {
+                MethodInvocation::Call(request, ..)
+                | MethodInvocation::DebugTraceCall(request, ..)
+                | MethodInvocation::EstimateGas(request, ..) => request.data,
+                MethodInvocation::SendTransaction(request) => request.data,
+                other => panic!("unexpected method {other:?}"),
+            },
+        )
+    }
+
+    let calldata = Some(Bytes::from_static(&[0x12, 0x34]));
+    for method in [
+        "debug_traceCall",
+        "eth_call",
+        "eth_estimateGas",
+        "eth_sendTransaction",
+    ] {
+        // cast sends the calldata in both `data` and `input`.
+        assert_eq!(
+            call_data(method, r#""data":"0x1234","input":"0x1234""#)?,
+            calldata
+        );
+        assert_eq!(
+            call_data(method, r#""data":null,"input":"0x1234""#)?,
+            calldata
+        );
+
+        // As in geth, calls take `input` when the two differ, and sending a
+        // transaction rejects them.
+        let different = call_data(method, r#""data":"0x","input":"0x1234""#);
+        if method == "eth_sendTransaction" {
+            let message = different
+                .expect_err("different data and input should be rejected")
+                .to_string();
+            assert!(message.starts_with(r#"both "data" and "input" are set and not equal"#));
+            assert_eq!(
+                InvalidRequestReason::new(Some(method), &message).error_code(),
+                -32602
+            );
+        } else {
+            assert_eq!(different?, calldata);
+        }
+    }
+
+    Ok(())
 }
