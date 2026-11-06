@@ -105,6 +105,21 @@ mod remote {
         TestConfig::with_filter(runner, filter).run().await;
     }
 
+    /// Tests that selecting and rolling forks keeps the configured
+    /// `evm_version`
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_fork_preserves_evm_version() {
+        let runner = TEST_DATA_DEFAULT
+            .runner_with_fuzz_persistence(TEST_DATA_DEFAULT.config_with_remote_rpc())
+            .await;
+        let filter = SolidityTestFilter::new(
+            ".*",
+            ".*",
+            &format!(".*fork{RE_PATH_SEPARATOR}ForkEvmVersion"),
+        );
+        TestConfig::with_filter(runner, filter).run().await;
+    }
+
     /// Tests that we can launch in forking mode
     #[tokio::test(flavor = "multi_thread")]
     async fn test_launch_fork() {
