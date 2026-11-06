@@ -48,9 +48,6 @@ describe("Debug module", function () {
               gas: BASE_GAS_QUANTITY,
             },
             "latest",
-            {
-              enableMemory: true,
-            },
           ]);
 
           assertEqualTraces(trace, contractAGetMessageTrace);
@@ -65,16 +62,12 @@ describe("Debug module", function () {
               gas: BASE_GAS_QUANTITY,
             },
             // blockTag not defined, it should automatically default to "latest"
-            undefined,
-            {
-              enableMemory: true,
-            },
           ]);
 
           assertEqualTraces(trace, contractAGetMessageTrace);
         });
 
-        it("should get the correct trace when calling a function from contract A with a specific rpcDebugTracingConfig", async function () {
+        it("should get the correct trace when calling a function from contract A with  a specific rpcDebugTracingConfig", async function () {
           const trace = await this.provider.send("debug_traceCall", [
             {
               from: deployerAddress,
@@ -107,9 +100,6 @@ describe("Debug module", function () {
               gas: BASE_GAS_QUANTITY,
             },
             "latest",
-            {
-              enableMemory: true,
-            },
           ]);
 
           assertEqualTraces(trace, contractAThrowError);
@@ -123,9 +113,6 @@ describe("Debug module", function () {
               value: "0x12",
             },
             "latest",
-            {
-              enableMemory: true,
-            },
           ]);
 
           assertEqualTraces(trace, ethTransferTrace);
@@ -146,8 +133,7 @@ describe("Debug module", function () {
                 tracer: "unsupportedTracer",
               },
             ],
-            // TODO: https://github.com/NomicFoundation/edr/issues/1250
-            "JS Tracer is not enabled"
+            "Hardhat currently only supports the default tracer, so no tracer parameter should be passed."
           );
         });
       });
