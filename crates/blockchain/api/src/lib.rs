@@ -108,6 +108,16 @@ pub trait InsertBlock<BlockT: ?Sized, LocalBlockT, SignedTransactionT> {
     ) -> Result<BlockAndTotalDifficulty<Arc<BlockT>, SignedTransactionT>, Self::Error>;
 }
 
+/// Trait for retrieving the state diffs of locally mined blocks.
+#[auto_impl(&)]
+pub trait LocalStateDiffs {
+    /// Retrieves the state diffs of the local blocks, ordered by block number.
+    ///
+    /// For a local blockchain, the first diff is the genesis state. A forked
+    /// blockchain only has diffs for blocks mined after the fork.
+    fn local_state_diffs(&self) -> &[(u64, StateDiff)];
+}
+
 /// Trait for retrieving a receipt by its transaction hash.
 #[auto_impl(&)]
 pub trait ReceiptByTransactionHash<BlockReceiptT> {
@@ -190,6 +200,7 @@ pub trait Blockchain<
     + GetBlockchainBlock<BlockT, HardforkT, Error = BlockchainErrorT>
     + GetBlockchainLogs<Error = BlockchainErrorT>
     + InsertBlock<BlockT, LocalBlockT, SignedTransactionT, Error = BlockchainErrorT>
+    + LocalStateDiffs
     + ReceiptByTransactionHash<BlockReceiptT, Error = BlockchainErrorT>
     + ReserveBlocks<HardforkT, Error = BlockchainErrorT>
     + RevertToBlock<Error = BlockchainErrorT>
@@ -215,6 +226,7 @@ where
         + GetBlockchainBlock<BlockT, HardforkT, Error = BlockchainErrorT>
         + GetBlockchainLogs<Error = BlockchainErrorT>
         + InsertBlock<BlockT, LocalBlockT, SignedTransactionT, Error = BlockchainErrorT>
+        + LocalStateDiffs
         + ReceiptByTransactionHash<BlockReceiptT, Error = BlockchainErrorT>
         + ReserveBlocks<HardforkT, Error = BlockchainErrorT>
         + RevertToBlock<Error = BlockchainErrorT>

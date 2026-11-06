@@ -5,3 +5,4 @@ mod holocene;
 mod isthmus_operator_fee;
 mod provider;
 mod rpc;
+mod state_dump;

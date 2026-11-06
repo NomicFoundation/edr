@@ -28,6 +28,7 @@ use edr_solidity::{
     solidity_stack_trace::{get_stack_trace, DeployedCode, StackTraceCreationResult},
 };
 use edr_state_api::StateError;
+use edr_state_dump::StateDumpDecodeError;
 use foundry_evm_traces::CallTraceArena;
 use parking_lot::RwLock;
 use serde::Serialize;
@@ -201,6 +202,9 @@ pub enum ProviderError<
     Creation(#[from] CreationError<GenesisBlockCreationErrorT, HardforkT>),
     #[error(transparent)]
     DebugTrace(#[from] DebugTraceError<TransactionValidationErrorT>),
+    /// `hardhat_dumpState` isn't supported in fork mode.
+    #[error("Dumping the state isn't supported in fork mode.")]
+    DumpStateUnsupportedInForkMode,
     #[error(
         "An EIP-4844 (shard blob) call request was received, but Hardhat only supports them via `eth_sendRawTransaction`. See https://github.com/NomicFoundation/hardhat/issues/5182"
     )]
@@ -262,6 +266,9 @@ pub enum ProviderError<
     },
     #[error("{0}")]
     InvalidInput(String),
+    /// The data passed to `hardhat_loadState` isn't a valid state dump.
+    #[error(transparent)]
+    InvalidStateDump(#[from] StateDumpDecodeError),
     /// Transaction hash doesn't exist on the blockchain.
     #[error("Transaction hash '{0}' doesn't exist on the blockchain.")]
     InvalidTransactionHash(B256),
@@ -529,6 +536,7 @@ impl<
             ProviderError::Blockchain(_) => INVALID_INPUT,
             ProviderError::Creation(_) => INVALID_INPUT,
             ProviderError::DebugTrace(error) => error.error_code(),
+            ProviderError::DumpStateUnsupportedInForkMode => INVALID_INPUT,
             ProviderError::Eip4844CallRequestUnsupported => INVALID_INPUT,
             ProviderError::Eip4844TransactionMissingReceiver => INVALID_INPUT,
             ProviderError::Eip4844TransactionUnsupported => INVALID_INPUT,
@@ -545,6 +553,7 @@ impl<
             ProviderError::InvalidEip155TransactionChainId => INVALID_PARAMS,
             ProviderError::InvalidFilterSubscriptionType { .. } => INVALID_PARAMS,
             ProviderError::InvalidInput(_) => INVALID_INPUT,
+            ProviderError::InvalidStateDump(_) => INVALID_PARAMS,
             ProviderError::InvalidTransactionHash { .. } => INVALID_PARAMS,
             ProviderError::InvalidTransactionIndex(_) => INVALID_PARAMS,
             ProviderError::InvalidTransactionInput(_) => INVALID_INPUT,

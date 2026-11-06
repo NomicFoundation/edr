@@ -62,6 +62,7 @@ members = [
     "crates/primitives",
     "crates/receipt/builder/api",
     "crates/state/api",
+    "crates/state/dump",
     "crates/state/fork",
     "crates/state/persistent_trie",
     "crates/state/remote",
@@ -196,6 +197,7 @@ edr_signer = { path = "crates/edr_signer" }
 edr_solidity = { path = "crates/edr_solidity" }
 edr_solidity_tests = { path = "crates/edr_solidity_tests" }
 edr_state_api = { path = "crates/state/api" }
+edr_state_dump = { path = "crates/state/dump" }
 edr_state_fork = { path = "crates/state/fork" }
 edr_state_persistent_trie = { path = "crates/state/persistent_trie" }
 edr_state_remote = { path = "crates/state/remote" }

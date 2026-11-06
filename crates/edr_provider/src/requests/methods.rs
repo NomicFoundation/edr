@@ -1835,6 +1835,30 @@ pub enum MethodInvocation<ChainSpecT: RpcChainSpec> {
         /// `DATA, 32 bytes` - The hash of the pending transaction to drop.
         B256,
     ),
+    /// # `hardhat_dumpState`
+    ///
+    /// Returns the accounts of the latest state: their balance, nonce, code,
+    /// and storage.
+    ///
+    /// ## Result
+    ///
+    /// `DATA` - The accounts as gzip-compressed JSON, in the same format as the
+    /// `accounts` of Anvil's state dumps.
+    ///
+    /// ## Example
+    ///
+    /// **Response:**
+    ///
+    /// ```json
+    /// "0x1f8b0800000000000003..."
+    /// ```
+    ///
+    /// ## Implementation details
+    ///
+    /// - Only the accounts are dumped, not the blocks or transactions.
+    /// - Not supported in fork mode.
+    #[serde(rename = "hardhat_dumpState", with = "edr_eth::serde::empty_params")]
+    DumpState(()),
     /// # `hardhat_getAutomine`
     ///
     /// Returns whether automatic mining is enabled.
@@ -1884,6 +1908,46 @@ pub enum MethodInvocation<ChainSpecT: RpcChainSpec> {
     ImpersonateAccount(
         /// `DATA, 20 bytes` - The address to impersonate.
         RpcAddress,
+    ),
+    /// # `hardhat_loadState`
+    ///
+    /// Merges the accounts of a state dump into the latest state.
+    ///
+    /// ## Result
+    ///
+    /// `Boolean` - Always returns `true`.
+    ///
+    /// ## Example
+    ///
+    /// **Request:**
+    ///
+    /// ```json
+    /// {
+    ///   "params": ["0x1f8b0800000000000003..."]
+    /// }
+    /// ```
+    ///
+    /// **Response:**
+    ///
+    /// ```json
+    /// true
+    /// ```
+    ///
+    /// ## Implementation details
+    ///
+    /// - Accepts the output of `hardhat_dumpState` or `anvil_dumpState`, as
+    ///   gzip-compressed or plain JSON. Only the accounts are loaded.
+    /// - The balance and code of each account in the dump replace the current
+    ///   ones, its nonce is the higher of the two, and its storage slots are
+    ///   set one by one. Accounts and storage slots that aren't in the dump are
+    ///   kept.
+    /// - Like `hardhat_setBalance`, this changes the state without mining a
+    ///   block.
+    #[serde(rename = "hardhat_loadState", with = "edr_eth::serde::sequence")]
+    LoadState(
+        /// `DATA` - The state dump.
+        #[serde(deserialize_with = "crate::requests::serde::deserialize_data")]
+        Bytes,
     ),
     /// # `hardhat_metadata`
     ///
@@ -2384,8 +2448,10 @@ impl<ChainSpecT: RpcChainSpec> MethodInvocation<ChainSpecT> {
             MethodInvocation::DebugTraceCall(_, _, _) => "debug_traceCall",
             MethodInvocation::DebugTraceTransaction(_, _) => "debug_traceTransaction",
             MethodInvocation::DropTransaction(_) => "hardhat_dropTransaction",
+            MethodInvocation::DumpState(()) => "hardhat_dumpState",
             MethodInvocation::GetAutomine(_) => "hardhat_getAutomine",
             MethodInvocation::ImpersonateAccount(_) => "hardhat_impersonateAccount",
+            MethodInvocation::LoadState(_) => "hardhat_loadState",
             MethodInvocation::Metadata(_) => "hardhat_metadata",
             MethodInvocation::Mine(_, _) => "hardhat_mine",
             MethodInvocation::SetBalance(_, _) => "hardhat_setBalance",
