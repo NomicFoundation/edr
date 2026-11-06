@@ -176,6 +176,18 @@ mod tests {
     }
 
     impl_execution_receipt_tests! {
+        eip658_legacy_status_false: Execution<ExecutionLog> => TypedEnvelope::Legacy(Execution::Eip658(edr_receipt::execution::Eip658 {
+            status: false,
+            cumulative_gas_used: 0xffff,
+            logs_bloom: Bloom::random(),
+            logs: Vec::new(),
+        })),
+        eip658_eip1559_status_false: Execution<ExecutionLog> => TypedEnvelope::Eip1559(Execution::Eip658(edr_receipt::execution::Eip658 {
+            status: false,
+            cumulative_gas_used: 0xffff,
+            logs_bloom: Bloom::random(),
+            logs: Vec::new(),
+        })),
         legacy_legacy: Execution<ExecutionLog> => TypedEnvelope::Legacy(Execution::Legacy(edr_receipt::execution::Legacy {
             root: B256::random(),
             cumulative_gas_used: 0xffff,
