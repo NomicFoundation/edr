@@ -195,16 +195,39 @@ pub struct TestRunnerConfig {
     /// Defaults to false.
     pub generate_gas_report: Option<bool>,
     /// Maps the solc source names of the test-suite sources to their absolute
-    /// paths on disk. Used to parse inline test configuration
-    /// (`forge-config:`/`hardhat-config:` NatSpec directives) from the sources.
-    /// A test source without an entry has no inline configuration collected.
+    /// paths on disk. The test sources are parsed to collect inline test
+    /// configuration (`forge-config:`/`hardhat-config:` NatSpec directives)
+    /// and the EIP-712 struct definitions served to the `eip712HashType` and
+    /// `eip712HashStruct` cheatcodes.
+    ///
+    /// An empty map disables collection: no source is read or parsed. A
+    /// non-empty map must name the source of every test suite a run selects,
+    /// and every source backing a selected suite is parsed. An entry no
+    /// selected suite uses is never opened.
+    ///
+    /// Each problem is accumulated and reported together when the run starts,
+    /// rather than silently leaving a suite without inline configuration or
+    /// EIP-712 types. A suite with no entry, an unreadable file, a solc
+    /// version older than 0.8 and a source that does not parse all count.
+    ///
+    /// Only the sources of the suites a run selects are read and parsed.
     pub test_source_paths: HashMap<PathBuf, PathBuf>,
     /// Maps non-relative Solidity import paths (as written in `import`
     /// statements, e.g. `forge-std/src/Test.sol`) to absolute file paths on
-    /// disk, for parsing inline test configuration. Relative import paths
-    /// (`./`, `../`) are resolved against the importing file and need no entry
-    /// here.
+    /// disk, for resolving imports while parsing the test sources. Relative
+    /// import paths (`./`, `../`) are resolved against the importing file and
+    /// need no entry here.
     pub import_mappings: HashMap<String, PathBuf>,
+    /// Globs matched against each parsed source's path relative to
+    /// [`Self::project_root`], spelled with forward slashes. A file outside
+    /// the root is matched by its absolute path.
+    ///
+    /// A struct declared in a matching file is not collected, including when
+    /// the matching file is the test's own source. Only EIP-712 collection is
+    /// affected, never inline configuration. Nothing is excluded by default,
+    /// and there is no opposite setting, because every reachable struct is
+    /// collected.
+    pub eip712_exclude_globs: Vec<String>,
     /// The Solidity test profile the run was started with. Inline-config
     /// directives prefixed with a profile name apply only when that profile is
     /// the selected one.
@@ -273,6 +296,7 @@ impl TestRunnerConfig {
             generate_gas_report,
             test_source_paths,
             import_mappings,
+            eip712_exclude_globs,
             test_profile,
             declared_test_profiles,
         } = self;
@@ -359,11 +383,10 @@ impl TestRunnerConfig {
             evm_opts.memory_limit = memory_limit;
         }
 
+        let import_resolver = ImportResolver::new(import_mappings);
         let local_predeploys = local_predeploys.unwrap_or_default();
 
         let generate_gas_report = generate_gas_report.unwrap_or(false);
-
-        let import_resolver = ImportResolver::new(import_mappings);
 
         let inline_config_profiles =
             InlineConfigProfiles::new(test_profile, declared_test_profiles)
@@ -387,6 +410,7 @@ impl TestRunnerConfig {
             generate_gas_report,
             test_source_paths,
             import_resolver,
+            eip712_exclude_globs,
             inline_config_profiles,
         })
     }
@@ -436,6 +460,7 @@ mod tests {
             generate_gas_report: None,
             test_source_paths: HashMap::new(),
             import_mappings: HashMap::new(),
+            eip712_exclude_globs: Vec::new(),
             test_profile: DEFAULT_PROFILE.to_owned(),
             declared_test_profiles: vec![DEFAULT_PROFILE.to_owned()],
         }

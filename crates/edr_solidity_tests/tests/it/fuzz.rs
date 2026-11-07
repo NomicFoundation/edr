@@ -33,8 +33,17 @@ async fn test_fuzz() {
         )
         .exclude_paths("invariant")
         .exclude_contracts("FuzzConfigOverrideTest|FuzzProfileOverrideTest");
-    let runner = TEST_DATA_DEFAULT.runner().await;
-    let suite_result = runner.test_collect(filter).await.suite_results;
+    // Keep collection disabled here. `.*fuzz/` selects the 0.5.17
+    // `FuzzPreBytecodeHash.t.sol`, which Slang has no grammar for, and
+    // nothing left under this filter carries inline configuration.
+    let runner = TEST_DATA_DEFAULT
+        .runner_with_fuzz_persistence(TEST_DATA_DEFAULT.config_without_source_collection())
+        .await;
+    let suite_result = runner
+        .test_collect(filter)
+        .await
+        .expect("the run produces results")
+        .suite_results;
 
     assert!(!suite_result.is_empty());
 
@@ -73,7 +82,11 @@ async fn test_successful_fuzz_cases() {
         .exclude_tests(r"invariantCounter|testIncrement\(address\)|testNeedle\(uint256\)")
         .exclude_paths("invariant");
     let runner = TEST_DATA_DEFAULT.runner().await;
-    let suite_result = runner.test_collect(filter).await.suite_results;
+    let suite_result = runner
+        .test_collect(filter)
+        .await
+        .expect("the run produces results")
+        .suite_results;
 
     assert!(!suite_result.is_empty());
 
@@ -109,7 +122,11 @@ async fn test_fuzz_collection() {
     config.fuzz.runs = 1000;
     config.fuzz.seed = Some(U256::from(6u32));
     let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;
-    let results = runner.test_collect(filter).await.suite_results;
+    let results = runner
+        .test_collect(filter)
+        .await
+        .expect("the run produces results")
+        .suite_results;
 
     assert_multiple(
         &results,
@@ -158,7 +175,7 @@ async fn test_persist_fuzz_failure() {
         ($runner:ident) => {
             $runner
                 .clone()
-                .test_collect(filter.clone()).await
+                .test_collect(filter.clone()).await.expect("the run produces results")
                 .suite_results
                 .get("default/fuzz/FuzzFailurePersist.t.sol:FuzzFailurePersistTest")
                 .unwrap()
@@ -208,7 +225,11 @@ async fn test_fuzz_gas_report() {
     config.fuzz.seed = Some(U256::from(6u32));
     config.generate_gas_report = true;
     let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;
-    let test_result = runner.test_collect(filter).await.test_result;
+    let test_result = runner
+        .test_collect(filter)
+        .await
+        .expect("the run produces results")
+        .test_result;
 
     assert!(test_result.gas_report.is_some());
 
@@ -258,7 +279,11 @@ async fn test_should_not_shrink_fuzz_failure() {
     config.fuzz.runs = 256;
     config.fuzz.seed = Some(U256::from(100));
     let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;
-    let suite_results = runner.test_collect(filter).await.suite_results;
+    let suite_results = runner
+        .test_collect(filter)
+        .await
+        .expect("the run produces results")
+        .suite_results;
     let suite_result = suite_results
         .get("default/fuzz/FuzzFailureShrink.t.sol:FuzzFailureShrinkTest")
         .unwrap();
@@ -277,7 +302,11 @@ async fn test_fuzz_can_scrape_bytecode() {
     config.fuzz.runs = 2100;
     config.fuzz.seed = Some(U256::from(119u32));
     let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;
-    let results = runner.test_collect(filter).await.suite_results;
+    let results = runner
+        .test_collect(filter)
+        .await
+        .expect("the run produces results")
+        .suite_results;
 
     assert_multiple(
         &results,
@@ -301,7 +330,11 @@ async fn test_fuzz_show_logs() {
     config.fuzz.show_logs = true;
 
     let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;
-    let suite_result = runner.test_collect(filter.clone()).await.suite_results;
+    let suite_result = runner
+        .test_collect(filter.clone())
+        .await
+        .expect("the run produces results")
+        .suite_results;
 
     for SuiteResult { test_results, .. } in suite_result.values() {
         let result = test_results
@@ -324,7 +357,11 @@ async fn test_fuzz_show_logs() {
     config.fuzz.show_logs = false;
 
     let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;
-    let suite_result = runner.test_collect(filter).await.suite_results;
+    let suite_result = runner
+        .test_collect(filter)
+        .await
+        .expect("the run produces results")
+        .suite_results;
 
     for SuiteResult { test_results, .. } in suite_result.values() {
         let result = test_results
@@ -349,7 +386,11 @@ async fn test_fuzz_timeout() {
     config.fuzz.max_test_rejects = 50000;
     config.fuzz.timeout = Some(1u32);
     let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;
-    let results = runner.test_collect(filter).await.suite_results;
+    let results = runner
+        .test_collect(filter)
+        .await
+        .expect("the run produces results")
+        .suite_results;
 
     assert_multiple(
         &results,
@@ -366,7 +407,11 @@ async fn test_fuzz_fail_on_revert() {
     let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
     config.fuzz.fail_on_revert = false;
     let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;
-    let results = runner.test_collect(filter).await.suite_results;
+    let results = runner
+        .test_collect(filter)
+        .await
+        .expect("the run produces results")
+        .suite_results;
 
     assert_multiple(
         &results,
@@ -405,7 +450,11 @@ async fn test_fuzz_function_overrides() {
     // Per-function overrides come from inline `forge-config:` directives in
     // `fuzz/FuzzConfigOverride.t.sol`.
     let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;
-    let results = runner.test_collect(filter).await.suite_results;
+    let results = runner
+        .test_collect(filter)
+        .await
+        .expect("the run produces results")
+        .suite_results;
 
     assert_multiple(
         &results,
@@ -498,7 +547,11 @@ async fn test_fuzz_profile_overrides() {
             InlineConfigProfiles::new(selected, ["ci".to_owned()]).expect("valid profiles");
 
         let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;
-        let results = runner.test_collect(filter).await.suite_results;
+        let results = runner
+            .test_collect(filter)
+            .await
+            .expect("the run produces results")
+            .suite_results;
 
         let suite_result = results
             .get("default/fuzz/FuzzProfileOverride.t.sol:FuzzProfileOverrideTest")

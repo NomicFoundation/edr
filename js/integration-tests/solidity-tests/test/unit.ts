@@ -9,7 +9,7 @@ import {
   CheatcodeErrorCode,
   CollectStackTraces,
   InlineConfigDirectiveError,
-  InlineConfigError,
+  TestSourceError,
   L1_CHAIN_TYPE,
   OP_CHAIN_TYPE,
   SuiteResult,
@@ -37,17 +37,17 @@ describe("Unit tests", () => {
     assert.equal(totalTests, 2);
   });
 
-  it("InvalidInlineConfig", async function () {
+  it("rejects a run on test-source errors", async function () {
     // Ill-formed inline configuration rejects the whole run up front, carrying
     // the structured, located problems on the error so Hardhat can point the
     // user at each one.
     await assert.rejects(
       testContext.runTestsWithStats("InlineConfigInvalidTest"),
-      (error: Error & { inlineConfigErrors?: InlineConfigError[] }) => {
-        const errors = error.inlineConfigErrors;
+      (error: Error & { testSourceErrors?: TestSourceError[] }) => {
+        const errors = error.testSourceErrors;
         if (!Array.isArray(errors)) {
           throw new Error(
-            "expected structured `inlineConfigErrors` on the thrown error"
+            "expected structured `testSourceErrors` on the thrown error"
           );
         }
 
@@ -109,8 +109,8 @@ describe("Unit tests", () => {
           testProfile,
           declaredTestProfiles: ["default", "ci"],
         }),
-        (error: Error & { inlineConfigErrors?: InlineConfigError[] }) => {
-          const errors = error.inlineConfigErrors;
+        (error: Error & { testSourceErrors?: TestSourceError[] }) => {
+          const errors = error.testSourceErrors;
           if (!Array.isArray(errors) || errors.length !== 1) {
             throw new Error(
               `expected one structured inline config error, got ${JSON.stringify(errors)}`
@@ -351,8 +351,11 @@ describe("Unit tests", () => {
   });
 
   it("CounterDifferentSolc", async function () {
+    // This suite is compiled with solc 0.7.6, which has no Solidity grammar.
+    // Collection requires 0.8, so it is disabled for this run.
     const { totalTests, failedTests } = await testContext.runTestsWithStats(
-      "CounterDifferentSolcTest"
+      "CounterDifferentSolcTest",
+      { testSourcePaths: {} }
     );
 
     assert.equal(failedTests, 0);
