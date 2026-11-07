@@ -30,11 +30,6 @@ const CI_WAIT_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
 const DEFAULT_SCENARIO_FILTER = "*";
 const DEFAULT_BENCHMARK_FILTER = "test solidity*,test mocha*,test vitest*";
 
-// Optional Hardhat compatibility pin (see hardhat-compat-pin.ts for the file
-// format). While the pinned Hardhat PR is open, runs that don't name an
-// explicit hardhat-ref benchmark against the pinned sha; once it's merged (or
-// closed) they revert to `main` automatically. Delete the file after the
-// Hardhat PR merges.
 import {
   errorStatus,
   type CoreWithOutputs,
@@ -42,11 +37,10 @@ import {
   type WorkflowRun,
 } from "./github-script.ts";
 import {
-  HARDHAT_OWNER,
   HARDHAT_PIN_PATH,
-  HARDHAT_REPO,
-  parseHardhatPin,
-  type HardhatPin,
+  pinnedPrName,
+  resolveHardhatRef,
+  type ResolvedHardhatRef,
 } from "./hardhat-compat-pin.ts";
 import { waitForWorkflowRun, type Clock } from "./wait-for-workflow-run.ts";
 
@@ -175,16 +169,12 @@ export async function resolveRegressionTrigger({
     return result.run.conclusion === "success";
   }
 
-  // Resolve the Hardhat ref for runs that didn't name one explicitly: `main`,
-  // unless a compat pin (HARDHAT_PIN_PATH) exists on `ref` and its Hardhat PR
-  // is still open. Returns { ref, pin? }, with `pin` set only when the pinned
-  // sha is actually used. Throws on a malformed pin (or an unreadable pinned
-  // PR) so misconfiguration fails loudly instead of silently benchmarking
-  // `main` — which is exactly the incompatible state the pin exists to avoid.
+  // Read the compat pin as it exists on `ref` and resolve it with
+  // resolveHardhatRef. A 404 means there is no pin.
   async function resolveDefaultHardhatRef(
     ref: string
-  ): Promise<{ ref: string; pin?: HardhatPin }> {
-    let raw: string;
+  ): Promise<ResolvedHardhatRef> {
+    let raw: string | undefined;
     try {
       const { data } = await github.rest.repos.getContent({
         owner,
@@ -194,36 +184,11 @@ export async function resolveRegressionTrigger({
       });
       raw = Buffer.from(data.content, "base64").toString("utf8");
     } catch (e) {
-      if (errorStatus(e) === 404) {
-        return { ref: "main" }; // no pin
+      if (errorStatus(e) !== 404) {
+        throw e;
       }
-      throw e;
     }
-
-    const pin = parseHardhatPin(raw);
-
-    const { data: hardhatPr } = await github.rest.pulls.get({
-      owner: HARDHAT_OWNER,
-      repo: HARDHAT_REPO,
-      pull_number: pin.pr,
-    });
-    const prName = `${HARDHAT_OWNER}/${HARDHAT_REPO}#${pin.pr}`;
-    if (hardhatPr.merged) {
-      core.notice(
-        `Hardhat compat pin ${prName} has been merged; benchmarking against ` +
-          `Hardhat main. ${HARDHAT_PIN_PATH} can now be removed.`
-      );
-      return { ref: "main" };
-    }
-    if (hardhatPr.state === "closed") {
-      core.warning(
-        `Hardhat compat pin ${prName} was closed without merging; ` +
-          `benchmarking against Hardhat main. Remove or update ${HARDHAT_PIN_PATH}.`
-      );
-      return { ref: "main" };
-    }
-    core.info(`Hardhat compat pin active: ${prName} @ ${pin.sha}`);
-    return { ref: pin.sha, pin };
+    return resolveHardhatRef({ github, core, raw });
   }
 
   // Cosmetic side effects (reactions, status comments) must never fail the job:
@@ -337,8 +302,8 @@ export async function resolveRegressionTrigger({
         benchmarkFilter = parseParam("benchmarks") || DEFAULT_BENCHMARK_FILTER;
 
         // No explicit hardhat-ref= → Hardhat main, or the compat pin if one
-        // is active on the PR head. A malformed pin is reported back to the
-        // PR (instead of failing the job with no feedback) and skips the run.
+        // is active on the PR head. A pin that fails to resolve is reported
+        // back to the PR and skips the run, so the author gets feedback.
         let pinNote = "";
         let pinError: string | undefined;
         if (hardhatRef === "") {
@@ -346,9 +311,7 @@ export async function resolveRegressionTrigger({
             const resolved = await resolveDefaultHardhatRef(edrRef);
             hardhatRef = resolved.ref;
             if (resolved.pin !== undefined) {
-              pinNote =
-                ` (compat pin for ${HARDHAT_OWNER}/${HARDHAT_REPO}` +
-                `#${resolved.pin.pr})`;
+              pinNote = ` (compat pin for ${pinnedPrName(resolved.pin)})`;
             }
           } catch (e) {
             hardhatRef = "main";

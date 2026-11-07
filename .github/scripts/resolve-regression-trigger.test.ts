@@ -6,7 +6,15 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { fakeClock, runsOf, sequence, type RunPage } from "./fakes.ts";
+import {
+  fakeClock,
+  PIN_FILE,
+  PIN_PR,
+  PIN_SHA,
+  runsOf,
+  sequence,
+  type RunPage,
+} from "./fakes.ts";
 import type { WorkflowRun } from "./github-script.ts";
 import {
   resolveRegressionTrigger,
@@ -40,9 +48,10 @@ interface Captured {
 }
 
 // `pinFile` is the raw content of .github/hardhat-compat-pin.json (absent →
-// repos.getContent 404s, i.e. no pin). `hardhatPr` is the Hardhat PR that a
-// valid pin's pulls.get resolves to. `ci` is the EDR CI run, or one page per
-// listWorkflowRuns call with the last repeating (`undefined` = no run yet).
+// repos.getContent 404s, i.e. no pin). `hardhatPr` is what a valid pin's
+// pulls.get resolves to. `hardhatPrError` makes that lookup reject instead.
+// `ci` is the EDR CI run, or one page per listWorkflowRuns call with the last
+// repeating (`undefined` = no run yet).
 function makeDeps({
   eventName,
   sha = "",
@@ -51,6 +60,7 @@ function makeDeps({
   pr,
   pinFile,
   hardhatPr,
+  hardhatPrError,
   getContentError,
   failComments = false,
 }: {
@@ -61,6 +71,7 @@ function makeDeps({
   pr?: EdrPullRequest;
   pinFile?: string;
   hardhatPr?: HardhatPullRequest;
+  hardhatPrError?: unknown;
   getContentError?: unknown;
   failComments?: boolean;
 }) {
@@ -110,6 +121,9 @@ function makeDeps({
           pull_number: number;
         }) => {
           if (pullRepo === "hardhat") {
+            if (hardhatPrError !== undefined) {
+              throw hardhatPrError;
+            }
             if (hardhatPr === undefined) {
               throw new Error(
                 "unexpected pulls.get for the Hardhat repo: this test did " +
@@ -399,14 +413,6 @@ test("issue_comment → parses an unquoted single-token filter", async () => {
 // Hardhat compat pin (.github/hardhat-compat-pin.json)
 // ---------------------------------------------------------------------------
 
-const PIN_SHA = "a".repeat(40);
-const PIN_PR = 5678;
-const PIN_FILE = JSON.stringify({
-  pr: PIN_PR,
-  sha: PIN_SHA,
-  reason: "needs hardhat counterpart",
-});
-
 test("push → open pin PR pins the Hardhat ref", async () => {
   const { captured, ...deps } = makeDeps({
     eventName: "push",
@@ -420,49 +426,17 @@ test("push → open pin PR pins the Hardhat ref", async () => {
   assert.equal(captured.outputs.is_baseline, "true");
 });
 
-test("push → merged pin PR reverts to main and suggests removing the pin", async () => {
+test("push → a pin resolution error fails the run loudly", async () => {
   const { captured, ...deps } = makeDeps({
     eventName: "push",
     sha: "deadbeefcafe1234",
-    pinFile: PIN_FILE,
-    hardhatPr: { state: "closed", merged: true },
+    pinFile: "not json",
   });
-  await resolveRegressionTrigger(deps);
-  assert.equal(captured.outputs.hardhat_ref, "main");
-  assert.equal(captured.notices.length, 1);
-  assert.match(first(captured.notices, "notice"), /can now be removed/);
-});
-
-test("push → pin PR closed without merging reverts to main with a warning", async () => {
-  const { captured, ...deps } = makeDeps({
-    eventName: "push",
-    sha: "deadbeefcafe1234",
-    pinFile: PIN_FILE,
-    hardhatPr: { state: "closed", merged: false },
-  });
-  await resolveRegressionTrigger(deps);
-  assert.equal(captured.outputs.hardhat_ref, "main");
-  assert.equal(captured.warnings.length, 1);
-  assert.match(first(captured.warnings, "warning"), /closed without merging/);
-});
-
-test("push → malformed pin fails the run loudly", async () => {
-  for (const pinFile of [
-    "not json",
-    JSON.stringify({ pr: 5678 }), // missing sha
-    JSON.stringify({ pr: 5678, sha: "abc123" }), // short sha
-    JSON.stringify({ pr: "5678", sha: PIN_SHA }), // pr not a number
-  ]) {
-    const { captured, ...deps } = makeDeps({
-      eventName: "push",
-      sha: "deadbeefcafe1234",
-      pinFile,
-    });
-    await assert.rejects(
-      resolveRegressionTrigger(deps),
-      /hardhat-compat-pin\.json/
-    );
-  }
+  await assert.rejects(
+    resolveRegressionTrigger(deps),
+    /hardhat-compat-pin\.json/
+  );
+  assert.deepEqual(captured.outputs, {});
 });
 
 test("workflow_dispatch → empty hardhat-ref uses an open pin", async () => {
@@ -538,6 +512,21 @@ test("issue_comment → malformed pin posts an error comment and skips the run",
     firstComment(captured),
     /Could not resolve the Hardhat compat pin/
   );
+});
+
+test("issue_comment → a failed pin PR lookup posts an error comment and skips the run", async () => {
+  const { captured, ...deps } = makeDeps({
+    eventName: "issue_comment",
+    payload: commentPayload("/bench"),
+    pr: { head: { repo: { full_name: FULL }, sha: "1234567890ab" } },
+    ci: { id: 1, status: "completed", conclusion: "success" },
+    pinFile: PIN_FILE,
+    hardhatPrError: Object.assign(new Error("Server Error"), { status: 500 }),
+  });
+  await resolveRegressionTrigger(deps);
+  assert.equal(captured.outputs.should_run, "false");
+  assert.equal(captured.comments.length, 1);
+  assert.match(firstComment(captured), /Could not resolve .*Server Error/);
 });
 
 test("issue_comment → same-repo PR with failing CI does not run", async () => {
