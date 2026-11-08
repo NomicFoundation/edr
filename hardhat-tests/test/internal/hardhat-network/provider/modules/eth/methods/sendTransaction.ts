@@ -41,7 +41,7 @@ import {
   sendTxToZeroAddress,
 } from "../../../../helpers/transactions";
 import { useHelpers } from "../../../../helpers/useHelpers";
-import { compileLiteral } from "../../../../stack-traces/compilation";
+import { compileLiteral } from "../../../../helpers/compilation";
 
 describe("Eth module", function () {
   PROVIDERS.forEach(({ name, useProvider, isFork, isJsonRpc }) => {

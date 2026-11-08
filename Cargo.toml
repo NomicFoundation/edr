@@ -43,6 +43,7 @@ members = [
     "crates/edr_signer",
     "crates/edr_solidity",
     "crates/edr_solidity_tests",
+    "crates/edr_stack_trace_tests",
     "crates/edr_test_utils",
     "crates/edr_transaction",
     "crates/eips/1559",

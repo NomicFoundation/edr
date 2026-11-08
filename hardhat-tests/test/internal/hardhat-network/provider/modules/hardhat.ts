@@ -31,7 +31,7 @@ import {
   deployContract,
   sendTxToZeroAddress,
 } from "../../helpers/transactions";
-import { compileLiteral } from "../../stack-traces/compilation";
+import { compileLiteral } from "../../helpers/compilation";
 import { getPendingBaseFeePerGas } from "../../helpers/getPendingBaseFeePerGas";
 import {
   EXAMPLE_CONTRACT,
