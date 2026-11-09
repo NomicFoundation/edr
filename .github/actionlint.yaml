@@ -2,4 +2,4 @@
 self-hosted-runner:
   labels:
     - edr-benchmark-runner
-    - hardhat-linux-amd64-self-hosted
+    - edr-benchmark-runner-2
