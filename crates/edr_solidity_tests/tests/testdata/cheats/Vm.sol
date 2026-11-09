@@ -316,6 +316,7 @@ interface Vm {
     function getNonce(address account) external view returns (uint64 nonce);
     function getRawBlockHeader(uint256 blockNumber) external view returns (bytes memory rlpHeader);
     function getRecordedLogs() external returns (Log[] memory logs);
+    function getSlotNumber() external view returns (uint64 slotNumber);
     function getStateDiff() external view returns (string memory diff);
     function getStateDiffJson() external view returns (string memory diff);
     function getWallets() external returns (address[] memory wallets);
@@ -452,6 +453,7 @@ interface Vm {
     function rollFork(bytes32 txHash) external;
     function rollFork(uint256 forkId, uint256 blockNumber) external;
     function rollFork(uint256 forkId, bytes32 txHash) external;
+    function rollSlot(uint64 newSlotNumber) external;
     function rpcUrl(string calldata rpcAlias) external view returns (string memory json);
     function rpcUrlStructs() external view returns (Rpc[] memory urls);
     function rpcUrls() external view returns (string[2][] memory urls);

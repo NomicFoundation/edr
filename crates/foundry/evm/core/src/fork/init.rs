@@ -84,6 +84,7 @@ where
             prevrandao: block.header().mix_hash(),
             basefee: block.header().base_fee_per_gas().unwrap_or_default(),
             gas_limit: block.header().gas_limit(),
+            slot_num: block.header().slot_number().unwrap_or_default(),
         }
         .into(),
         tx: TxEnvOpts {
