@@ -74,7 +74,7 @@ where
         transaction_execution_gas_bound,
     );
 
-    let mut env: EvmEnv<BlockT, TxT, HardforkT> = EvmEnv {
+    let mut env = EvmEnv {
         cfg,
         block: BlockEnvOpts {
             number: U256::from(block.header().number()),
@@ -84,6 +84,7 @@ where
             prevrandao: block.header().mix_hash(),
             basefee: block.header().base_fee_per_gas().unwrap_or_default(),
             gas_limit: block.header().gas_limit(),
+            slot_num: block.header().slot_number().unwrap_or_default(),
         }
         .into(),
         tx: TxEnvOpts {
@@ -94,9 +95,6 @@ where
         }
         .into(),
     };
-
-    env.block
-        .set_slot_num(block.header().slot_number().unwrap_or_default());
 
     apply_chain_and_block_specific_env_changes::<NetworkT, BlockT, TxT, HardforkT>(
         env.as_env_mut(),

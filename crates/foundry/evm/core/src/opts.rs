@@ -187,6 +187,7 @@ where
                 prevrandao: Some(self.env.block_prevrandao),
                 basefee: self.env.block_base_fee_per_gas,
                 gas_limit: self.gas_limit(),
+                slot_num: 0,
             }
             .into(),
             tx: TxEnvOpts {
@@ -331,6 +332,7 @@ pub struct BlockEnvOpts {
     pub prevrandao: Option<B256>,
     pub basefee: u64,
     pub gas_limit: u64,
+    pub slot_num: u64,
 }
 
 impl From<BlockEnvOpts> for BlockEnv {
@@ -343,6 +345,7 @@ impl From<BlockEnvOpts> for BlockEnv {
             prevrandao,
             basefee,
             gas_limit,
+            slot_num,
         } = value;
 
         Self {
@@ -353,6 +356,7 @@ impl From<BlockEnvOpts> for BlockEnv {
             prevrandao,
             basefee,
             gas_limit,
+            slot_num,
             ..Self::default()
         }
     }
