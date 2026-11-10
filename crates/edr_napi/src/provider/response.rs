@@ -144,7 +144,9 @@ impl Response {
         self.inner
             .call_trace_arenas
             .iter()
-            .map(|call_trace_arena| CallTrace::from_arena_node(call_trace_arena, 0))
+            .map(|call_trace_arena| {
+                CallTrace::from_arena_node(call_trace_arena.as_call_trace_arena(), 0)
+            })
             .collect()
     }
 
@@ -163,7 +165,7 @@ impl Response {
 
 #[cfg(test)]
 mod tests {
-    use edr_solidity_tests::traces::CallTraceArena;
+    use edr_solidity::recorded_trace_arena::RecordedTraceArena;
 
     use super::*;
 
@@ -204,7 +206,7 @@ mod tests {
     #[test]
     fn external_memory_counts_recorded_arenas() {
         let mut inner = response(Either::A("a".repeat(2_048)));
-        inner.call_trace_arenas = vec![CallTraceArena::default()];
+        inner.call_trace_arenas = vec![RecordedTraceArena::default()];
 
         let response = Response::new(inner, call_trace_external_mem_size(StackSnapshotType::None));
 
@@ -217,7 +219,7 @@ mod tests {
     #[test]
     fn external_memory_uses_the_verbose_figure_when_given_it() {
         let mut inner = response(Either::A(String::new()));
-        inner.call_trace_arenas = vec![CallTraceArena::default()];
+        inner.call_trace_arenas = vec![RecordedTraceArena::default()];
 
         let response = Response::new(inner, call_trace_external_mem_size(StackSnapshotType::Full));
 
@@ -230,7 +232,7 @@ mod tests {
     #[test]
     fn external_memory_scales_with_the_arena_count() {
         let mut inner = response(Either::A(String::new()));
-        inner.call_trace_arenas = vec![CallTraceArena::default(); 3];
+        inner.call_trace_arenas = vec![RecordedTraceArena::default(); 3];
 
         let response = Response::new(inner, call_trace_external_mem_size(StackSnapshotType::None));
 

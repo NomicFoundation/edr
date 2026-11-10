@@ -8,8 +8,9 @@ use edr_provider::{
     SyncProviderSpec,
 };
 use edr_rpc_client::jsonrpc;
-use edr_solidity::solidity_stack_trace::StackTraceCreationResult;
-use edr_solidity_tests::traces::CallTraceArena;
+use edr_solidity::{
+    recorded_trace_arena::RecordedTraceArena, solidity_stack_trace::StackTraceCreationResult,
+};
 use edr_transaction::{IsEip155, IsEip4844, TransactionMut, TransactionType};
 use napi::{Either, Status};
 
@@ -27,7 +28,7 @@ pub struct Response {
     /// Error if there was an error computing the stack trace.
     pub stack_trace_result: Option<StackTraceCreationResult<String>>,
     /// This may contain zero or more traces, depending on the (batch) request
-    pub call_trace_arenas: Vec<CallTraceArena>,
+    pub call_trace_arenas: Vec<RecordedTraceArena>,
 }
 
 impl From<String> for Response {

@@ -494,3 +494,8 @@ useless_transmute = "warn"
 verbose_file_reads = "warn"
 wildcard-imports = "warn"
 zero_sized_map_values = "warn"
+
+[patch.crates-io]
+# v0.44.2 with `TracingInspector::active_trace` made public
+# (https://github.com/paradigmxyz/revm-inspectors/pull/584). Drop once it is released.
+revm-inspectors = { git = "https://github.com/NomicFoundation/revm-inspectors", tag = "v0.44.2-edr.1" }

@@ -3718,6 +3718,7 @@ dependencies = [
  "edr_decoder_revert",
  "edr_defaults",
  "edr_primitives",
+ "edr_test_utils",
  "foundry-compilers",
  "foundry-evm-core",
  "foundry-evm-traces",
@@ -3728,6 +3729,7 @@ dependencies = [
  "log",
  "object",
  "parking_lot",
+ "revm",
  "revm-bytecode",
  "revm-inspector",
  "revm-inspectors",
@@ -7545,8 +7547,7 @@ dependencies = [
 [[package]]
 name = "revm-inspectors"
 version = "0.44.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "06a43776f9155a108339ed5d832c6e49878faa2197cda47e576e132d331cb956"
+source = "git+https://github.com/NomicFoundation/revm-inspectors?tag=v0.44.2-edr.1#ca4cc9f97d6e224a7245a1a7331c011bb3ca5c0f"
 dependencies = [
  "alloy-eip2930",
  "alloy-primitives",

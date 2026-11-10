@@ -1,3 +1,4 @@
+pub mod bytecode;
 pub mod env;
 mod fd_lock;
 pub mod secret_key;

@@ -75,7 +75,11 @@ async fn transaction_call_trace_includes_logs() -> anyhow::Result<()> {
         .first()
         .expect("Transaction should have a call trace");
 
-    let root_node = arena.nodes().first().expect("Arena should have a root");
+    let root_node = arena
+        .as_call_trace_arena()
+        .nodes()
+        .first()
+        .expect("Arena should have a root");
     assert_eq!(
         root_node.logs.len(),
         1,
