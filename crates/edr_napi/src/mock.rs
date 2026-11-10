@@ -34,7 +34,7 @@ impl SyncProvider for MockProvider {
             .map(|data| edr_napi_core::spec::Response {
                 data,
                 stack_trace_result: None,
-                call_trace_arenas: Vec::new(),
+                execution_traces: Vec::new(),
             })
             .map_err(|error| napi::Error::new(napi::Status::GenericFailure, error.to_string()));
 

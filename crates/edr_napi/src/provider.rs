@@ -38,7 +38,7 @@ pub struct Provider {
     /// The configured stack snapshots, which verbose tracing overrides while
     /// enabled.
     record_stack: StackSnapshotType,
-    /// What a response reports to V8 for each call trace arena it carries.
+    /// What a response reports to V8 for each execution trace it carries.
     /// Follows the recorded stack snapshots, which
     /// [`Self::set_verbose_tracing`] changes.
     call_trace_external_mem_size: AtomicI64,

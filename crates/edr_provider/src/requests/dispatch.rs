@@ -51,18 +51,18 @@ where
     TimerT: Clone + TimeSinceEpoch,
 {
     let mut results = Vec::with_capacity(requests.len());
-    let mut call_trace_arenas = Vec::new();
+    let mut execution_traces = Vec::new();
 
     for request in requests {
         let response = execute_single_request(data, request)?;
 
         results.push(response.result);
-        call_trace_arenas.extend(response.call_trace_arenas);
+        execution_traces.extend(response.execution_traces);
     }
 
     Ok(ResponseWithCallTraces {
         result: to_json_array(&results),
-        call_trace_arenas,
+        execution_traces,
     })
 }
 
@@ -508,7 +508,7 @@ mod tests {
         )?;
 
         assert_eq!(response.result.get(), "[]");
-        assert!(response.call_trace_arenas.is_empty());
+        assert!(response.execution_traces.is_empty());
 
         Ok(())
     }

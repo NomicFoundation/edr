@@ -7,7 +7,7 @@ use crate::{
     gc::gc_tracked,
     solidity_tests::test_results::{CallTrace, HeuristicFailed, StackTrace, UnexpectedError},
     trace::{
-        raw_trace_from_call_trace_arena,
+        raw_trace_from_execution_trace,
         solidity_stack_trace::{
             solidity_stack_trace_error_to_napi, solidity_stack_trace_heuristic_failed_to_napi,
             solidity_stack_trace_success_to_napi,
@@ -16,18 +16,18 @@ use crate::{
     },
 };
 
-/// Bytes reported for one recorded call trace arena, without full stack
+/// Bytes reported for one execution trace, without full stack
 /// snapshots.
 ///
 /// A `CallTraceNode` is 384 bytes, so this stands for roughly 85 calls. The
-/// EVM steps that an arena also records are deliberately not counted.
+/// EVM steps that a trace also records are deliberately not counted.
 ///
 /// The figure under-reports on purpose. V8 asks for a collection every 64 MiB
-/// reported, and collecting a multi-gigabyte heap costs more than the arenas
+/// reported, and collecting a multi-gigabyte heap costs more than the traces
 /// it releases.
 const CALL_TRACE_EXTERNAL_MEM_SIZE: i64 = 32 * 1024;
 
-/// Bytes reported for one recorded call trace arena whose steps also carry
+/// Bytes reported for one execution trace whose steps also carry
 /// full stack snapshots, as verbose tracing records them.
 ///
 /// PR #1301 measured 4.9x more retained memory in this configuration, so 4x
@@ -44,10 +44,10 @@ const STACK_TRACE_EXTERNAL_MEM_SIZE: i64 = 4 * 1024;
 /// tree costs several times its serialized length, so this is a floor.
 const VALUE_DATA_EXTERNAL_MEM_SIZE: i64 = 256 * 1024 * 1024;
 
-/// Bytes a response reports for each call trace arena it carries.
+/// Bytes a response reports for each execution trace it carries.
 ///
-/// Recording full stack snapshots retains several times as much, so such an
-/// arena stands for more.
+/// Recording full stack snapshots retains several times as much, so such a
+/// trace stands for more.
 pub(crate) const fn call_trace_external_mem_size(recorded_stack: StackSnapshotType) -> i64 {
     if recorded_stack.is_full() || recorded_stack.is_all() {
         VERBOSE_CALL_TRACE_EXTERNAL_MEM_SIZE
@@ -68,7 +68,7 @@ impl Response {
     /// Constructs a new instance.
     ///
     /// `call_trace_external_mem_size` is what the provider reports for each
-    /// call trace arena the response carries, which depends on whether it
+    /// execution trace the response carries, which depends on whether it
     /// records stack snapshots.
     pub(crate) fn new(
         inner: edr_napi_core::spec::Response,
@@ -83,7 +83,7 @@ impl Response {
             external_memory += STACK_TRACE_EXTERNAL_MEM_SIZE;
         }
 
-        let arena_count = i64::try_from(inner.call_trace_arenas.len()).unwrap_or(i64::MAX);
+        let arena_count = i64::try_from(inner.execution_traces.len()).unwrap_or(i64::MAX);
         external_memory += call_trace_external_mem_size.saturating_mul(arena_count);
 
         Self {
@@ -142,10 +142,10 @@ impl Response {
     #[napi(catch_unwind)]
     pub fn call_traces(&self) -> Vec<CallTrace> {
         self.inner
-            .call_trace_arenas
+            .execution_traces
             .iter()
-            .map(|call_trace_arena| {
-                CallTrace::from_arena_node(call_trace_arena.as_call_trace_arena(), 0)
+            .map(|execution_trace| {
+                CallTrace::from_arena_node(execution_trace.as_call_trace_arena(), 0)
             })
             .collect()
     }
@@ -156,9 +156,9 @@ impl Response {
     #[napi(catch_unwind)]
     pub fn traces(&self) -> Vec<Vec<Either3<TracingMessage, TracingStep, TracingMessageResult>>> {
         self.inner
-            .call_trace_arenas
+            .execution_traces
             .iter()
-            .map(raw_trace_from_call_trace_arena)
+            .map(raw_trace_from_execution_trace)
             .collect()
     }
 }
@@ -173,7 +173,7 @@ mod tests {
         edr_napi_core::spec::Response {
             data,
             stack_trace_result: None,
-            call_trace_arenas: Vec::new(),
+            execution_traces: Vec::new(),
         }
     }
 
@@ -206,7 +206,7 @@ mod tests {
     #[test]
     fn external_memory_counts_recorded_arenas() {
         let mut inner = response(Either::A("a".repeat(2_048)));
-        inner.call_trace_arenas = vec![RecordedTraceArena::default()];
+        inner.execution_traces = vec![RecordedTraceArena::default()];
 
         let response = Response::new(inner, call_trace_external_mem_size(StackSnapshotType::None));
 
@@ -219,7 +219,7 @@ mod tests {
     #[test]
     fn external_memory_uses_the_verbose_figure_when_given_it() {
         let mut inner = response(Either::A(String::new()));
-        inner.call_trace_arenas = vec![RecordedTraceArena::default()];
+        inner.execution_traces = vec![RecordedTraceArena::default()];
 
         let response = Response::new(inner, call_trace_external_mem_size(StackSnapshotType::Full));
 
@@ -232,7 +232,7 @@ mod tests {
     #[test]
     fn external_memory_scales_with_the_arena_count() {
         let mut inner = response(Either::A(String::new()));
-        inner.call_trace_arenas = vec![RecordedTraceArena::default(); 3];
+        inner.execution_traces = vec![RecordedTraceArena::default(); 3];
 
         let response = Response::new(inner, call_trace_external_mem_size(StackSnapshotType::None));
 
