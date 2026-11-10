@@ -1,5 +1,20 @@
 # @nomicfoundation/edr
 
+## 0.25.1
+
+### Patch Changes
+
+- fc977dd: Improved the performance of `Provider` by reducing the memory used to record the call traces of executed transactions and calls.
+- e37042b: - Added the EIP-8037 gas dimensions to `debug_traceTransaction` and `debug_traceCall` responses from the Amsterdam hardfork: the default tracer's top-level frame and the `callTracer`'s root call frame gain `executionGasUsed`, `stateGasUsed` and `gasRefund`, and each `structLogs` entry gains `stateGasReservoir`, plus a signed `stateGasCost` on the steps that charge or refill state gas.
+  - Added the `stateGasTracer`, which reports a transaction's gas in both dimensions on every hardfork, with zero state gas before Amsterdam.
+- 923142f: Changed the experimental EIP-2780 support: from the Amsterdam hardfork, contract-creation transactions no longer pay a value charge.
+- 21098dc: Added experimental EIP-8038 support: from the Amsterdam hardfork, state-access operations are repriced.
+- b660a08: Added the `isIsolateMode()` cheatcode, which returns whether the running Solidity test is executed in isolation mode.
+- 22e052e: Fixed Solidity tests switching to the default hardfork after `vm.createSelectFork`, `vm.selectFork` or `vm.rollFork`, instead of keeping the configured hardfork or inline `evm_version`.
+- cfa3dea: Fixed missing EIP-8037 state gas for repeated contract deployments in Amsterdam Solidity tests.
+- d6698e2: - Added the `rollSlot(uint64)` and `getSlotNumber()` cheatcodes, which set and read `block.slotnum` (EIP-7843) without changing the block number or timestamp. Both revert on EVM versions before Amsterdam.
+  - Fixed `block.slotnum` returning 0 in forked Solidity tests instead of the forked block's slot number.
+
 ## 0.25.0
 
 ### Minor Changes
