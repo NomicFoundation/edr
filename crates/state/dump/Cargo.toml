@@ -1,0 +1,14 @@
+[package]
+name = "edr_state_dump"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+edr_primitives.workspace = true
+flate2.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+
+[lints]
+workspace = true

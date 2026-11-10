@@ -12,6 +12,11 @@ fn serde_hardhat_drop_transaction() {
 }
 
 #[test]
+fn serde_hardhat_dump_state() {
+    help_test_method_invocation_serde(MethodInvocation::<L1ChainSpec>::DumpState(()));
+}
+
+#[test]
 fn serde_hardhat_get_automine() {
     help_test_method_invocation_serde(MethodInvocation::<L1ChainSpec>::GetAutomine(()));
 }
@@ -21,6 +26,13 @@ fn serde_hardhat_impersonate_account() {
     help_test_method_invocation_serde(MethodInvocation::<L1ChainSpec>::ImpersonateAccount(
         Address::from(U160::from(1)).into(),
     ));
+}
+
+#[test]
+fn serde_hardhat_load_state() {
+    help_test_method_invocation_serde(MethodInvocation::<L1ChainSpec>::LoadState(Bytes::from(
+        &b"{}"[..],
+    )));
 }
 
 #[test]
