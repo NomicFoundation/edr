@@ -928,6 +928,84 @@ async fn test_persist_fuzz_failure_replays_random_uint() {
     assert_eq!(outcome(&results), (TestStatus::Failure, 0, calldata));
 }
 
+/// Replays `counterexample`, persisted as JSON, for
+/// `RandomFuzzTest::testFuzz_randomUint_shouldFail` under the configured
+/// `seed` and returns the number of runs and the reported calldata. The replay
+/// alone reproduced the failure if there are no runs and the calldata is
+/// [`random_uint_calldata`], which the fuzzer does not generate under these
+/// seeds.
+async fn random_uint_replay(counterexample: &str, seed: u32) -> (usize, Bytes) {
+    let filter = SolidityTestFilter::new(".*", ".*", ".*fuzz/RandomFuzz.t.sol");
+    let persist_dir = tempfile::tempdir().unwrap();
+    let failure_dir = persist_dir.path().join(FAILURES_DIR).join("RandomFuzzTest");
+    std::fs::create_dir_all(&failure_dir).unwrap();
+    std::fs::write(
+        failure_dir.join("testFuzz_randomUint_shouldFail"),
+        counterexample,
+    )
+    .unwrap();
+
+    let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
+    config.fuzz.seed = Some(U256::from(seed));
+    config.cheats_config_options.seed = config.fuzz.seed;
+    config.fuzz.failure_persist_dir = Some(persist_dir.path().to_path_buf());
+    let runner = TEST_DATA_DEFAULT.runner_with_config(config).await;
+    let results = runner.test_collect(filter).await.suite_results;
+    let result = results
+        .get("default/fuzz/RandomFuzz.t.sol:RandomFuzzTest")
+        .unwrap()
+        .test_results
+        .get("testFuzz_randomUint_shouldFail(uint256)")
+        .unwrap();
+    assert_eq!(result.status, TestStatus::Failure);
+    let TestKind::Fuzz { runs, .. } = result.kind else {
+        panic!("not a fuzz test: {:?}", result.kind);
+    };
+    let Some(CounterExample::Single(counterexample)) = &result.counterexample else {
+        panic!("no counterexample: {:?}", result.counterexample);
+    };
+    (runs, counterexample.calldata.clone())
+}
+
+/// The calldata of `testFuzz_randomUint_shouldFail(2**255)`.
+fn random_uint_calldata() -> Bytes {
+    let selector = selector_of("testFuzz_randomUint_shouldFail(uint256)");
+    let mut arg = [0u8; 32];
+    arg[0] = 0x80;
+    Bytes::from([selector.as_slice(), &arg].concat())
+}
+
+/// The replay reseeds `vm.random*` from the persisted seed, worker and run,
+/// and the persisted seed takes precedence over the configured one. Of the
+/// combinations involved, `vm.randomUint(0, 4)` draws 0 only for seed 1,
+/// worker 2, run 4: neither seed 2 (the configured one) nor worker 0 does.
+#[tokio::test(flavor = "multi_thread")]
+async fn test_persist_fuzz_failure_replays_recorded_seed_and_worker() {
+    let counterexample = format!(
+        r#"{{"calldata":"{}","fuzz_seed":"0x1","fuzz_worker":2,"fuzz_run":4}}"#,
+        random_uint_calldata()
+    );
+    assert_eq!(
+        random_uint_replay(&counterexample, 2).await,
+        (0, random_uint_calldata())
+    );
+}
+
+/// A counterexample persisted by Forge has none of EDR's `fuzz_*` fields; it
+/// is still read, and replayed as the first run of the first worker under the
+/// configured seed, for which `vm.randomUint(0, 4)` draws 0 under seed 5.
+#[tokio::test(flavor = "multi_thread")]
+async fn test_persist_fuzz_failure_replays_forge_counterexample() {
+    let counterexample = format!(
+        r#"{{"warp":null,"roll":null,"sender":null,"addr":null,"calldata":"{}","contract_name":null,"func_name":null,"signature":null,"args":"57896044618658097711785492504343953926634992332820282019728792003956564819968","raw_args":"57896044618658097711785492504343953926634992332820282019728792003956564819968"}}"#,
+        random_uint_calldata()
+    );
+    assert_eq!(
+        random_uint_replay(&counterexample, 5).await,
+        (0, random_uint_calldata())
+    );
+}
+
 /// The stack trace of a seeded failure comes from a re-run of the
 /// counterexample, which reseeds the cheatcode RNG as in the failing run, so
 /// that a value drawn from it, here through `vm.setArbitraryStorage`, is the

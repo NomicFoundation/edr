@@ -4,11 +4,11 @@ use alloy_dyn_abi::{DecodedEvent, DynSolValue, EventExt};
 use alloy_json_abi::{Event, Function};
 #[cfg(feature = "test-remote")]
 use alloy_primitives::address;
-use alloy_primitives::{b256, Address, U256};
+use alloy_primitives::{b256, Address, Bytes, U256};
 use edr_chain_spec::{EvmHaltReason, HaltReasonTrait};
 use edr_solidity::{config::IncludeTraces, solidity_stack_trace::StackTraceEntry};
 use edr_solidity_tests::{
-    fuzz::CounterExample,
+    fuzz::{BaseCounterExample, CounterExample, FAILURES_DIR},
     result::{TestKind, TestStatus},
     revm::context::{BlockEnv, TxEnv},
     CollectStackTraces, SolidityTestRunnerConfig,
@@ -1094,14 +1094,13 @@ async fn mock_rpc_method(
         .await
 }
 
-// Regression test: an executor error during a fuzz run — as opposed to a
-// reverting call — produces a counterexample without a recorded trace arena.
-// The result must report the error as its reason and no stack trace, rather
-// than panicking on the missing arena. The error is provoked through a fork
-// whose RPC serves fork creation but fails the account fetch the fuzzed call
-// triggers.
-#[tokio::test(flavor = "multi_thread")]
-async fn fuzz_executor_error_reports_no_stack_trace() {
+/// Runs `FuzzExecutorErrorTest::testFuzzTouchesUnfetchableAccount` with fuzz
+/// failures persisted in `failure_persist_dir`, if any, and returns its result.
+/// The fuzzed call errors in the executor through a fork whose RPC serves fork
+/// creation but fails the account fetch the call triggers.
+async fn run_fuzz_executor_error_test(
+    failure_persist_dir: Option<std::path::PathBuf>,
+) -> edr_solidity_tests::result::TestResult<EvmHaltReason> {
     let mut server = mockito::Server::new_async().await;
     let block = format!(
         r#"{{"hash":"{ZERO_HASH}","parentHash":"{ZERO_HASH}","sha3Uncles":"{ZERO_HASH}","miner":"0x0000000000000000000000000000000000000000","stateRoot":"{ZERO_HASH}","transactionsRoot":"{ZERO_HASH}","receiptsRoot":"{ZERO_HASH}","logsBloom":"0x{bloom}","difficulty":"0x0","number":"0x100","gasLimit":"0x1c9c380","gasUsed":"0x0","timestamp":"0x66000000","extraData":"0x","mixHash":"{ZERO_HASH}","nonce":"0x0000000000000000","baseFeePerGas":"0x0","totalDifficulty":"0x0","uncles":[],"transactions":[],"size":"0x0"}}"#,
@@ -1147,17 +1146,20 @@ async fn fuzz_executor_error_reports_no_stack_trace() {
     config.fuzz.runs = 1;
     // Run metadata is only recorded under a seed.
     config.fuzz.seed = Some(U256::from(1u32));
+    if failure_persist_dir.is_some() {
+        config.fuzz.failure_persist_dir = failure_persist_dir;
+    }
 
     let runner = TEST_DATA_DEFAULT.runner_with_config(config).await;
     let filter = SolidityTestFilter::contract("FuzzExecutorErrorTest");
-    let suite_results = runner.test_collect(filter).await.suite_results;
+    let mut suite_results = runner.test_collect(filter).await.suite_results;
 
-    let suite = suite_results
-        .get("default/repros/FuzzExecutorError.t.sol:FuzzExecutorErrorTest")
+    let mut suite = suite_results
+        .remove("default/repros/FuzzExecutorError.t.sol:FuzzExecutorErrorTest")
         .expect("the FuzzExecutorError suite should have run");
-    let result = suite
+    suite
         .test_results
-        .get("testFuzzTouchesUnfetchableAccount(uint256)")
+        .remove("testFuzzTouchesUnfetchableAccount(uint256)")
         .unwrap_or_else(|| {
             panic!(
                 "the fuzz test should have run; results: {:?}",
@@ -1167,7 +1169,16 @@ async fn fuzz_executor_error_reports_no_stack_trace() {
                     .map(|(k, r)| (k, &r.status, &r.reason, &r.decoded_logs))
                     .collect::<Vec<_>>()
             )
-        });
+        })
+}
+
+// Regression test: an executor error during a fuzz run — as opposed to a
+// reverting call — produces a counterexample without a recorded trace arena.
+// The result must report the error as its reason and no stack trace, rather
+// than panicking on the missing arena.
+#[tokio::test(flavor = "multi_thread")]
+async fn fuzz_executor_error_reports_no_stack_trace() {
+    let result = Box::pin(run_fuzz_executor_error_test(None)).await;
 
     assert_eq!(result.status, TestStatus::Failure, "{:?}", result.reason);
     let Some(CounterExample::Single(counterexample)) = &result.counterexample else {
@@ -1196,4 +1207,44 @@ async fn fuzz_executor_error_reports_no_stack_trace() {
         result.stack_trace_result.is_none(),
         "no recorded arena describes an executor error, so there is no stack trace"
     );
+}
+
+/// A persisted counterexample whose replay errors in the executor is reported
+/// with its input and run, and persisted again unchanged, rather than replaced
+/// by a counterexample without calldata.
+#[tokio::test(flavor = "multi_thread")]
+async fn fuzz_executor_error_on_replay_keeps_persisted_counterexample() {
+    let persist_dir = tempfile::tempdir().unwrap();
+    let failure_file = persist_dir
+        .path()
+        .join(FAILURES_DIR)
+        .join("FuzzExecutorErrorTest")
+        .join("testFuzzTouchesUnfetchableAccount");
+    std::fs::create_dir_all(failure_file.parent().unwrap()).unwrap();
+    let selector = Function::parse("testFuzzTouchesUnfetchableAccount(uint256)")
+        .unwrap()
+        .selector();
+    let calldata = Bytes::from([selector.as_slice(), &[0x2a; 32]].concat());
+    std::fs::write(
+        &failure_file,
+        format!(r#"{{"calldata":"{calldata}","fuzz_seed":"0x1","fuzz_worker":0,"fuzz_run":7}}"#),
+    )
+    .unwrap();
+
+    let result = Box::pin(run_fuzz_executor_error_test(Some(
+        persist_dir.path().to_path_buf(),
+    )))
+    .await;
+
+    assert_eq!(result.status, TestStatus::Failure, "{:?}", result.reason);
+    let Some(CounterExample::Single(counterexample)) = &result.counterexample else {
+        panic!("no counterexample: {:?}", result.counterexample);
+    };
+    assert_eq!(counterexample.calldata, calldata);
+    assert_eq!(counterexample.fuzz.run, Some(7));
+
+    let persisted: BaseCounterExample =
+        serde_json::from_slice(&std::fs::read(&failure_file).unwrap()).unwrap();
+    assert_eq!(persisted.calldata, calldata);
+    assert_eq!(persisted.fuzz.run, Some(7));
 }
