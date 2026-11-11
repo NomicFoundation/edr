@@ -932,12 +932,25 @@ mod tests {
         assert!(!exceeds_max_rejects(u32::MAX, 0));
     }
 
+    /// `exceeds_max_rejects` expects the count including the current reject;
+    /// the count before it would allow one reject too many.
+    #[test]
+    fn increment_rejects_returns_the_new_count() {
+        let db = revm::database::CacheDB::new(revm::database::EmptyDB::default());
+        let state = EvmFuzzState::new(&db, foundry_evm_fuzz::FuzzDictionaryConfig::default(), &[]);
+        let shared_state = SharedFuzzState::new(state, None);
+        assert_eq!(shared_state.increment_rejects(), 1);
+        assert_eq!(shared_state.increment_rejects(), 2);
+    }
+
     #[test]
     fn worker_count_is_bounded_by_runs() {
         assert_eq!(num_workers(0, None), 0);
         assert_eq!(num_workers(0, NonZeroU32::new(4)), 0);
         assert_eq!(num_workers(1, None), 1);
         assert_eq!(num_workers(63, NonZeroU32::new(8)), 1);
+        assert_eq!(num_workers(127, NonZeroU32::new(8)), 1);
+        assert_eq!(num_workers(128, NonZeroU32::new(8)), 2);
         assert_eq!(num_workers(256, NonZeroU32::new(8)), 4);
         assert_eq!(num_workers(10_000, NonZeroU32::new(3)), 3);
         assert!(num_workers(10_000, None) as usize <= rayon::current_num_threads());
