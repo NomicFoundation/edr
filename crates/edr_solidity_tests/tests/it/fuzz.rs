@@ -464,32 +464,34 @@ async fn test_persist_fuzz_failure_overwrites_corrupt_file() {
 }
 
 /// Every worker keeps a trace so that one can be displayed, yet the gas report
-/// receives at most `gas_report_samples` of them, the displayed one included.
+/// receives exactly `gas_report_samples` of them, the displayed one included:
+/// no more when the samples are fewer than the workers, and no fewer when they
+/// do not divide evenly between the workers.
 #[tokio::test(flavor = "multi_thread")]
 async fn test_fuzz_gas_report_samples_bound_collected_traces() {
-    const GAS_REPORT_SAMPLES: u32 = 3;
+    for gas_report_samples in [3, 7] {
+        let filter = SolidityTestFilter::new(".*", ".*", ".*fuzz/FuzzGasReportSamples.t.sol");
+        let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
+        config.generate_gas_report = true;
+        config.fuzz.runs = 1000;
+        config.fuzz.workers = NonZeroU32::new(4);
+        config.fuzz.gas_report_samples = gas_report_samples;
 
-    let filter = SolidityTestFilter::new(".*", ".*", ".*fuzz/FuzzGasReportSamples.t.sol");
-    let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
-    config.generate_gas_report = true;
-    config.fuzz.runs = 1000;
-    config.fuzz.workers = NonZeroU32::new(4);
-    config.fuzz.gas_report_samples = GAS_REPORT_SAMPLES;
+        let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;
+        let test_result = runner.test_collect(filter).await.test_result;
+        let bump_calls = test_result
+            .gas_report
+            .as_ref()
+            .expect("a gas report was requested")
+            .contracts
+            .get("default/fuzz/FuzzGasReportSamples.t.sol:Bumper")
+            .expect("the bumped contract should be in the gas report")
+            .functions
+            .get("bump()")
+            .map_or(0, Vec::len);
 
-    let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;
-    let test_result = runner.test_collect(filter).await.test_result;
-    let bump_calls = test_result
-        .gas_report
-        .as_ref()
-        .expect("a gas report was requested")
-        .contracts
-        .get("default/fuzz/FuzzGasReportSamples.t.sol:Bumper")
-        .expect("the bumped contract should be in the gas report")
-        .functions
-        .get("bump()")
-        .map_or(0, Vec::len);
-
-    assert_eq!(bump_calls, GAS_REPORT_SAMPLES as usize);
+        assert_eq!(bump_calls, gas_report_samples as usize);
+    }
 }
 
 #[tokio::test(flavor = "multi_thread")]

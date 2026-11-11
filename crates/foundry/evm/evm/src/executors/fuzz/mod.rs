@@ -79,8 +79,7 @@ struct WorkerState<
     >,
     /// Traces collected by this worker.
     ///
-    /// Keeps at most `max_traces_to_collect` traces, which is the gas report
-    /// sample count divided by the worker count, and at least one.
+    /// Keeps at most [`max_traces_per_worker`] traces.
     traces: Vec<SparsedTraceArena>,
     /// Coverage collected by this worker.
     coverage: Option<HitMaps>,
@@ -471,9 +470,8 @@ impl<
         // every worker only needs its own inspector for its cheatcode RNG seed.
         let mut inspector = self.executor.inspector().clone();
         let mut worker = WorkerState::new(worker_id);
-        // We want to collect at least one trace which will be displayed to user.
         let max_traces_to_collect =
-            Ord::max(1, self.config.gas_report_samples / self.num_workers) as usize;
+            max_traces_per_worker(self.config.gas_report_samples, self.num_workers);
 
         let worker_runs = runs_per_worker(self.config.runs, self.num_workers, worker_id);
         debug!(worker_runs);
@@ -853,6 +851,15 @@ fn num_workers(runs: u32, workers: Option<NonZeroU32>) -> u32 {
     Ord::min(workers, max_workers)
 }
 
+/// Number of traces each of `num_workers` workers keeps: its share of the
+/// `gas_report_samples`, rounded up so that the workers together cover all
+/// samples, and at least one, which can be displayed to the user.
+///
+/// `aggregate_results` caps the samples passed to the gas report.
+fn max_traces_per_worker(gas_report_samples: u32, num_workers: u32) -> usize {
+    Ord::max(1, gas_report_samples.div_ceil(num_workers)) as usize
+}
+
 /// Whether `total` rejected inputs exceed the `max` allowed; `max = 0` allows
 /// any number.
 fn exceeds_max_rejects(total: u32, max: u32) -> bool {
@@ -911,6 +918,16 @@ mod tests {
             let (min, max) = (runs.iter().min().unwrap(), runs.iter().max().unwrap());
             assert!(max - min <= 1, "{runs:?}");
         }
+    }
+
+    #[test]
+    fn worker_traces_cover_gas_report_samples() {
+        assert_eq!(max_traces_per_worker(0, 4), 1);
+        assert_eq!(max_traces_per_worker(3, 4), 1);
+        assert_eq!(max_traces_per_worker(7, 4), 2);
+        assert_eq!(max_traces_per_worker(8, 4), 2);
+        assert_eq!(max_traces_per_worker(9, 4), 3);
+        assert_eq!(max_traces_per_worker(7, 1), 7);
     }
 
     #[test]
