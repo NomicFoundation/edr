@@ -1580,14 +1580,8 @@ impl<
             });
 
         // Run fuzz test.
-        let runner = fuzzer_with_cases(
-            fuzz_config.seed,
-            fuzz_config.runs,
-            fuzz_config.max_test_rejects,
-        );
         let fuzzed_executor = FuzzedExecutor::new(
             self.executor.into_owned(),
-            runner,
             self.cr.sender,
             fuzz_config,
             persisted_failure,

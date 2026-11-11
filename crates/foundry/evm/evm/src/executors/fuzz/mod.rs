@@ -197,8 +197,7 @@ impl SharedFuzzState {
 /// After instantiation, calling `fuzz` will proceed to hammer the deployed
 /// smart contract with inputs, until it finds a counterexample. The runs are
 /// split between parallel workers that share the executor and clone only its
-/// inspector. The provided [`TestRunner`] supplies the proptest configuration
-/// that every worker starts from.
+/// inspector. Every worker generates inputs with its own [`TestRunner`].
 pub struct FuzzedExecutor<
     BlockT: BlockEnvTr,
     TxT: TransactionEnvTr,
@@ -218,8 +217,6 @@ pub struct FuzzedExecutor<
         TransactionErrorT,
         ChainContextT,
     >,
-    /// The fuzzer
-    runner: TestRunner,
     /// The account that calls tests.
     sender: Address,
     /// The fuzz configuration.
@@ -260,7 +257,6 @@ impl<
             TransactionErrorT,
             ChainContextT,
         >,
-        runner: TestRunner,
         sender: Address,
         config: FuzzConfig,
         persisted_failure: Option<BaseCounterExample>,
@@ -268,7 +264,6 @@ impl<
         let num_workers = num_workers(config.runs, config.workers);
         Self {
             executor,
-            runner,
             sender,
             config,
             persisted_failure,
@@ -476,9 +471,9 @@ impl<
         let worker_runs = runs_per_worker(self.config.runs, self.num_workers, worker_id);
         debug!(worker_runs);
 
-        let mut runner_config = self.runner.config().clone();
-        runner_config.cases = worker_runs;
-
+        // The worker loop bounds runs and rejects itself; the runner only
+        // generates inputs, so its proptest configuration is the default.
+        let runner_config = proptest::test_runner::Config::default();
         // For deterministic parallel fuzzing, derive a unique seed for each worker.
         let worker_seed = self
             .config
