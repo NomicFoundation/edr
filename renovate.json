@@ -171,10 +171,16 @@
       "allowedVersions": "<0.11"
     },
     {
-      "description": "rand: hold at 0.9.x. alloy-primitives and proptest still pin rand 0.9; a direct rand 0.10 dep puts two incompatible rand majors in the graph and breaks foundry-evm-fuzz's RngCore bound on alloy's randomize_with. Drop the cap once they support rand 0.10 — see PR #1435.",
+      "description": "rand: hold at 0.9.x. alloy-primitives still pins rand 0.9; a direct rand 0.10 dep puts two incompatible rand majors in the graph and breaks foundry-evm-fuzz's RngCore bound on alloy's randomize_with. proptest ≥1.12 is on rand 0.10 and is held separately below. Drop the cap once alloy-primitives supports rand 0.10 — see PR #1435.",
       "matchManagers": ["cargo"],
       "matchPackageNames": ["rand"],
       "allowedVersions": "<0.10"
+    },
+    {
+      "description": "proptest: hold at 1.11.x. 1.12 moves to rand 0.10 while alloy-primitives is still on rand 0.9; foundry-evm-fuzz and foundry-cheatcodes use proptest's TestRng as a rand 0.9 Rng and fail to compile. Its bit-vec 0.10 also needs borsh ^1.7, so Renovate's lockfile update fails outright — see PR #1926. Lift together with the rand cap.",
+      "matchManagers": ["cargo"],
+      "matchPackageNames": ["proptest"],
+      "allowedVersions": "<1.12"
     },
     {
       "description": "cita_trie: hold at 4.x. 6.x delivers no functional change to EDR — nibbles/node/errors are byte-identical to 4.1.0 and trie.rs differs only by a lifetime-elision fix. The break is purely that 6.0.1 swapped the `hasher` crate for `cita-hasher` (upstream can't publish to `hasher`, which they don't own), so `hasher::HasherKeccak` no longer satisfies `cita_trie::Hasher`. Taking it also duplicates rlp 0.5 + 0.6 in the lockfile. Upstream went 28 months without a commit and 6.x has ~450 downloads. Lift this only if the crate survives the alloy-trie migration — see PR #1694.",
