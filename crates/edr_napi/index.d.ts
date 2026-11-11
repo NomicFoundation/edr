@@ -757,7 +757,8 @@ export interface FuzzConfigArgs {
   /**
    * Upper bound on the number of parallel workers that run each fuzz test.
    * The runs are split between the workers, and fewer workers are used
-   * when `runs` is below 64 per worker.
+   * when `runs` is below 64 per worker. Must be at least 1. Set to 1 for
+   * reproducible runs and the lowest CPU and memory usage.
    * Defaults to the number of available threads.
    */
   workers?: number
