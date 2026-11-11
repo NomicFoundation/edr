@@ -316,6 +316,10 @@ async fn test_persist_fuzz_failure_overloaded_tests() {
     assert_eq!(persisted.calldata, legacy_calldata);
 }
 
+/// A seed file as persisted by `proptest` in older EDR versions.
+const LEGACY_SEED_FILE: &str = "# Seeds for failure cases proptest has generated in the past.\n\
+     cc 0000000000000000000000000000000000000000000000000000000000000000\n";
+
 /// Older EDR versions persisted fuzz failures as a single `proptest` seed file
 /// at `<failure_persist_dir>/failures`. It must be replaced by
 /// the failure directory instead of blocking persistence.
@@ -324,12 +328,7 @@ async fn test_persist_fuzz_failure_replaces_legacy_seed_file() {
     let filter = SolidityTestFilter::new(".*", ".*", ".*fuzz/FuzzFailurePersist.t.sol");
     let persist_dir = tempfile::tempdir().unwrap();
     let legacy_file = persist_dir.path().join(FAILURES_DIR);
-    std::fs::write(
-        &legacy_file,
-        "# Seeds for failure cases proptest has generated in the past.\n\
-         cc 0000000000000000000000000000000000000000000000000000000000000000\n",
-    )
-    .unwrap();
+    std::fs::write(&legacy_file, LEGACY_SEED_FILE).unwrap();
 
     let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
     config.fuzz.failure_persist_dir = Some(persist_dir.path().to_path_buf());
@@ -362,7 +361,7 @@ async fn test_persist_fuzz_failure_errors_on_unremovable_legacy_seed_file() {
 
     let persist_dir = tempfile::tempdir().unwrap();
     let legacy_file = persist_dir.path().join(FAILURES_DIR);
-    std::fs::write(&legacy_file, "").unwrap();
+    std::fs::write(&legacy_file, LEGACY_SEED_FILE).unwrap();
     // Removing a file needs write permission on its directory.
     std::fs::set_permissions(persist_dir.path(), std::fs::Permissions::from_mode(0o555)).unwrap();
 
@@ -389,6 +388,41 @@ async fn test_persist_fuzz_failure_errors_on_unremovable_legacy_seed_file() {
         "{err}"
     );
     assert!(legacy_file.is_file());
+}
+
+/// A file at the failure directory path that EDR did not write is left in
+/// place and fails the run.
+#[tokio::test(flavor = "multi_thread")]
+async fn test_persist_fuzz_failure_errors_on_unknown_file() {
+    let persist_dir = tempfile::tempdir().unwrap();
+    let unknown_file = persist_dir.path().join(FAILURES_DIR);
+    std::fs::write(&unknown_file, "not a proptest seed file").unwrap();
+
+    let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
+    config.fuzz.failure_persist_dir = Some(persist_dir.path().to_path_buf());
+    let runner = TEST_DATA_DEFAULT.runner_with_config(config).await;
+    let result = runner.test(
+        tokio::runtime::Handle::current(),
+        std::sync::Arc::new(SolidityTestFilter::new(
+            ".*",
+            ".*",
+            ".*fuzz/FuzzFailurePersist.t.sol",
+        )),
+        std::sync::Arc::new(|_| {}),
+    );
+
+    let Err(err) = result else {
+        panic!("an unknown file at the failure directory path must fail the run");
+    };
+    assert!(
+        err.to_string()
+            .contains(&unknown_file.display().to_string()),
+        "{err}"
+    );
+    assert_eq!(
+        std::fs::read_to_string(&unknown_file).unwrap(),
+        "not a proptest seed file"
+    );
 }
 
 const PERSIST_CONTRACT: &str = "default/fuzz/FuzzFailurePersist.t.sol:FuzzFailurePersistTest";

@@ -2,6 +2,7 @@
 
 use std::{
     collections::{BTreeMap, HashMap, HashSet},
+    io::Read as _,
     marker::PhantomData,
     path::{Path, PathBuf},
     sync::Arc,
@@ -14,6 +15,7 @@ use derive_more::Debug;
 use derive_where::derive_where;
 use edr_artifact::ArtifactId;
 use edr_chain_spec::{EvmHaltReason, HaltReasonTrait};
+use edr_common::errors::FsPathError;
 use edr_coverage::{reporter::SyncOnCollectedCoverageCallback, CodeCoverageReporter};
 use edr_decoder_revert::RevertDecoder;
 use edr_solidity::{config::IncludeTraces, contract_decoder::SyncNestedTraceDecoder};
@@ -744,16 +746,36 @@ impl<
     }
 }
 
+/// First line of the `proptest` seed files that earlier EDR versions persisted
+/// fuzz failures in.
+const LEGACY_FUZZ_FAILURE_FILE_HEADER: &[u8] =
+    b"# Seeds for failure cases proptest has generated in the past";
+
 /// Removes the fuzz failure file written by versions of EDR that persisted
 /// fuzz failures as a single `proptest` seed file at
 /// `<failure_persist_dir>/failures`.
 ///
 /// Fuzz failures are now persisted as one JSON counterexample per test in a
 /// directory of the same name, so a leftover regular file at that path would
-/// prevent the directory from being created.
-fn remove_legacy_fuzz_failure_file(failure_persist_root: &Path) -> edr_common::fs::Result<()> {
+/// prevent the directory from being created. A file that does not start with
+/// the `proptest` header was not written by EDR and is left in place.
+fn remove_legacy_fuzz_failure_file(failure_persist_root: &Path) -> Result<(), TestRunnerError> {
     if !failure_persist_root.is_file() {
         return Ok(());
+    }
+
+    let mut header = Vec::with_capacity(LEGACY_FUZZ_FAILURE_FILE_HEADER.len());
+    edr_common::fs::open(failure_persist_root)
+        .and_then(|file| {
+            file.take(LEGACY_FUZZ_FAILURE_FILE_HEADER.len() as u64)
+                .read_to_end(&mut header)
+                .map_err(|err| FsPathError::read(err, failure_persist_root))
+        })
+        .map_err(TestRunnerError::LegacyFuzzFailureFile)?;
+    if header != LEGACY_FUZZ_FAILURE_FILE_HEADER {
+        return Err(TestRunnerError::UnknownFileAtFuzzFailureDir(
+            failure_persist_root.to_path_buf(),
+        ));
     }
 
     warn!(
@@ -761,6 +783,7 @@ fn remove_legacy_fuzz_failure_file(failure_persist_root: &Path) -> edr_common::f
         failure_persist_root.display()
     );
     edr_common::fs::remove_file(failure_persist_root)
+        .map_err(TestRunnerError::LegacyFuzzFailureFile)
 }
 
 fn matches_contract(id: &ArtifactId, filter: &dyn TestFilter) -> bool {
