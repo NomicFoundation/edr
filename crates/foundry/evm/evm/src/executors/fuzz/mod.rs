@@ -62,7 +62,7 @@ struct WorkerState<
     TransactionErrorT: TransactionErrorTrait,
 > {
     /// Worker identifier.
-    id: usize,
+    id: u32,
     /// First fuzz case this worker encountered (with global run number).
     first_case: Option<(u32, FuzzCase)>,
     /// Gas usage for all cases this worker ran.
@@ -112,7 +112,7 @@ impl<
     >
     WorkerState<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT>
 {
-    fn new(worker_id: usize) -> Self {
+    fn new(worker_id: u32) -> Self {
         Self {
             id: worker_id,
             ..Default::default()
@@ -152,7 +152,7 @@ struct SharedFuzzState {
     /// Total runs across workers.
     total_runs: AtomicU32,
     /// ID of the worker that found the failure, whose state is reported.
-    failed_worker_id: OnceLock<usize>,
+    failed_worker_id: OnceLock<u32>,
     /// Total rejects across workers.
     total_rejects: AtomicU32,
     /// Fuzz timer.
@@ -187,7 +187,7 @@ impl SharedFuzzState {
 
     /// Returns true if the worker was able to claim the failure, false if
     /// failure was set by another worker.
-    fn try_claim_failure(&self, worker_id: usize) -> bool {
+    fn try_claim_failure(&self, worker_id: u32) -> bool {
         self.failed_worker_id.set(worker_id).is_ok()
     }
 }
@@ -228,7 +228,7 @@ pub struct FuzzedExecutor<
     /// The persisted counterexample to be replayed, if any.
     persisted_failure: Option<BaseCounterExample>,
     /// The number of parallel workers.
-    num_workers: usize,
+    num_workers: u32,
 }
 
 impl<
@@ -392,7 +392,7 @@ impl<
             TransactionErrorT,
         >,
     > {
-        const WORKER_ID: usize = 0;
+        const WORKER_ID: u32 = 0;
 
         let failure = self.persisted_failure.as_ref()?;
         if !failure.targets(func) {
@@ -406,11 +406,11 @@ impl<
         let mut inspector = self.executor.inspector().clone();
         let seed = failure.fuzz.seed.or(self.config.seed);
         let run = failure.fuzz.run.unwrap_or(1);
-        let worker_id = failure.fuzz.worker.unwrap_or(WORKER_ID as u32);
+        let worker_id = failure.fuzz.worker.unwrap_or(WORKER_ID);
         if let Some(cheats) = inspector.cheatcodes.as_mut()
             && let Some(seed) = seed
         {
-            cheats.set_seed(fuzz_run_seed(seed, worker_id as usize, run));
+            cheats.set_seed(fuzz_run_seed(seed, worker_id, run));
         }
         let failure_run =
             seed.map(|seed| FuzzRunMetadata::new(Some(seed), Some(run), Some(worker_id)));
@@ -446,7 +446,7 @@ impl<
     /// Runs a single fuzz worker.
     fn run_worker(
         &self,
-        worker_id: usize,
+        worker_id: u32,
         func: &Function,
         fuzz_fixtures: &FuzzFixtures,
         address: Address,
@@ -473,7 +473,7 @@ impl<
         let mut worker = WorkerState::new(worker_id);
         // We want to collect at least one trace which will be displayed to user.
         let max_traces_to_collect =
-            Ord::max(1, self.config.gas_report_samples / self.num_workers as u32) as usize;
+            Ord::max(1, self.config.gas_report_samples / self.num_workers) as usize;
 
         let worker_runs = runs_per_worker(self.config.runs, self.num_workers, worker_id);
         debug!(worker_runs);
@@ -507,9 +507,11 @@ impl<
             // that a run rejected by `vm.assume` based on `vm.random*` output is
             // not retried with the very same values.
             if let Some(cheats) = inspector.cheatcodes.as_mut()
-                && let Some(seed) = self.config.seed
+                && let Some(worker_seed) = worker_seed
             {
-                cheats.set_seed(fuzz_run_seed(seed, worker_id, generated_inputs + 1));
+                // `fuzz_run_seed(seed, worker_id, generated_inputs + 1)`, without
+                // deriving the worker seed again.
+                cheats.set_seed(worker_seed.wrapping_add(U256::from(generated_inputs)));
             }
 
             let input = match strategy.new_tree(&mut runner) {
@@ -538,11 +540,7 @@ impl<
             };
 
             let failure_run = self.config.seed.map(|seed| {
-                FuzzRunMetadata::new(
-                    Some(seed),
-                    Some(generated_inputs),
-                    Some(u32::try_from(worker_id).expect("worker count fits in u32")),
-                )
+                FuzzRunMetadata::new(Some(seed), Some(generated_inputs), Some(worker_id))
             });
             match self.single_fuzz(&inspector, address, input.clone()) {
                 Ok(fuzz_outcome) => match fuzz_outcome {
@@ -843,15 +841,16 @@ impl<
 /// global rayon pool is. Fewer workers are used when `runs` is below
 /// [`MIN_RUNS_PER_WORKER`] per worker, but always at least one. A test with no
 /// runs gets no workers.
-fn num_workers(runs: u32, workers: Option<NonZeroU32>) -> usize {
+fn num_workers(runs: u32, workers: Option<NonZeroU32>) -> u32 {
     if runs == 0 {
         return 0;
     }
-    let max_workers = Ord::max(1, runs / MIN_RUNS_PER_WORKER) as usize;
-    match workers {
-        Some(workers) => Ord::min(workers.get() as usize, max_workers),
-        None => Ord::min(rayon::current_num_threads(), max_workers),
-    }
+    let max_workers = Ord::max(1, runs / MIN_RUNS_PER_WORKER);
+    let workers = workers.map_or_else(
+        || u32::try_from(rayon::current_num_threads()).unwrap_or(u32::MAX),
+        NonZeroU32::get,
+    );
+    Ord::min(workers, max_workers)
 }
 
 /// Whether `total` rejected inputs exceed the `max` allowed; `max = 0` allows
@@ -862,13 +861,12 @@ fn exceeds_max_rejects(total: u32, max: u32) -> bool {
 
 /// Determines the number of runs of worker `worker_id` out of `num_workers`
 /// workers sharing `total_runs` runs.
-fn runs_per_worker(total_runs: u32, num_workers: usize, worker_id: usize) -> u32 {
-    let n = num_workers as u32;
-    let runs = total_runs / n;
-    let remainder = total_runs % n;
+fn runs_per_worker(total_runs: u32, num_workers: u32, worker_id: u32) -> u32 {
+    let runs = total_runs / num_workers;
+    let remainder = total_runs % num_workers;
     // Distribute the remainder evenly among the first `remainder` workers,
-    // assuming `worker_id` is in `0..n`.
-    if (worker_id as u32) < remainder {
+    // assuming `worker_id` is in `0..num_workers`.
+    if worker_id < remainder {
         runs + 1
     } else {
         runs
@@ -879,12 +877,11 @@ fn runs_per_worker(total_runs: u32, num_workers: usize, worker_id: usize) -> u32
 ///
 /// The first worker uses the seed as is, so that single-worker runs reproduce
 /// the inputs of a sequential run. Other workers use
-/// `keccak256(seed || worker_id as u32 BE)`.
-fn fuzz_worker_seed(seed: U256, worker_id: usize) -> U256 {
+/// `keccak256(seed || worker_id BE)`.
+fn fuzz_worker_seed(seed: U256, worker_id: u32) -> U256 {
     if worker_id == 0 {
         return seed;
     }
-    let worker_id = u32::try_from(worker_id).expect("worker count fits in u32");
     let seed_data = [&seed.to_be_bytes::<32>()[..], &worker_id.to_be_bytes()[..]].concat();
     U256::from_be_bytes(keccak256(seed_data).0)
 }
@@ -892,7 +889,7 @@ fn fuzz_worker_seed(seed: U256, worker_id: usize) -> U256 {
 /// Derives the cheatcode RNG seed of the `run`-th (1-based) input generated by
 /// a worker, so that `vm.random*` draws the same values when the input is
 /// replayed.
-fn fuzz_run_seed(seed: U256, worker_id: usize, run: u32) -> U256 {
+fn fuzz_run_seed(seed: U256, worker_id: u32, run: u32) -> U256 {
     fuzz_worker_seed(seed, worker_id).wrapping_add(U256::from(run.saturating_sub(1)))
 }
 
@@ -931,7 +928,7 @@ mod tests {
         assert_eq!(num_workers(63, NonZeroU32::new(8)), 1);
         assert_eq!(num_workers(256, NonZeroU32::new(8)), 4);
         assert_eq!(num_workers(10_000, NonZeroU32::new(3)), 3);
-        assert!(num_workers(10_000, None) <= rayon::current_num_threads());
+        assert!(num_workers(10_000, None) as usize <= rayon::current_num_threads());
     }
 
     #[test]
@@ -940,7 +937,7 @@ mod tests {
         assert_eq!(fuzz_worker_seed(seed, 0), seed);
         let seeds: Vec<U256> = (0..8).map(|id| fuzz_worker_seed(seed, id)).collect();
         for (i, a) in seeds.iter().enumerate() {
-            assert_eq!(*a, fuzz_worker_seed(seed, i));
+            assert_eq!(*a, fuzz_worker_seed(seed, i as u32));
             for b in &seeds[i + 1..] {
                 assert_ne!(a, b);
             }
