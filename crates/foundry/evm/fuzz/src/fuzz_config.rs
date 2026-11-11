@@ -70,29 +70,20 @@ impl FuzzConfig {
             .map(|failure_persist_dir| failure_persist_dir.join(FAILURES_DIR))
     }
 
-    /// Returns the failure directory of the given contract and the failure file
-    /// of the given fuzz test in it, if failure persistence is enabled.
+    /// Returns the failure file of the given fuzz test, if failure persistence
+    /// is enabled.
     ///
     /// Failures are persisted at
     /// `<failure_persist_dir>/failures/<contract>/<test>`. `<contract>` is the
     /// part of `contract_name` after the last `:`, so an artifact id may be
     /// passed. `<test>` is `test_name`: the function name, or
     /// `<name>-<selector>` for an overloaded function.
-    pub fn failure_paths(
-        &self,
-        contract_name: &str,
-        test_name: &str,
-    ) -> Option<(PathBuf, PathBuf)> {
-        self.failure_persist_root().map(|root| {
-            let dir = root.join(
-                contract_name
-                    .split(':')
-                    .next_back()
-                    .expect("split always yields at least one element"),
-            );
-            let file = dir.join(test_name);
-            (dir, file)
-        })
+    pub fn failure_path(&self, contract_name: &str, test_name: &str) -> Option<PathBuf> {
+        let contract_name = contract_name
+            .rsplit_once(':')
+            .map_or(contract_name, |(_, name)| name);
+        self.failure_persist_root()
+            .map(|root| root.join(contract_name).join(test_name))
     }
 }
 

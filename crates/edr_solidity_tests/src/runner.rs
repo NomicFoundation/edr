@@ -1562,22 +1562,19 @@ impl<
 
         let test_name =
             fuzz_test_path_name(&self.cr.contract.abi, func, &fuzz_config, self.cr.name);
-        let failure_paths = fuzz_config.failure_paths(self.cr.name, &test_name);
-        let persisted_failure = failure_paths
-            .as_ref()
-            .and_then(|(failure_dir, failure_file)| {
-                read_persisted_fuzz_failure(failure_file).or_else(|| {
-                    // Fall back to a failure persisted under the bare function
-                    // name by Forge before v1.8.2 qualified overloads, if it
-                    // targets this overload.
-                    if test_name == func.name {
-                        return None;
-                    }
-                    let legacy_file = failure_dir.join(&func.name);
-                    read_persisted_fuzz_failure(&legacy_file)
-                        .filter(|failure| failure.targets(func))
-                })
-            });
+        let failure_file = fuzz_config.failure_path(self.cr.name, &test_name);
+        let persisted_failure = failure_file.as_ref().and_then(|failure_file| {
+            read_persisted_fuzz_failure(failure_file).or_else(|| {
+                // Fall back to a failure persisted under the bare function
+                // name by Forge before v1.8.2 qualified overloads, if it
+                // targets this overload.
+                if test_name == func.name {
+                    return None;
+                }
+                let legacy_file = failure_file.with_file_name(&func.name);
+                read_persisted_fuzz_failure(&legacy_file).filter(|failure| failure.targets(func))
+            })
+        });
 
         // Run fuzz test.
         let fuzzed_executor = FuzzedExecutor::new(
@@ -1595,10 +1592,11 @@ impl<
             self.tokio_handle,
         );
 
-        if let Some((failure_dir, failure_file)) = failure_paths
+        if let Some(failure_file) = failure_file
+            && let Some(failure_dir) = failure_file.parent()
             && let Some(CounterExample::Single(counterexample)) = &result.counterexample
         {
-            if let Err(err) = edr_common::fs::create_dir_all(&failure_dir) {
+            if let Err(err) = edr_common::fs::create_dir_all(failure_dir) {
                 error!(%err, "Failed to create fuzz failure dir");
             } else if let Err(err) =
                 edr_common::fs::write_json_file(failure_file.as_path(), counterexample)
@@ -1928,8 +1926,8 @@ fn fuzz_test_path_name<'a>(
         .get(&func.name)
         .is_some_and(|functions| functions.len() > 1);
     let has_qualified_failure = config
-        .failure_paths(contract_name, &qualified_name)
-        .is_some_and(|(_, failure_file)| failure_file.exists());
+        .failure_path(contract_name, &qualified_name)
+        .is_some_and(|failure_file| failure_file.exists());
 
     if overloaded || has_qualified_failure {
         Cow::Owned(qualified_name)
