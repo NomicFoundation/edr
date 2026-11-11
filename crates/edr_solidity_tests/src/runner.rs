@@ -33,7 +33,7 @@ use foundry_evm::{
         TransactionErrorTrait,
     },
     executors::{
-        fuzz::FuzzedExecutor,
+        fuzz::{fuzz_run_seed, FuzzedExecutor},
         invariant::{
             check_sequence, replay_error, replay_run, InvariantConfig, InvariantExecutor,
             InvariantFuzzError, ReplayErrorArgs, ReplayResult, ReplayRunArgs,
@@ -1881,6 +1881,18 @@ fn re_run_fuzz_counterexample_for_stack_traces<
 
     // Collect EVM step traces that are needed for stack trace generation.
     executor.inspector_mut().tracing(TracingMode::WithSteps);
+
+    // Reseed the cheatcode RNG as in the fuzz run that produced the
+    // counterexample.
+    if let Some(seed) = counter_example.fuzz.seed
+        && let Some(cheats) = executor.inspector_mut().cheatcodes.as_mut()
+    {
+        cheats.set_seed(fuzz_run_seed(
+            seed,
+            counter_example.fuzz.worker.unwrap_or(0),
+            counter_example.fuzz.run.unwrap_or(1),
+        ));
+    }
 
     // Run counterexample test
     let call = executor

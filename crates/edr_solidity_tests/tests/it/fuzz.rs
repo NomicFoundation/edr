@@ -10,6 +10,7 @@ use edr_solidity_tests::{
     inline_config::InlineConfigProfiles,
     result::{SuiteResult, TestKind, TestStatus},
 };
+use foundry_evm::executors::stack_trace::SolidityTestStackTraceResult;
 
 use crate::helpers::{assert_multiple, SolidityTestFilter, TEST_DATA_DEFAULT};
 
@@ -889,6 +890,47 @@ async fn test_persist_fuzz_failure_replays_random_uint() {
     // counterexample is not counted as a run.
     let results = runner.test_collect(filter).await.suite_results;
     assert_eq!(outcome(&results), (TestStatus::Failure, 0, calldata));
+}
+
+/// The stack trace of a seeded failure comes from a re-run of the
+/// counterexample, which reseeds the cheatcode RNG as in the failing run, so
+/// that a value drawn from it, here through `vm.setArbitraryStorage`, is the
+/// one that made the test fail.
+#[tokio::test(flavor = "multi_thread")]
+async fn test_fuzz_stack_trace_rerun_reseeds_cheatcode_rng() {
+    let filter = SolidityTestFilter::new(".*", ".*", ".*fuzz/ArbitraryStorageFuzz.t.sol");
+    let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
+    config.fuzz.seed = Some(U256::from(1u32));
+    config.cheats_config_options.seed = config.fuzz.seed;
+    config.fuzz.workers = NonZeroU32::new(1);
+    let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;
+    let results = runner.test_collect(filter).await.suite_results;
+
+    let result = results
+        .get("default/fuzz/ArbitraryStorageFuzz.t.sol:ArbitraryStorageFuzzTest")
+        .unwrap()
+        .test_results
+        .get("testFuzz_arbitraryStorage_shouldFail(uint256)")
+        .unwrap();
+    assert_eq!(result.status, TestStatus::Failure);
+    let Some(CounterExample::Single(counterexample)) = &result.counterexample else {
+        panic!("no counterexample: {:?}", result.counterexample);
+    };
+    // Without the reseed the re-run draws the values of the first run, so the
+    // failure must come from a later one.
+    assert_ne!(
+        counterexample.fuzz.run,
+        Some(1),
+        "{:?}",
+        counterexample.fuzz
+    );
+
+    let Some(SolidityTestStackTraceResult::Success(stack_trace)) = &result.stack_trace_result
+    else {
+        panic!("no stack trace: {:?}", result.stack_trace_result);
+    };
+    // A re-run that passes yields no entries.
+    assert!(!stack_trace.is_empty());
 }
 
 // Tests that a run rejected by `vm.assume` based on `vm.random*` output is not
