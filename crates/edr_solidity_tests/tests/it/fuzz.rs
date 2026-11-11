@@ -44,7 +44,9 @@ async fn test_fuzz() {
             .join("|"),
         )
         .exclude_paths("invariant")
-        .exclude_contracts("FuzzConfigOverrideTest|FuzzProfileOverrideTest");
+        .exclude_contracts(
+            "FuzzConfigOverrideTest|FuzzProfileOverrideTest|FuzzNoRejectLimitOverrideTest",
+        );
     let runner = TEST_DATA_DEFAULT.runner().await;
     let suite_result = runner.test_collect(filter).await.suite_results;
 
@@ -756,7 +758,7 @@ async fn test_fuzz_no_reject_limit_requires_timeout() {
             vec![(
                 "test_fuzz_bound(uint256)",
                 false,
-                Some("`maxTestRejects` = 0 requires a fuzz `timeout`".to_string()),
+                Some("`maxTestRejects` = 0 disables the reject limit and requires a fuzz `timeout` (in seconds)".to_string()),
                 None,
                 None,
             )],
@@ -766,6 +768,35 @@ async fn test_fuzz_no_reject_limit_requires_timeout() {
 
 // Test 256 runs regardless number of test rejects.
 // <https://github.com/foundry-rs/foundry/issues/9054>
+/// The inline overrides apply before the reject limit check: an inline
+/// `max-test-rejects = 0` without a timeout is rejected, and an inline
+/// `timeout` satisfies a reject limit disabled by the config.
+#[tokio::test(flavor = "multi_thread")]
+async fn test_fuzz_no_reject_limit_requires_timeout_after_inline_overrides() {
+    const CONTRACT: &str =
+        "default/fuzz/FuzzNoRejectLimitOverride.t.sol:FuzzNoRejectLimitOverrideTest";
+    let filter = SolidityTestFilter::new(".*", ".*", ".*fuzz/FuzzNoRejectLimitOverride.t.sol");
+
+    let config = TEST_DATA_DEFAULT.config_with_mock_rpc();
+    assert_ne!(config.fuzz.max_test_rejects, 0);
+    assert_eq!(config.fuzz.timeout, None);
+    let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;
+    let results = runner.test_collect(filter.clone()).await.suite_results;
+    let result = &results[CONTRACT].test_results["testFuzz_InlineNoRejectLimit(uint256)"];
+    assert_eq!(result.status, TestStatus::Failure);
+    assert_eq!(
+        result.reason.as_deref(),
+        Some("`maxTestRejects` = 0 disables the reject limit and requires a fuzz `timeout` (in seconds)")
+    );
+
+    let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
+    config.fuzz.max_test_rejects = 0;
+    let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;
+    let results = runner.test_collect(filter).await.suite_results;
+    let result = &results[CONTRACT].test_results["testFuzz_InlineTimeout(uint256)"];
+    assert_eq!(result.status, TestStatus::Success, "{:?}", result.reason);
+}
+
 #[tokio::test(flavor = "multi_thread")]
 async fn test_fuzz_runs_with_rejects() {
     let filter = SolidityTestFilter::new(".*", ".*", ".*fuzz/FuzzWithRejects.t.sol");
