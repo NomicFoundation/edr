@@ -67,49 +67,60 @@ describe("Fuzz and invariant testing", function () {
     const failureDir = await fs.mkdtemp(
       path.join(os.tmpdir(), "edr-fuzz-failures-")
     );
-    const config = {
-      ...testContext.defaultConfig(),
-      fuzz: { failurePersistDir: failureDir, workers: 1 },
-    };
-    const run = async () => {
-      const [, results] = await runAllSolidityTests(
-        testContext.edrContext,
-        L1_CHAIN_TYPE,
-        testContext.artifacts,
-        testContext.matchingTest("OverflowTest"),
-        testContext.tracingConfig,
-        config
+    try {
+      const config = {
+        ...testContext.defaultConfig(),
+        fuzz: { failurePersistDir: failureDir, workers: 1 },
+      };
+      const run = async () => {
+        const [, results] = await runAllSolidityTests(
+          testContext.edrContext,
+          L1_CHAIN_TYPE,
+          testContext.artifacts,
+          testContext.matchingTest("OverflowTest"),
+          testContext.tracingConfig,
+          config
+        );
+        const testResult = results[0].testResults[0];
+        assert.equal(testResult.status, "Failure");
+        return testResult;
+      };
+
+      await run();
+      const failureFile = path.join(
+        failureDir,
+        "failures",
+        "OverflowTest",
+        "testFuzzAddWithOverflow"
       );
-      const testResult = results[0].testResults[0];
-      assert.equal(testResult.status, "Failure");
-      return testResult;
-    };
+      assert.ok(existsSync(failureFile));
 
-    await run();
-    const failureFile = path.join(
-      failureDir,
-      "failures",
-      "OverflowTest",
-      "testFuzzAddWithOverflow"
-    );
-    assert.ok(existsSync(failureFile));
+      // Replace the persisted input with one fuzzing would not produce, so that
+      // getting it back shows the second run replays the file.
+      const half = "8".padEnd(64, "0");
+      const counterexample = JSON.parse(await fs.readFile(failureFile, "utf8"));
+      const selector = counterexample.calldata.slice(0, 10);
+      counterexample.calldata = `${selector}${half}${half}`;
+      await fs.writeFile(failureFile, JSON.stringify(counterexample));
 
-    // Replace the persisted input with one fuzzing would not produce, so that
-    // getting it back shows the second run replays the file.
-    const half = "8".padEnd(64, "0");
-    const counterexample = JSON.parse(await fs.readFile(failureFile, "utf8"));
-    const selector = counterexample.calldata.slice(0, 10);
-    counterexample.calldata = `${selector}${half}${half}`;
-    await fs.writeFile(failureFile, JSON.stringify(counterexample));
+      const replayed = await run();
+      // Only the persisted input runs, and it fails, so no case passes.
+      assert.equal((replayed.kind as FuzzTestKind).runs, 0n);
+      assert.equal(
+        Buffer.from(
+          (replayed.counterexample as BaseCounterExample).calldata
+        ).toString("hex"),
+        counterexample.calldata.slice(2)
+      );
+    } finally {
+      await fs.rm(failureDir, { recursive: true, force: true });
+    }
+  });
 
-    const replayed = await run();
-    // Only the persisted input runs, and it fails, so no case passes.
-    assert.equal((replayed.kind as FuzzTestKind).runs, 0n);
-    assert.equal(
-      Buffer.from(
-        (replayed.counterexample as BaseCounterExample).calldata
-      ).toString("hex"),
-      counterexample.calldata.slice(2)
+  it("rejects zero fuzz workers", async function () {
+    await assert.rejects(
+      testContext.runTestsWithStats("OverflowTest", { fuzz: { workers: 0 } }),
+      /`workers` must be at least 1/
     );
   });
 
