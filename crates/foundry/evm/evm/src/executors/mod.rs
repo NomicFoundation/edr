@@ -683,14 +683,14 @@ impl<
     }
 
     /// Performs a raw call to an account on the current state of the VM, with
-    /// a copy of `inspector` instead of a copy of this executor's own.
+    /// `inspector` instead of a copy of this executor's own.
     ///
     /// Lets callers that need their own inspector state, such as fuzz workers
     /// with their own cheatcode RNG seed, share the executor instead of
     /// cloning it along with its database.
-    pub fn call_raw_with_inspector(
+    pub(crate) fn call_raw_with_inspector(
         &self,
-        inspector: &InspectorStack<
+        inspector: InspectorStack<
             BlockT,
             TxT,
             EvmBuilderT,
@@ -715,7 +715,7 @@ impl<
         >,
     > {
         let env = self.build_test_env(from, TxKind::Call(to), calldata, value);
-        self.call_with_env_and_inspector(env, inspector.clone())
+        self.call_with_env_and_inspector(env, inspector)
     }
 
     /// Performs a raw call to an account on the current state of the VM.
@@ -1865,7 +1865,7 @@ impl FuzzTestTimer {
     }
 
     /// Whether the fuzz test timer is enabled.
-    pub fn is_enabled(&self) -> bool {
+    pub(crate) fn is_enabled(&self) -> bool {
         self.inner.is_some()
     }
 

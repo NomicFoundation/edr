@@ -408,7 +408,7 @@ impl<
         }
         let failure_run = seed.map(|seed| FuzzRunMetadata::new(seed, run, worker_id));
 
-        match self.single_fuzz(&inspector, address, failure.calldata.clone()) {
+        match self.single_fuzz(inspector, address, failure.calldata.clone()) {
             Ok(FuzzOutcome::Case(_)) | Err(TestCaseError::Reject(_)) => None,
             Ok(FuzzOutcome::CounterExample(CounterExampleOutcome {
                 exit_reason: status,
@@ -535,7 +535,7 @@ impl<
                 .config
                 .seed
                 .map(|seed| FuzzRunMetadata::new(seed, generated_inputs, worker_id));
-            match self.single_fuzz(&inspector, address, input.clone()) {
+            match self.single_fuzz(inspector.clone(), address, input.clone()) {
                 Ok(fuzz_outcome) => match fuzz_outcome {
                     FuzzOutcome::Case(case) => {
                         let total_runs = inc_runs(&mut worker);
@@ -746,7 +746,7 @@ impl<
     #[allow(clippy::type_complexity)]
     fn single_fuzz(
         &self,
-        inspector: &InspectorStack<
+        inspector: InspectorStack<
             BlockT,
             TxT,
             EvmBuilderT,
