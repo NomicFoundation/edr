@@ -3027,8 +3027,7 @@ fn create_forked_blockchain_and_state<
         },
     )?;
 
-    let block_config =
-        block_config::<ChainSpecT>(config, chain_configs.get(&blockchain.remote_chain_id()));
+    let block_config = block_config::<ChainSpecT>(config, blockchain.protocol_chain_config());
 
     let fork_block_number = blockchain.last_block_number();
 

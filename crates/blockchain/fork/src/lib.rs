@@ -197,7 +197,6 @@ pub struct ForkedBlockchain<
     chain_id: u64,
     fork_block_number: u64,
     hardfork: HardforkT,
-    hardfork_activations: Option<HardforkActivations<HardforkT>>,
     local_storage: ReservableSparseBlockStorage<
         Arc<BlockReceiptT>,
         Arc<LocalBlockT>,
@@ -206,6 +205,7 @@ pub struct ForkedBlockchain<
     >,
     network_id: u64,
     _phantom: PhantomData<fn() -> BlockT>,
+    protocol_chain_config: Option<ChainConfig<HardforkT>>,
     // We can force caching here because we only fork from a safe block number.
     #[allow(clippy::type_complexity)]
     remote: RemoteBlockchain<
@@ -257,14 +257,10 @@ impl<
 {
     /// Constructs a new instance.
     ///
-    /// If the remote chain ID is found in the provided `chain_configs`, the
-    /// corresponding `ChainConfig`'s hardfork activations are used to
-    /// determine the hardfork for executing historical (pre-fork) blocks.
-    ///
-    /// Protocol parameters for blocks mined on top of the fork (e.g. base fee
-    /// parameters and blob schedules) are not selected here. Callers should
-    /// look them up with [`ForkedBlockchain::remote_chain_id`], not with
-    /// `chain_id_override`, which only sets the local chain's identity.
+    /// The remote chain's config, looked up in `chain_configs` by the remote
+    /// chain ID, provides the hardfork activations for pre-fork blocks and the
+    /// protocol parameters for blocks mined on top of the fork.
+    /// `chain_id_override` only sets the local chain's identity.
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     #[allow(clippy::too_many_arguments)]
     pub async fn new(
@@ -367,7 +363,7 @@ impl<
             fork_block_number,
             network_id,
             hardfork,
-            hardfork_activations,
+            protocol_chain_config: chain_config.cloned(),
             _phantom: PhantomData,
         })
     }
@@ -399,6 +395,20 @@ impl<
     /// Returns the chain id of the remote blockchain.
     pub fn remote_chain_id(&self) -> u64 {
         self.remote_chain_id
+    }
+
+    /// Returns the remote chain's config, if known. Blocks mined on top of the
+    /// fork follow its protocol parameters.
+    pub fn protocol_chain_config(&self) -> Option<&ChainConfig<HardforkT>> {
+        self.protocol_chain_config.as_ref()
+    }
+
+    /// Returns the remote chain's hardfork activations, ignoring empty ones.
+    fn hardfork_activations(&self) -> Option<&HardforkActivations<HardforkT>> {
+        self.protocol_chain_config
+            .as_ref()
+            .map(|chain_config| &chain_config.hardfork_activations)
+            .filter(|hardfork_activations| !hardfork_activations.is_empty())
     }
 
     fn runtime(&self) -> &runtime::Handle {
@@ -518,7 +528,7 @@ impl<
                     .map_err(ForkedBlockchainError::from)
             })
             .and_then(|block| {
-                if let Some(hardfork_activations) = &self.hardfork_activations {
+                if let Some(hardfork_activations) = self.hardfork_activations() {
                     let header = block.block_header();
                     hardfork_activations
                         .hardfork_at_block(header.number, header.timestamp)
