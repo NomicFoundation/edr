@@ -50,7 +50,7 @@ pub enum CounterExample {
 ///
 /// All fields are optional so that counterexamples persisted by Forge
 /// without this metadata remain readable.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FuzzRunMetadata {
     /// The configured fuzz seed, not the worker seed derived from it.
     #[serde(default, rename = "fuzz_seed", skip_serializing_if = "Option::is_none")]
@@ -71,8 +71,12 @@ pub struct FuzzRunMetadata {
 
 impl FuzzRunMetadata {
     /// Creates the metadata of a fuzz run.
-    pub const fn new(seed: Option<U256>, run: Option<u32>, worker: Option<u32>) -> Self {
-        Self { seed, run, worker }
+    pub const fn new(seed: U256, run: u32, worker: u32) -> Self {
+        Self {
+            seed: Some(seed),
+            run: Some(run),
+            worker: Some(worker),
+        }
     }
 }
 

@@ -406,8 +406,7 @@ impl<
         {
             cheats.set_seed(fuzz_run_seed(seed, worker_id, run));
         }
-        let failure_run =
-            seed.map(|seed| FuzzRunMetadata::new(Some(seed), Some(run), Some(worker_id)));
+        let failure_run = seed.map(|seed| FuzzRunMetadata::new(seed, run, worker_id));
 
         match self.single_fuzz(&inspector, address, failure.calldata.clone()) {
             Ok(FuzzOutcome::Case(_)) | Err(TestCaseError::Reject(_)) => None,
@@ -532,9 +531,10 @@ impl<
                 total_runs
             };
 
-            let failure_run = self.config.seed.map(|seed| {
-                FuzzRunMetadata::new(Some(seed), Some(generated_inputs), Some(worker_id))
-            });
+            let failure_run = self
+                .config
+                .seed
+                .map(|seed| FuzzRunMetadata::new(seed, generated_inputs, worker_id));
             match self.single_fuzz(&inspector, address, input.clone()) {
                 Ok(fuzz_outcome) => match fuzz_outcome {
                     FuzzOutcome::Case(case) => {
@@ -684,7 +684,7 @@ impl<
                             None,
                             call.indeterminism_reasons,
                         )
-                        .with_fuzz_metadata(failed_worker.failure_run.unwrap_or_default()),
+                        .with_fuzz_metadata(failed_worker.failure_run.take().unwrap_or_default()),
                     ));
                 }
                 Some(TestCaseError::Reject(reason)) => {
