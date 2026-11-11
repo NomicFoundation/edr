@@ -3050,14 +3050,7 @@ fn will_exit(action: &InterpreterAction) -> bool {
 }
 
 fn find_upstream_cheatcode_signature(selector: alloy_primitives::FixedBytes<4>) -> Option<String> {
-    for (_function_name, variants) in UpstreamVM::abi::functions() {
-        for abi_function in variants {
-            if abi_function.selector() == selector {
-                return Some(abi_function.signature());
-            }
-        }
-    }
-    None
+    UpstreamVM::VmCalls::signature_by_selector(selector.0).map(str::to_owned)
 }
 
 /// Builds the `Vm.Gas` report for a finished call or create frame.
@@ -3120,5 +3113,23 @@ mod tests {
         let reported = frame_gas(&result);
         assert_eq!(reported.gasTotalUsed, 100_000);
         assert_eq!(reported.gasStateUsed, 0);
+    }
+
+    #[test]
+    fn names_upstream_cheatcodes_missing_from_edr() {
+        // Added in Foundry v1.9.0 and not implemented in EDR.
+        let signature = "storeTransient(address,bytes32,bytes32)";
+        let selector = alloy_primitives::keccak256(signature)[..4]
+            .try_into()
+            .expect("selector is 4 bytes");
+
+        assert_eq!(
+            find_upstream_cheatcode_signature(selector).as_deref(),
+            Some(signature)
+        );
+        assert_eq!(
+            find_upstream_cheatcode_signature(alloy_primitives::FixedBytes::ZERO),
+            None
+        );
     }
 }

@@ -4414,7 +4414,7 @@ dependencies = [
  "edr_decoder_revert",
  "eyre",
  "foundry-cheatcodes-spec 0.3.8",
- "foundry-cheatcodes-spec 1.8.5",
+ "foundry-cheatcodes-spec 1.9.0",
  "foundry-compilers",
  "foundry-evm-core",
  "foundry-evm-traces",
@@ -4454,8 +4454,8 @@ dependencies = [
 
 [[package]]
 name = "foundry-cheatcodes-spec"
-version = "1.8.5"
-source = "git+https://github.com/foundry-rs/foundry?tag=v1.8.5#51a52c59cffd940f76eddd0b4bb1791aa4b5ac7f"
+version = "1.9.0"
+source = "git+https://github.com/foundry-rs/foundry?tag=v1.9.0#6056c5845d34205a83cf7108042adb137325c9df"
 dependencies = [
  "alloy-sol-types",
  "foundry-macros",
@@ -4736,8 +4736,8 @@ dependencies = [
 
 [[package]]
 name = "foundry-macros"
-version = "1.8.5"
-source = "git+https://github.com/foundry-rs/foundry?tag=v1.8.5#51a52c59cffd940f76eddd0b4bb1791aa4b5ac7f"
+version = "1.9.0"
+source = "git+https://github.com/foundry-rs/foundry?tag=v1.9.0#6056c5845d34205a83cf7108042adb137325c9df"
 dependencies = [
  "proc-macro2",
  "quote",
