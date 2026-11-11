@@ -30,7 +30,7 @@ use edr_blockchain_api::{
     BlockHashByNumber, BlockchainMetadata, GetBlockchainBlock as _, StateAtBlock as _,
 };
 use edr_blockchain_fork::ForkedBlockchainCreationError as ForkedCreationError;
-use edr_chain_config::ChainConfig;
+use edr_chain_config::{ChainConfig, ChainOverride};
 use edr_chain_spec::{
     BlockEnvConstructor as _, ChainSpec, EvmSpecId, ExecutableTransaction, HaltReasonTrait,
     TransactionValidation,
@@ -52,7 +52,7 @@ use edr_gas_report::{GasReport, GasReportCreationError, SyncOnCollectedGasReport
 use edr_mem_pool::{account_next_nonce, MemPool, OrderedTransaction};
 use edr_precompile::PrecompileFn;
 use edr_primitives::{
-    Address, Bytecode, Bytes, HashMap, HashSet, StorageKey, B256, KECCAK_EMPTY, U256,
+    Address, Bytecode, Bytes, ChainId, HashMap, HashSet, StorageKey, B256, KECCAK_EMPTY, U256,
 };
 use edr_receipt::{log::FilterLog, ExecutionReceipt, ReceiptTrait as _};
 use edr_rpc_eth::client::{EthRpcClient, EthRpcClientForChainSpec, HeaderMap};
@@ -2959,6 +2959,32 @@ struct BlockchainAndState<ChainSpecT: BlockChainSpec> {
     next_block_base_fee_per_gas: Option<u128>,
 }
 
+/// Returns the chain spec's configs with `chain_overrides` applied.
+fn chain_configs_with_overrides<ChainSpecT: ProviderChainSpec>(
+    config: &ProviderConfig<ChainSpecT::ProtocolHardfork>,
+    chain_overrides: &HashMap<ChainId, ChainOverride<ChainSpecT::ProtocolHardfork>>,
+) -> HashMap<ChainId, ChainConfig<ChainSpecT::ProtocolHardfork>> {
+    let mut chain_configs = ChainSpecT::chain_configs().clone();
+    for (chain_id, chain_override) in chain_overrides {
+        chain_configs
+            .entry(*chain_id)
+            .and_modify(|chain_config| chain_config.apply_override(chain_override))
+            .or_insert_with(|| ChainConfig {
+                name: chain_override.name.clone(),
+                hardfork_activations: chain_override
+                    .hardfork_activation_overrides
+                    .clone()
+                    .unwrap_or_default(),
+                base_fee_params: config
+                    .base_fee_params
+                    .clone()
+                    .unwrap_or_else(|| ChainSpecT::default_base_fee_params().clone()),
+                bpo_hardfork_schedule: None,
+            });
+    }
+    chain_configs
+}
+
 fn create_forked_blockchain_and_state<
     ChainSpecT: SyncProviderSpec<TimerT>,
     TimerT: Clone + TimeSinceEpoch,
@@ -2990,24 +3016,8 @@ fn create_forked_blockchain_and_state<
         http_headers.clone(),
     )?);
 
-    let mut chain_configs = ChainSpecT::chain_configs().clone();
-    for (chain_id, chain_override) in fork_config.chain_overrides.iter() {
-        chain_configs
-            .entry(*chain_id)
-            .and_modify(|chain_config| chain_config.apply_override(chain_override))
-            .or_insert_with(|| ChainConfig {
-                name: chain_override.name.clone(),
-                hardfork_activations: chain_override
-                    .hardfork_activation_overrides
-                    .clone()
-                    .unwrap_or_default(),
-                base_fee_params: config
-                    .base_fee_params
-                    .clone()
-                    .unwrap_or_else(|| ChainSpecT::default_base_fee_params().clone()),
-                bpo_hardfork_schedule: None,
-            });
-    }
+    let chain_configs =
+        chain_configs_with_overrides::<ChainSpecT>(config, &fork_config.chain_overrides);
 
     let (blockchain, mut irregular_state) = tokio::task::block_in_place(
         || -> Result<_, ForkedCreationError<ChainSpecT::ProtocolHardfork>> {
