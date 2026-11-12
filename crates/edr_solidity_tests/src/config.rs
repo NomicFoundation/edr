@@ -4,6 +4,7 @@ pub use edr_coverage::reporter::SyncOnCollectedCoverageCallback;
 use edr_eip8037::TransactionGasBounds;
 use edr_primitives::{Address, B256, U256};
 use edr_solidity::config::IncludeTraces;
+pub use edr_solidity_parser_slang::exclusions::InvalidExclusionGlob;
 use foundry_evm::{
     backend::Predeploy,
     evm_context::{BlockEnvTr, HardforkTr, TransactionEnvTr},
@@ -13,7 +14,7 @@ use foundry_evm::{
 
 use crate::{
     fork::CreateFork,
-    inline_config::{ImportResolver, InlineConfigErrors, InlineConfigProfiles},
+    inline_config::{ImportResolver, InlineConfigProfiles},
     opts::{Env as EvmEnv, EvmOpts},
 };
 
@@ -28,10 +29,9 @@ pub enum SolidityTestRunnerConfigError {
     /// Failed to normalize project root
     #[error("Failed to normalize project root with error: {0}")]
     InvalidProjectRoot(std::io::Error),
-    /// One or more test sources carry invalid inline configuration. Carries
-    /// every problem found, each located at its source line.
-    #[error("Found invalid inline configuration in test sources:\n{0}")]
-    InlineConfig(InlineConfigErrors),
+    /// An EIP-712 source exclusion glob could not be compiled.
+    #[error(transparent)]
+    InvalidEip712ExcludeGlob(#[from] InvalidExclusionGlob),
 }
 
 /// Solidity tests configuration
@@ -67,12 +67,41 @@ pub struct SolidityTestRunnerConfig<HardforkT: HardforkTr> {
     /// Whether to generate a gas report after running tests
     pub generate_gas_report: bool,
     /// Maps each test source's solc source name to its absolute path on disk,
-    /// used to read and parse the source for inline configuration. A source
-    /// without an entry has no inline configuration collected.
+    /// used to read and parse the source for inline configuration
+    /// (`forge-config:`/`hardhat-config:` NatSpec directives) and for the
+    /// EIP-712 struct definitions served to the `eip712HashType` and
+    /// `eip712HashStruct` cheatcodes.
+    ///
+    /// An empty map disables collection: no source is read or parsed. A
+    /// non-empty map must name the source of every test suite a run selects,
+    /// and every source backing a selected suite is parsed. An entry no
+    /// selected suite uses is never opened.
+    ///
+    /// Each problem is accumulated and reported together when the run starts,
+    /// rather than silently leaving a suite without inline configuration or
+    /// EIP-712 types. A suite with no entry, an unreadable file, a solc
+    /// version older than 0.8 and a source that does not parse all count.
+    ///
+    /// Only the sources of the suites a run selects are read and parsed, so a
+    /// filtered run does not pay for the rest of the project.
     pub test_source_paths: HashMap<PathBuf, PathBuf>,
-    /// Resolves the imports of test sources when parsing their inline
-    /// configuration (`forge-config:`/`hardhat-config:` NatSpec directives).
+    /// Resolves the imports of test sources while parsing them (see
+    /// [`Self::test_source_paths`]).
     pub import_resolver: ImportResolver,
+    /// Globs matched against each parsed source's path relative to
+    /// [`Self::project_root`], spelled with forward slashes. A file outside
+    /// the root is matched by its absolute path.
+    ///
+    /// A struct declared in a matching file is not collected, including when
+    /// the matching file is the test's own source. Excluding is how a project
+    /// settles a same-name clash between two reachable structs. Nothing is
+    /// excluded by default, and there is no opposite setting, because every
+    /// reachable struct is collected.
+    ///
+    /// Only EIP-712 collection is affected. An excluded source still
+    /// contributes its inline configuration and is still parsed, so a syntax
+    /// error in it still rejects the run.
+    pub eip712_exclude_globs: Vec<String>,
     /// The profile the run was started with and every profile the project
     /// declares, used to scope inline-config directives. Defaults to the single
     /// `default` profile.
