@@ -9,9 +9,16 @@ permissions:
   contents: read
 
 jobs:
-  test-recent-mainnet-block:
-    name: Test recent mainnet block
+  test-recent-l1-block:
+    name: Test recent ${{ matrix.network }} block
     runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        network:
+          - mainnet
+          # Amsterdam activated on Sepolia before mainnet
+          - sepolia
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -24,9 +31,13 @@ jobs:
         with:
           path: |
             **/edr-cache
-          key: test-recent-mainnet-block-rpc-cache-v2
+          key: test-recent-${{ matrix.network }}-block-rpc-cache-v2
 
-      - run: cargo replay-block -u ${{ secrets.ALCHEMY_URL }} -c l1
+      - run: |
+          BASE_ALCHEMY_URL="${{ secrets.ALCHEMY_URL }}"
+          ALCHEMY_URL="${BASE_ALCHEMY_URL//eth-mainnet/eth-${{ matrix.network }}}"
+          echo "::add-mask::$ALCHEMY_URL"
+          cargo replay-block -u "$ALCHEMY_URL" -c l1
 
       - name: Notify failures
         if: failure()
@@ -36,6 +47,6 @@ jobs:
           webhook-type: webhook-trigger
           payload: |
             {
-              "workflow_name": "${{ github.workflow }}",
+              "workflow_name": "${{ github.workflow }} (${{ matrix.network }})",
               "run_url": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
             }

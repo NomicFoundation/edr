@@ -102,10 +102,59 @@ export async function getGasPrice(provider: Provider): Promise<bigint> {
   return BigInt(response);
 }
 
+/** Returns the gas limit of a transaction sent without `gas`. */
+export async function transactionGasLimitWithoutGas(
+  provider: Provider
+): Promise<bigint> {
+  const transactionHash = await handleRequestOrThrow(
+    provider,
+    "eth_sendTransaction",
+    [{ from: DEFAULT_GENESIS_ADDRESS, to: DEFAULT_GENESIS_ADDRESS }]
+  );
+  const transaction = await handleRequestOrThrow(
+    provider,
+    "eth_getTransactionByHash",
+    [transactionHash]
+  );
+  if (transaction === null) {
+    throw new Error("The transaction sent without `gas` was not found");
+  }
+  return BigInt(transaction.gas);
+}
+
+/** Returns the result of a JSON-RPC request, or `undefined` if it fails. */
 async function handleRequest(
   provider: Provider,
   method: string,
   params: any[] = []
+): Promise<any> {
+  const response = await jsonRpcResponse(provider, method, params);
+
+  return response.result;
+}
+
+/**
+ * Returns the result of a JSON-RPC request. Throws the error message of the
+ * response if the request fails.
+ */
+async function handleRequestOrThrow(
+  provider: Provider,
+  method: string,
+  params: any[] = []
+): Promise<any> {
+  const response = await jsonRpcResponse(provider, method, params);
+  if (response.error !== undefined) {
+    throw new Error(response.error.message);
+  }
+
+  return response.result;
+}
+
+/** Returns the parsed JSON-RPC response object of a request. */
+async function jsonRpcResponse(
+  provider: Provider,
+  method: string,
+  params: any[]
 ): Promise<any> {
   const responseObject = await provider.handleRequest(
     JSON.stringify({
@@ -123,7 +172,7 @@ async function handleRequest(
     response = responseObject.data;
   }
 
-  return response.result;
+  return response;
 }
 
 export function toBuffer(x: Parameters<typeof toBytes>[0]) {
@@ -263,7 +312,6 @@ export function l1ProviderConfig(
     bailOnTransactionFailure: false,
     chainId: 123n,
     coinbase: new Uint8Array(20),
-    defaultTransactionGasLimit: 300_000_000n,
     genesisState:
       genesisState ?? l1GenesisState(l1HardforkFromString(hardfork)),
     hardfork,

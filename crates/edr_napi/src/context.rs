@@ -128,6 +128,7 @@ impl EdrContext {
             (factory, dropped_provider_sender)
         };
 
+        let record_stack = provider_config.observability.record_stack;
         let contract_decoder = Arc::clone(contract_decoder.as_inner());
         runtime.clone().spawn_blocking(move || {
             let result = factory
@@ -144,6 +145,7 @@ impl EdrContext {
                         runtime,
                         contract_decoder,
                         dropped_provider_sender,
+                        record_stack,
                         #[cfg(feature = "scenarios")]
                         scenario_file,
                     ))
@@ -411,6 +413,7 @@ impl EdrContext {
             runtime,
             Arc::default(),
             dropped_provider_sender,
+            edr_provider::observability::StackSnapshotType::None,
             #[cfg(feature = "scenarios")]
             None,
         )))
@@ -450,6 +453,7 @@ impl EdrContext {
             )
         );
 
+        let record_stack = provider_config.observability.record_stack;
         let contract_decoder = Arc::clone(contract_decoder.as_inner());
         let timer = Arc::clone(time.as_inner());
 
@@ -496,6 +500,7 @@ impl EdrContext {
                     runtime,
                     contract_decoder,
                     dropped_provider_sender,
+                    record_stack,
                     #[cfg(feature = "scenarios")]
                     None,
                 )))

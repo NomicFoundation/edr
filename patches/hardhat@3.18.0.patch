@@ -1,0 +1,14 @@
+diff --git a/package.json b/package.json
+index 0bcf7b7..307a054 100644
+--- a/package.json
++++ b/package.json
+@@ -42,6 +42,9 @@
+     "./internal/gas-analytics": "./dist/src/internal/builtin-plugins/gas-analytics/exports.js",
+     "./internal/solidity": "./dist/src/internal/builtin-plugins/solidity/exports.js",
+     "./utils/contract-names": "./dist/src/utils/contract-names.js",
++    "./internal/builtin-plugins/solidity-test/edr-artifacts": "./dist/src/internal/builtin-plugins/solidity-test/edr-artifacts.js",
++    "./internal/builtin-plugins/solidity-test/helpers": "./dist/src/internal/builtin-plugins/solidity-test/helpers.js",
++    "./internal/builtin-plugins/artifacts/artifact-manager": "./dist/src/internal/builtin-plugins/artifacts/artifact-manager.js",
+     "./utils/result": "./dist/src/utils/result.js",
+     "./types/runtime": "./dist/src/internal/deprecated-module-imported-from-hardhat2-plugin.js",
+     "./builtin-tasks/task-names": "./dist/src/internal/deprecated-module-imported-from-hardhat2-plugin.js",

@@ -3,7 +3,7 @@
 //! Types related to EIP-7892.
 
 use alloy_eips::eip7840::BlobParams;
-use alloy_hardforks::{holesky, hoodi, mainnet, sepolia};
+use alloy_hardforks::{hoodi, mainnet, sepolia};
 
 /// EIP 7982 new node configuration for stablishing Blob Parameter only harforks
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
@@ -21,14 +21,6 @@ impl ScheduledBlobParams {
         .into()
     }
 
-    /// Holesky Blob Parameter Only hardforks schedules
-    pub fn holesky() -> Self {
-        vec![
-            (holesky::HOLESKY_BPO1_TIMESTAMP, BlobParams::bpo1()),
-            (holesky::HOLESKY_BPO2_TIMESTAMP, BlobParams::bpo2()),
-        ]
-        .into()
-    }
     /// Sepolia Blob Parameter Only hardforks schedules
     pub fn sepolia() -> Self {
         vec![

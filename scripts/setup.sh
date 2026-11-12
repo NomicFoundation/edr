@@ -17,4 +17,5 @@ sudo apt update
 # TODO: nodejs, npm, yarn
 # libudev-dev is required by hardhat-ledger
 # pkg-config is required by EDR to use OpenSSL
-sudo apt install -y libudev-dev pkg-config
+# cmake is required by EDR to build mimalloc
+sudo apt install -y libudev-dev pkg-config cmake

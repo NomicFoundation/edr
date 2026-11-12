@@ -113,9 +113,8 @@ jobs:
     needs: setup
     if: needs.setup.outputs.should_run == 'true'
     environment: github-action-benchmark
-    # Use Hardhat's dedicated self-hosted runner for stable measurements that
-    # are comparable to Hardhat's own regression baselines.
-    runs-on: hardhat-linux-amd64-self-hosted
+    # Dedicated self-hosted runner for stable measurements.
+    runs-on: edr-benchmark-runner-2
     timeout-minutes: 180
     permissions:
       # Lets the GITHUB_TOKEN used by "Compare benchmark result against
@@ -158,10 +157,11 @@ jobs:
 
       - name: Install system dependencies
         # `time` is GNU /usr/bin/time — bench:regression wraps each benchmark in
-        # it to capture peak RSS (memory) alongside timing.
+        # it to capture peak RSS (memory) alongside timing. CMake builds
+        # mimalloc for EDR.
         run: |
           sudo apt-get update
-          sudo apt-get install -y hyperfine jq time
+          sudo apt-get install -y cmake hyperfine jq time
 
       - name: Configure E2E clone directory
         # Use the runner's temp dir for the scenario clones.
@@ -344,6 +344,12 @@ jobs:
             [ -d "$d" ] || continue
             id=$(basename "$d")
 
+            # A scenario with a `workingDirectory` installs hardhat in that
+            # subdirectory of its clone (e.g. a monorepo's `contracts/`), so
+            # resolve from there; without one, from the clone itself.
+            wd=$(jq -r '.workingDirectory // empty' "end-to-end/$id/scenario.json" 2>/dev/null || true)
+            proj="${d%/}${wd:+/$wd}"
+
             # Resolve the EDR that THIS scenario's hardhat loads. Works across
             # npm/pnpm/yarn node_modules layouts (Node realpaths pnpm symlinks).
             # Nested EDR copies pulled by other dependents (e.g. @1inch/solidity-utils,
@@ -375,12 +381,12 @@ jobs:
                 const ver = (p) => JSON.parse(fs.readFileSync(p, "utf8")).version;
                 process.stdout.write(ver(hhPkg) + " " + ver(edrPkg));
               } catch (e) { process.stderr.write(String(e.message || e)); }
-            ' "$d" 2>/tmp/edr-resolve-err)  || true
+            ' "$proj" 2>/tmp/edr-resolve-err)  || true
 
             if [ -z "${edr_ver:-}" ]; then
               # yarn Plug'n'Play scenarios have no node_modules to resolve through.
-              if { [ -f "$d/.pnp.cjs" ] || [ -f "$d/.pnp.loader.mjs" ]; } \
-                   && grep -rqs -- "$EDR_VER" "$d/yarn.lock"; then
+              if { [ -f "$proj/.pnp.cjs" ] || [ -f "$proj/.pnp.loader.mjs" ]; } \
+                   && grep -rqs -- "$EDR_VER" "$proj/yarn.lock"; then
                 found=1
                 echo "OK (PnP lockfile): $id"
                 continue
@@ -430,7 +436,7 @@ jobs:
       # once, then becomes the new normal.
       - name: Compare benchmark result against baseline
         id: compare
-        uses: benchmark-action/github-action-benchmark@52576c92bccf6ac60c8223ec7eb2565637cae9ba # v1.22.1
+        uses: benchmark-action/github-action-benchmark@4322e5726e6334590d251fc4f92bec0efafc45dc # v1.22.2
         # A regression must not break main, so absorb the alert on baseline
         # runs and let the Slack step report it instead. Comparison runs
         # (`/bench`, dispatch) still fail.
@@ -468,7 +474,7 @@ jobs:
       - name: Record baseline in the results repo
         id: record
         if: ${{ needs.setup.outputs.is_baseline == 'true' }}
-        uses: benchmark-action/github-action-benchmark@52576c92bccf6ac60c8223ec7eb2565637cae9ba # v1.22.1
+        uses: benchmark-action/github-action-benchmark@4322e5726e6334590d251fc4f92bec0efafc45dc # v1.22.2
         # `tool` through `benchmark-data-dir-path` must stay identical to
         # "Compare benchmark result against baseline" — the two invocations
         # have to address the same dataset.

@@ -305,9 +305,18 @@ pub struct ProviderConfig<HardforkT> {
     pub base_fee_params: Option<BaseFeeParams<HardforkT>>,
     pub chain_id: ChainId,
     pub coinbase: Address,
-    /// The default transaction gas limit to use for RPC call and transaction
-    /// requests that do not specify a `gas` value.
-    pub default_transaction_gas_limit: NonZeroU64,
+    /// The gas limit of RPC call and transaction requests that do not specify
+    /// a `gas` value.
+    ///
+    /// When set, it is used as is. Creating the provider fails when it exceeds
+    /// the transaction gas bound of the configured hardfork and transaction gas
+    /// cap. A request at a block whose bound is lower fails like a request with
+    /// an explicit `gas` above that bound.
+    ///
+    /// When not set, it is derived from the hardfork and gas limit of the
+    /// request's block. Before Amsterdam, the transaction gas cap replaces the
+    /// hardfork's bound.
+    pub default_transaction_gas_limit: Option<NonZeroU64>,
     pub gas_estimation_mode: GasEstimationMode,
     pub genesis_state: HashMap<Address, AccountOverride>,
     pub hardfork: HardforkT,
@@ -322,12 +331,25 @@ pub struct ProviderConfig<HardforkT> {
     pub precompile_overrides: HashMap<Address, PrecompileFn>,
     /// Transaction gas cap, introduced in [EIP-7825].
     ///
-    /// When not set, enforcement of the transaction gas cap is disabled and
-    /// transactions with any `gas` value are accepted by the mempool and
-    /// executed without REVM's transaction gas cap check.
+    /// From Amsterdam ([EIP-8037]) it bounds execution gas only, while
+    /// `tx.gas` is bounded by `TX_MAX_TOTAL_GAS_LIMIT` regardless of this
+    /// option.
     ///
     /// [EIP-7825]: https://eips.ethereum.org/EIPS/eip-7825
-    pub transaction_gas_cap: Option<u64>,
+    /// [EIP-8037]: https://eips.ethereum.org/EIPS/eip-8037
+    pub transaction_gas_cap: ConfigOption<u64>,
+}
+
+/// Configuration option.
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum ConfigOption<T> {
+    /// A custom configuration value.
+    Custom(T),
+    /// Use the default value for this configuration option.
+    Default,
+    /// Disable the configured option.
+    Disable,
 }
 
 impl Default for MemPoolConfig {

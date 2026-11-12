@@ -1,5 +1,93 @@
 # @nomicfoundation/edr
 
+## 0.25.1
+
+### Patch Changes
+
+- fc977dd: Improved the performance of `Provider` by reducing the memory used to record the call traces of executed transactions and calls.
+- e37042b: - Added the EIP-8037 gas dimensions to `debug_traceTransaction` and `debug_traceCall` responses from the Amsterdam hardfork: the default tracer's top-level frame and the `callTracer`'s root call frame gain `executionGasUsed`, `stateGasUsed` and `gasRefund`, and each `structLogs` entry gains `stateGasReservoir`, plus a signed `stateGasCost` on the steps that charge or refill state gas.
+  - Added the `stateGasTracer`, which reports a transaction's gas in both dimensions on every hardfork, with zero state gas before Amsterdam.
+- 923142f: Changed the experimental EIP-2780 support: from the Amsterdam hardfork, contract-creation transactions no longer pay a value charge.
+- 21098dc: Added experimental EIP-8038 support: from the Amsterdam hardfork, state-access operations are repriced.
+- b660a08: Added the `isIsolateMode()` cheatcode, which returns whether the running Solidity test is executed in isolation mode.
+- 22e052e: Fixed Solidity tests switching to the default hardfork after `vm.createSelectFork`, `vm.selectFork` or `vm.rollFork`, instead of keeping the configured hardfork or inline `evm_version`.
+- cfa3dea: Fixed missing EIP-8037 state gas for repeated contract deployments in Amsterdam Solidity tests.
+- d6698e2: - Added the `rollSlot(uint64)` and `getSlotNumber()` cheatcodes, which set and read `block.slotnum` (EIP-7843) without changing the block number or timestamp. Both revert on EVM versions before Amsterdam.
+  - Fixed `block.slotnum` returning 0 in forked Solidity tests instead of the forked block's slot number.
+
+## 0.25.0
+
+### Minor Changes
+
+- e676f90:
+  - Fixed EIP-8037 state gas accounting not being enabled in Solidity tests running on the Amsterdam hardfork, including isolated calls and creates, so `Vm.Gas.gasStateUsed` is now reported. `Vm.Gas.gasTotalUsed` excludes state gas that spilled past the reservoir.
+  - Fixed isolated Solidity test calls and creates paying a flat 21000 intrinsic gas instead of the transaction's real intrinsic gas, which ignored calldata, access lists, authorizations and init code on every hardfork.
+  - Changed `Vm.Gas.gasTotalUsed` for isolated frames to report the transaction's regular gas before refunds, with `gasRefunded` reported separately.
+  - Changed `snapshotGasLastCall`, `snapshotGasLastFrame` and `startSnapshotGas`/`stopSnapshotGas` to report the receipt gas of an isolated frame's transaction, so the value no longer depends on the gas forwarded to the call or on refunds.
+  - Fixed isolated frames whose intrinsic gas or calldata floor exceeded the forwarded gas reporting zero gas and returning the forwarded gas to the caller. They now consume their whole budget.
+  - Fixed isolated calls reverting when the gas forwarded to them is below their calldata's EIP-7623 floor, while the same call succeeds without isolation.
+  - Fixed consecutive `startSnapshotGas` regions in one function including the previous region's cheatcode overhead in their value.
+  - Changed isolated frames to no longer be validated against the transaction gas cap and the block gas limit, which the enclosing test transaction already satisfied.
+- 034998c: Added `Response::traces` method with a raw trace format compatible with EthereumJS' VM. A failed create reports no `contractAddress`, unlike EthereumJS.
+- a05a1c2: Changed `defaultTransactionGasLimit` in the provider config to be optional.
+
+  When it is omitted, a request without `gas` uses the bound of its block. That bound is `2^32 - 1` from Amsterdam (EIP-8037), `2^24` from Osaka (EIP-7825), and the block gas limit before. The block gas limit caps each of these. Before Amsterdam, a configured `transactionGasCap` replaces the hardfork's bound.
+
+  When the derived value is the block gas limit, a transaction without `gas` reserves the whole block. With manual or interval mining, a block then fits fewer such transactions. Their senders also need a larger upfront balance.
+
+- a05a1c2: Changed provider creation to fail when `defaultTransactionGasLimit` exceeds the transaction gas bound of the configured hardfork and transaction gas cap. Before, every request without `gas` failed instead. A configured value is used as is. A request at a block whose bound is lower fails like a request with an explicit `gas` above that bound.
+
+### Patch Changes
+
+- 8b6dff5: Fixed cheatcodes added in forge-std v1.17.0 being reported by their raw selector instead of their name when they are not yet supported
+- 9a0dbc0: Removed the Amsterdam hardfork activation on Hoodi, because the upgrade was postponed without a new date
+- c16de2d: Fixed a crash on macOS when the native addon is loaded from two different paths in one process.
+- a05a1c2: Fixed calls and gas estimates at remote blocks of a forked blockchain being checked against the provider's transaction gas cap. Remote blocks are the fork block and the blocks before it. Those requests now use the cap of the remote chain's hardfork at that block. For example, an Osaka provider no longer rejects an explicit `gas` above `2^24` at a pre-Osaka remote block. A Prague provider now enforces that cap at an Osaka remote block. Replays by `debug_traceCall` and `debug_traceTransaction` at remote blocks also use the gas cap of their block.
+
+## 0.24.0
+
+### Minor Changes
+
+- 1da28b2: Added Solidity stack traces for build infos with `compilerType: "slang"`. The compiler output must include the per-source `debugSymbols` output selection; without it, the build info contributes no contracts to stack traces and a warning is logged.
+
+### Patch Changes
+
+- 5ce1648: Added the Amsterdam hardfork activation on Hoodi, so EDR infers it from the block timestamp when forking
+- 87bb637: Added experimental EIP-7954 support: from the Amsterdam hardfork, deployment transactions may carry up to 128 KiB of init code and deploy up to 64 KiB of contract code.
+- a83d0a1: Fixed `GASLIMIT` returning `1_000_000` while a block is mined with the block gas limit disabled. It now returns the parent block's gas limit, which the mined block's header already carried.
+- bc64432: Fixed simulated OP networks not charging the L1 data fee: the `L1Block` predeploy's genesis storage now sets `baseFeeScalar` and `blobBaseFeeScalar`, so transactions pay the fee and receipts report it.
+
+## 0.23.0
+
+### Minor Changes
+
+- c50b85f: Added the `lastFrameGas` and `snapshotGasLastFrame` cheatcodes, which also record CREATE and CREATE2 frames, and deprecated `lastCallGas` and `snapshotGasLastCall` in their favour. The `Vm.Gas` struct gained a sixth field, `int64 gasStateUsed`; the field is always zero for now, as EIP-8037 state gas is not supported yet.
+- 994eba4: Fixed Solidity stack traces after a precompile call. A call that follows a precompile call in the same function is now attributed to the right line. A failing precompile call now produces a `PRECOMPILE_ERROR` entry instead of an unrecognized-contract error. JSON-RPC call traces therefore include calls to precompiles, as Solidity test call traces already did.
+
+### Patch Changes
+
+- 4906ddf: Fixed the default gas limit of Solidity test transactions being lowered to the EIP-7825 cap from the Amsterdam hardfork, where the cap bounds execution gas only.
+- e577740: Added support for EIP-8246 to the Amsterdam hardfork: a contract that self-destructs in the transaction that created it keeps its balance instead of burning it.
+- d1666ba: Fixed Solidity stack-trace construction to recognise `console.log` calls by the Hardhat console address.
+- 40ebe1b: Fixed the transaction `Value` shown in the node logs dropping the leading zeros of the fractional part (e.g. 0.01 ETH was logged as `0.1 ETH`), and whole amounts being logged with a trailing dot (e.g. `1. ETH`).
+- 2b0fc35: Added experimental EIP-2780 support: from the Amsterdam hardfork, intrinsic transaction gas is priced per resource instead of a flat 21,000
+
+## 0.22.2
+
+### Patch Changes
+
+- 2a14608: Added the Amsterdam hardfork activation on Sepolia, so EDR infers it from the block timestamp when forking
+- 7493ae1: Removed the built-in chain configuration of the Holesky testnet (chain ID 17000), which was shut down in 2025: EDR no longer ships its hardfork activation history and blob parameter schedule, nor a default RPC URL for the `holesky` chain alias in Solidity tests.
+
+## 0.22.1
+
+### Patch Changes
+
+- 7f3fbca: Added the EIP-7997 deterministic `CREATE2` factory to the genesis state from the Amsterdam hardfork onward.
+- 1a84229: Added experimental EIP-8037 support: from the Amsterdam hardfork, blocks meter execution gas and state gas separately, `gasUsed` reports the larger of the two, transactions are admitted per dimension, the EIP-7825 gas cap (including a configured `transactionGasCap`) applies to execution gas only, and `tx.gas` is capped at 2^32 − 1. Transaction receipts are unchanged.
+- 161434a: Changed the error messages of the `eip712HashType` and `eip712HashStruct` cheatcodes to describe the failure in user terms. The unknown-type error now suggests passing the full type definition or configuring the type in the test runner.
+- 169493d: Fixed the EIP-4788 beacon roots and EIP-2935 history storage genesis accounts to have nonce `1`, matching their on-chain deployments, which changes the genesis block hash of local Cancun+ networks.
+
 ## 0.22.0
 
 ### Minor Changes
@@ -80,10 +168,6 @@
 - d5f8a73: Added native inline configuration parsing in Solidity tests. Ill-formed inline configuration rejects the whole run up front, reporting one problem per affected test function; the rejected `runSolidityTests` promise carries the structured, located problems as the `inlineConfigErrors` array on the thrown error.
 
   Removed inline config associated types from NAPI: `TestFunctionOverride`, `TestFunctionIdentifier`, `TestFunctionConfigOverride`, `FuzzConfigOverride`, `InvariantConfigOverride`, and `TimeoutConfig`. Removed the `testFunctionOverrides` field of `SolidityTestRunnerConfigArgs`.
-
-### Patch Changes
-
-- 3fa7eb4: Upgraded revm to v41.0.0 (tag v113)
 
 ## 0.17.0
 
@@ -252,12 +336,11 @@
 - ba6bfa0: Added support for Solidity v0.8.30
 - a2d99ba: Fixed panic due to invalid GasPriceOracle bytecode for Isthmus OP hardfork
 - 2c418b7: Added Osaka blob parameters for usage in eth_call, eth_sendTransaction, etc.
-- c05b49b: Upgraded revm to v24 and alloy to more recent versions
 - 23e8ad8: Added docs for `runSolidityTests` arguments.
 - 0e0619e: Added support for function-level gas-tracking in Solidity tests.
 - f1cdbe2: Turned potential panics into JS errors to help with error reporting to Sentry.
 - bcb772e: Print more detailed error descriptions for EVM, invariant fuzz, and cheatcode errors
-- c498e40: Upgraded revm to v27
+- c498e40: Removed the EOF variants from `SuccessReason` and `ExceptionalHalt`: `EofReturnContract`, `EofAuxDataOverflow`, `EofAuxDataTooSmall`, `SubRoutineStackOverflow` and `InvalidEXTCALLTarget`.
 - 0047135: Update list of unsupported cheatcodes with cheatcodes up to Foundry 1.3.6
 - 33337ea: Added latest EIP-1559 base fee params to Base Mainnet chain config
 - 8794449: Added validity check for the block RLP size cap
@@ -579,7 +662,7 @@
 
 ### Patch Changes
 
-- c498e40: Upgraded revm to v27
+- c498e40: Removed the EOF variants from `SuccessReason` and `ExceptionalHalt`: `EofReturnContract`, `EofAuxDataOverflow`, `EofAuxDataTooSmall`, `SubRoutineStackOverflow` and `InvalidEXTCALLTarget`.
 - ccab079: Fixed wrong stack trace for expectEmit cheatcode
 - 381643b: Removed reference to cli flag from ffi cheatcode error message.
 
@@ -638,7 +721,6 @@
 ### Patch Changes
 
 - f606fc6: Fixed instrumentation for control flow statements
-- c05b49b: Upgraded revm to v24 and alloy to more recent versions
 - f1cdbe2: Turned potential panics into JS errors to help with error reporting to Sentry.
 - a6864ff: Added support for local pre-deploys for Solidity tests.
 - 1b6d123: Fixed a bug causing async functions to throw errors at the callsite
@@ -687,7 +769,9 @@
 
 ### Minor Changes
 
-- af26624: Improved provider initialization performance by passing build info as buffer which avoids FFI copy overhead
+- af26624: Changed `Provider.withConfig` to take build infos as buffers, which avoids an FFI copy during provider initialization.
+
+  BREAKING CHANGE: `tracingConfig` is now a `TracingConfigWithBuffers`. Its `buildInfos` accepts `Uint8Array` buffers, or `BuildInfoAndOutput` pairs for Hardhat v3 build infos, instead of parsed objects.
 
 ### Patch Changes
 
@@ -742,7 +826,9 @@
 
 ### Patch Changes
 
-- 2f1c189: Improved error message and added option to skip unsupported transaction type in `debug_traceTransaction`. Set `__EDR_UNSAFE_SKIP_UNSUPPORTED_TRANSACTION_TYPES=true` as an environment variable to enable this.
+- 2f1c189:
+  - Fixed a panic in `debug_traceTransaction` when an earlier transaction in the block has an unsupported type. The error now names that transaction and its type.
+  - Added the `__EDR_UNSAFE_SKIP_UNSUPPORTED_TRANSACTION_TYPES` environment variable. Set it to `true` to skip such transactions instead of failing.
 
 ## 0.5.2
 
@@ -769,7 +855,6 @@
 ### Patch Changes
 
 - b056511: Fixes restriction to disallow remote blocks without a nonce
-- e650c9e: Upgraded revm to v37
 
 ## 0.4.1
 
@@ -796,7 +881,6 @@
 
 - a4d5b62: Added support for blob transactions (EIP-4844) when auto-mining is enabled and the mempool is empty
 - ad1a4e8: Added support for EIP-712 payloads with signed integers
-- b03c944: Upgraded revm to commit aceb093
 - 3dfd1a5: Fixed `smock.fake` causing a panic
 - 0db9db9: Added retry for sporadic "missing trie node" JSON-RPC errors
 - c5da529: Fixed eth_call and eth_sendTransaction to allow passing input data with both `input` and `data` fields

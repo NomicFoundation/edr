@@ -28,6 +28,7 @@ use crate::{
     contracts_identifier::{ContractsIdentifier, IdentifiedContract},
     nested_trace::{NestedTrace, NestedTraceStep},
     proxy_detection::detect_proxy_chain,
+    tracing::mark_precompile_calls,
 };
 
 /// Errors that can occur during the decoding of the nested trace.
@@ -244,7 +245,8 @@ impl ContractDecoder {
         }
     }
 
-    /// Populates the call trace arena with decoded call traces.
+    /// Populates the call trace arena with decoded call traces and marks its
+    /// precompile calls.
     ///
     /// This is done for a whole [`CallTraceArena`] to avoid locking the
     /// [`ContractsIdentifier`] multiple times.
@@ -254,6 +256,8 @@ impl ContractDecoder {
         address_to_executed_code: &HashMap<Address, Bytes>,
         precompile_addresses: &HashSet<Address>,
     ) -> Result<(), serde_json::Error> {
+        mark_precompile_calls(call_trace_arena, precompile_addresses);
+
         // Decoding is done in two passes: the first pass computes the decoded
         // call traces with only immutable access to the arena, because calls
         // whose function selector is not found in the called contract's ABI

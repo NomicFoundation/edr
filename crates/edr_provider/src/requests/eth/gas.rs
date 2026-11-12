@@ -44,12 +44,12 @@ pub fn handle_estimate_gas<
         Err(ProviderError::TransactionFailed(Box::new(
             TransactionFailureWithCallTraces {
                 failure: failure.transaction_failure,
-                call_trace_arenas: vec![failure.call_trace_arena],
+                execution_traces: vec![failure.execution_trace],
             },
         )))
     } else {
         let result = result?;
-        Ok((U64::from(result.estimation), result.call_trace_arenas))
+        Ok((U64::from(result.estimation), result.execution_traces))
     }
 }
 
@@ -173,9 +173,9 @@ fn resolve_estimate_gas_request<
     let request = ChainSpecT::TransactionRequest::from_rpc_type(request, context)?;
     let transaction = request.fake_sign(sender);
 
-    let hardfork = data.hardfork_at_block_spec(block_spec)?;
-    let transaction_gas_cap = data.transaction_gas_cap().unwrap_or(u64::MAX);
-    transaction::validate(transaction, hardfork.into(), transaction_gas_cap)
+    let evm_spec_id: EvmSpecId = data.hardfork_at_block_spec(block_spec)?.into();
+    let execution_gas_bound = data.transaction_execution_gas_bound_at_hardfork(evm_spec_id);
+    transaction::validate(transaction, evm_spec_id, execution_gas_bound)
         .map_err(ProviderError::TransactionCreationError)
 }
 

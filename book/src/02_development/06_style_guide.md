@@ -249,3 +249,7 @@ Every constraint has to be paid for somewhere. An implementer has to provide eve
 A bound can also drag in requirements you never wrote, including requirements about lifetimes. We have seen an unrelated trait bound force one type to outlive another. The resulting error blamed a lifetime that was in fact valid. Layers of associated types make this more likely, and EDR's chain spec types are full of them.
 
 The cost is maintainability. As use cases with fewer constraints arise, a trait may need to be split up further. Weigh that on a case-by-case basis.
+
+## Changesets
+
+Changeset entries follow the conventions in [`.changeset/README.md`](https://github.com/NomicFoundation/edr/blob/main/.changeset/README.md).

@@ -1,5 +1,4 @@
 //! Tiny EVM assembler for hand-built test contracts.
-#![cfg(feature = "test-utils")]
 
 pub use edr_primitives::bytecode::opcode;
 use edr_primitives::Bytes;
@@ -27,6 +26,16 @@ impl BytecodeBuilder {
     /// Appends `PUSH1 value`.
     pub fn push1(&mut self, value: u8) -> &mut Self {
         self.opcode_with_immediate(opcode::PUSH1, value)
+    }
+
+    /// Appends the `PUSH` of `bytes`, which must be 1 to 32 bytes long.
+    pub fn push(&mut self, bytes: &[u8]) -> &mut Self {
+        let len = u8::try_from(bytes.len()).expect("push fits in 32 bytes");
+        assert!((1..=32).contains(&len), "push takes 1 to 32 bytes");
+
+        self.runtime.push(opcode::PUSH0 + len);
+        self.runtime.extend_from_slice(bytes);
+        self
     }
 
     /// Appends code returning the top of the stack as a 32-byte word.

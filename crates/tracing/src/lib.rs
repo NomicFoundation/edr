@@ -20,27 +20,23 @@ use edr_primitives::{bytecode::opcode, Address, Bytecode, Bytes, U256};
 use edr_state_api::State;
 use revm_inspector::JournalExt;
 
-/// Build a [`ResultGas`] from a [`Gas`] accumulator at end-of-execution. Used
-/// for Success/Revert outcomes that did not consume the entire gas limit.
+/// Build a [`ResultGas`] from a frame's [`Gas`] accumulator at
+/// end-of-execution, for Success/Revert outcomes that did not consume the
+/// entire gas limit.
 ///
-/// The `floor_gas` argument is `0`: the EIP-7623 calldata floor is a
-/// transaction-level value that revm only applies during post-execution, after
-/// the outermost frame returns. It is not present on the per-frame [`Gas`]
-/// accumulator the inspector observes here, so there is no floor value to read.
+/// `ResultGas` is a transaction-level summary, reused here for per-frame values
+/// with two workarounds. `floor_gas` is `0`: the EIP-7623 calldata floor is
+/// applied by revm in post-execution, after the outermost frame returns, so a
+/// frame has no floor value; consequently `tx_gas_used` and `final_refunded`
+/// derived here are not floor-adjusted. State gas is clamped to zero: the
+/// frame's counter is signed (a frame can net-refill state gas created by a
+/// parent), `ResultGas` stores it unsigned.
 ///
-/// Consequently [`ResultGas::final_refunded`] and [`ResultGas::tx_gas_used`]
-/// derived from this reconstruction are not floor-adjusted: `final_refunded`
-/// collapses to the raw refund and `tx_gas_used` to `spent - refunded`. These
-/// per-message figures are for the trace/debug surface only; consumers that
-/// need the floor-accurate refund or gas used must read them from revm's
-/// [`ExecutionResult`].
+/// These figures are for the trace surface only; consumers that need the
+/// settled values must read revm's [`ExecutionResult`].
 fn result_gas_from_spent(gas: &Gas) -> ResultGas {
-    // The per-frame state gas counter is signed and can be negative when
-    // 0→x→0 storage restoration refills more state gas than the frame
-    // charged; clamp to zero for the unsigned `ResultGas` representation.
-    // TODO: revisit when fully implementing EIP-8037 — faithful per-frame
-    // attribution needs the signed value (a negative means the frame
-    // net-refunded state gas) carried through to the trace surface.
+    // TODO: replace `ResultGas` here with a frame-level gas type and remove
+    // disclaimer from rustdoc.
     ResultGas::new_with_state_gas(
         gas.total_gas_spent(),
         gas.refunded() as u64,
@@ -52,9 +48,8 @@ fn result_gas_from_spent(gas: &Gas) -> ResultGas {
 /// Build a [`ResultGas`] from a [`Gas`] accumulator where the full limit was
 /// consumed (e.g. for a Halt outcome).
 ///
-/// TODO: revisit when fully implementing EIP-8037
 /// `floor_gas` is `0` and state gas is clamped for the same reasons as in
-/// [`result_gas_from_spent`]
+/// [`result_gas_from_spent`].
 fn result_gas_from_limit(gas: &Gas) -> ResultGas {
     ResultGas::new_with_state_gas(gas.limit(), 0, 0, gas.state_gas_spent().max(0) as u64)
 }

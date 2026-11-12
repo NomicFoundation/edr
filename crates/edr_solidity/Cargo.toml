@@ -18,8 +18,8 @@ edr_common.workspace = true
 edr_decoder_revert.workspace = true
 edr_defaults.workspace = true
 edr_primitives.workspace = true
-edr_tracing.workspace = true
 foundry-compilers.workspace = true
+foundry-evm-core.workspace = true
 foundry-evm-traces.workspace = true
 addr2line = { version = "0.25", default-features = false, features = ["std", "fallible-iterator", "smallvec"] }
 gimli = { version = "0.32", default-features = false, features = ["read", "std", "endian-reader"] }
@@ -40,6 +40,9 @@ itertools = "0.15.0"
 
 [dev-dependencies]
 criterion = "0.8"
+edr_test_utils.workspace = true
+gungraun = "0.20.0"
+revm.workspace = true
 
 [features]
 tracing = ["edr_chain_spec_evm/tracing"]
@@ -47,6 +50,17 @@ tracing = ["edr_chain_spec_evm/tracing"]
 [[bench]]
 name = "contracts_identifier"
 harness = false
+
+[[bench]]
+name = "dwarf_decode"
+harness = false
+
+# Needs valgrind and gungraun-runner, so `--all-targets` must skip it; run it
+# with `--bench solx_build_info`.
+[[bench]]
+name = "solx_build_info"
+harness = false
+bench = false
 
 [lints]
 workspace = true

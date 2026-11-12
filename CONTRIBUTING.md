@@ -10,3 +10,7 @@ We generally really appreciate external contributions, and strongly encourage me
 ## Repository tooling
 
 Before adding or editing a build, release or CI script, read [`scripts/README.md`](scripts/README.md). It covers which language to write it in, which directory it belongs in, and how to run and test it.
+
+## Changesets
+
+See [`.changeset/README.md`](.changeset/README.md) for when a PR needs a changeset and how to write it.

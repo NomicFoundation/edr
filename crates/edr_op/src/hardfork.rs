@@ -54,8 +54,8 @@ pub enum OpHardfork {
     /// Jovian hardfork
     #[default]
     Jovian,
-    /// Interop hardfork
-    Interop,
+    /// Lagoon hardfork
+    Lagoon,
 }
 
 fn unknown_hardfork(_name: &str) -> UnknownHardfork {
@@ -74,7 +74,7 @@ impl From<OpHardfork> for op_revm::OpSpecId {
             OpHardfork::Holocene => op_revm::OpSpecId::HOLOCENE,
             OpHardfork::Isthmus => op_revm::OpSpecId::ISTHMUS,
             OpHardfork::Jovian => op_revm::OpSpecId::JOVIAN,
-            OpHardfork::Interop => op_revm::OpSpecId::INTEROP,
+            OpHardfork::Lagoon => op_revm::OpSpecId::LAGOON,
         }
     }
 }
@@ -132,7 +132,7 @@ mod tests {
         OpHardfork::Holocene,
         OpHardfork::Isthmus,
         OpHardfork::Jovian,
-        OpHardfork::Interop,
+        OpHardfork::Lagoon,
     ];
 
     #[test]
@@ -146,7 +146,7 @@ mod tests {
     /// for consumers.
     const NAMES: [&str; 10] = [
         "bedrock", "regolith", "canyon", "ecotone", "fjord", "granite", "holocene", "isthmus",
-        "jovian", "interop",
+        "jovian", "lagoon",
     ];
 
     #[test]

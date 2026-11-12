@@ -7,7 +7,7 @@ use edr_chain_l1::L1ChainSpec;
 use edr_chain_spec_provider::SyncProviderChainSpec;
 use edr_chain_spec_rpc::RpcChainSpec;
 use edr_op::{test_utils::jovian_header_overrides, OpChainSpec};
-use edr_provider::test_utils::prague_header_overrides;
+use edr_provider::test_utils::amsterdam_header_overrides;
 use edr_receipt::{log::FilterLog, AsExecutionReceipt, MapReceiptLogs};
 use edr_rpc_eth::client::EthRpcClientForChainSpec;
 use edr_test_block_replay::run_full_block;
@@ -26,12 +26,11 @@ pub async fn replay(
 ) -> anyhow::Result<()> {
     match chain_type {
         SupportedChainTypes::L1 => {
-            // TODO: switch to `amsterdam_header_overrides` once Amsterdam reaches mainnet
             replay_chain_specific_block::<L1ChainSpec>(
                 runtime,
                 edr_chain_l1::CHAIN_TYPE,
                 url,
-                prague_header_overrides,
+                amsterdam_header_overrides,
                 block_number,
             )
             .await

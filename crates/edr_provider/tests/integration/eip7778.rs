@@ -9,7 +9,7 @@
 //! `cumulative_gas_used`: it is greater whenever the block contains refunds.
 
 use edr_chain_l1::{
-    rpc::{block::L1RpcBlock, receipt::L1RpcTransactionReceipt, TransactionRequest},
+    rpc::{block::L1RpcBlock, TransactionRequest},
     L1ChainSpec,
 };
 use edr_eth::PreEip1898BlockSpec;
@@ -19,15 +19,15 @@ use edr_provider::{
     AccountOverride, MethodInvocation, Provider, ProviderRequest,
 };
 use edr_state_api::{EvmStorage, EvmStorageSlot, TransactionId};
-use edr_test_utils::secret_key::secret_key_from_str;
-
-use crate::common::{
+use edr_test_utils::{
     bytecode::{
         opcode::{CALLDATALOAD, SSTORE, STOP},
         BytecodeBuilder,
     },
-    provider::{new_provider_with_config, send_transaction},
+    secret_key::secret_key_from_str,
 };
+
+use crate::common::provider::{new_provider_with_config, send_transaction, transaction_receipt};
 
 const CHAIN_ID: u64 = 0x7a69;
 
@@ -97,18 +97,6 @@ fn clear_slot() -> TransactionRequest {
         data: Some(data.into()),
         ..TransactionRequest::default()
     }
-}
-
-fn transaction_receipt(
-    provider: &Provider<L1ChainSpec>,
-    transaction_hash: B256,
-) -> anyhow::Result<L1RpcTransactionReceipt> {
-    let response = provider.handle_request(ProviderRequest::with_single(
-        MethodInvocation::GetTransactionReceipt(transaction_hash),
-    ))?;
-
-    let receipt: Option<L1RpcTransactionReceipt> = response.deserialize_result()?;
-    receipt.ok_or_else(|| anyhow::anyhow!("receipt should exist"))
 }
 
 fn latest_block(provider: &Provider<L1ChainSpec>) -> anyhow::Result<L1RpcBlock<B256>> {

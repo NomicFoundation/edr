@@ -79,7 +79,7 @@ contract RandomBytesTest is DSTest {
     function test_symbolic_bytes_1() public {
         uint256 length = uint256(vm.randomUint(1, type(uint8).max));
         bytes memory fresh_bytes = vm.randomBytes(length);
-        uint256 index = uint256(vm.randomUint(1));
+        uint256 index = vm.randomUint(0, length - 1);
 
         local_byte = fresh_bytes[index];
         assertEq(fresh_bytes[index], local_byte);

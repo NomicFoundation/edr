@@ -12,6 +12,7 @@ members = [
     "crates/blockchain/api",
     "crates/blockchain/fork",
     "crates/blockchain/local",
+    "crates/blockchain/predeploys",
     "crates/blockchain/remote",
     "crates/chain/config",
     "crates/chain/spec/block",
@@ -45,11 +46,16 @@ members = [
     "crates/edr_test_utils",
     "crates/edr_transaction",
     "crates/eips/1559",
+    "crates/eips/2780",
     "crates/eips/2930",
+    "crates/eips/2935",
+    "crates/eips/4788",
     "crates/eips/4844",
     "crates/eips/7702",
     "crates/eips/7825",
     "crates/eips/7892",
+    "crates/eips/7997",
+    "crates/eips/8037",
     "crates/evm",
     "crates/mem_pool",
     "crates/precompile",
@@ -141,6 +147,7 @@ edr_block_storage = { path = "crates/block/storage" }
 edr_blockchain_api = { path = "crates/blockchain/api" }
 edr_blockchain_fork = { path = "crates/blockchain/fork" }
 edr_blockchain_local = { path = "crates/blockchain/local" }
+edr_blockchain_predeploys = { path = "crates/blockchain/predeploys" }
 edr_blockchain_remote = { path = "crates/blockchain/remote" }
 edr_chain_config = { path = "crates/chain/config" }
 edr_chain_l1 = { path = "crates/edr_chain_l1" }
@@ -156,11 +163,16 @@ edr_database_components = { path = "crates/database/components" }
 edr_decoder_revert = { path = "crates/decoder/revert" }
 edr_defaults = { path = "crates/edr_defaults" }
 edr_eip1559 = { path = "crates/eips/1559" }
+edr_eip2780 = { path = "crates/eips/2780" }
 edr_eip2930 = { path = "crates/eips/2930" }
+edr_eip2935 = { path = "crates/eips/2935" }
+edr_eip4788 = { path = "crates/eips/4788" }
 edr_eip4844 = { path = "crates/eips/4844" }
 edr_eip7702 = { path = "crates/eips/7702" }
 edr_eip7825 = { path = "crates/eips/7825" }
 edr_eip7892 = { path = "crates/eips/7892" }
+edr_eip7997 = { path = "crates/eips/7997" }
+edr_eip8037 = { path = "crates/eips/8037" }
 edr_eth = { path = "crates/edr_eth" }
 edr_evm = { path = "crates/evm" }
 edr_gas_report = { path = "crates/edr_gas_report" }
@@ -214,17 +226,17 @@ foundry-compilers = { version = "0.18.0", default-features = false, features = [
 ] }
 
 ## revm
-# No op-revm release supports revm 41 (op-revm 20.0.0 on crates.io pins revm
-# ^38), so a shallow mirror of the ethereum-optimism monorepo commit matching
-# the op-reth v2.4.1 release (workspace pins revm 41.0.0, the revm version at
-# tag v113) is used instead. See the mirror's PROVENANCE.md.
-op-revm = { git = "https://github.com/NomicFoundation/op-revm", tag = "op-reth-v2.4.1-a9a8dad", default-features = false, features = [
+# No op-revm release supports revm 43 (op-revm 20.0.0 on crates.io pins revm
+# ^38), so a shallow mirror of the ethereum-optimism monorepo at the op-reth
+# v2.8.0 release (the first op-reth release on revm 43; its workspace pins revm
+# 43.0.2) is used instead. See the mirror's PROVENANCE.md.
+op-revm = { git = "https://github.com/NomicFoundation/op-revm", tag = "op-reth-v2.8.0-d662020", default-features = false, features = [
     "c-kzg",
     "dev",
     "serde",
     "std",
 ] }
-revm = { version = "41.0.0", default-features = false, features = [
+revm = { version = "43.0.3", default-features = false, features = [
     "arbitrary",
     "blst",
     "c-kzg",
@@ -232,38 +244,43 @@ revm = { version = "41.0.0", default-features = false, features = [
     "memory_limit",
     "optional_block_gas_limit",
     "optional_eip3607",
+    "optional_eip7623",
     "optional_no_base_fee",
     "serde",
     "std",
 ] }
-revm-bytecode = { version = "41.0.0", default-features = false, features = [
+revm-bytecode = { version = "43.0.0", default-features = false, features = [
     "serde",
     "std",
 ] }
-revm-context = { version = "41.0.0", default-features = false }
-revm-context-interface = { version = "41.0.0", default-features = false }
-revm-database-interface = { version = "=41.0.0", default-features = false }
-revm-handler = { version = "41.0.0", default-features = false }
-revm-inspector = { version = "41.0.0", default-features = false }
-revm-interpreter = { version = "41.0.0", default-features = false }
-revm-precompile = { version = "41.0.0", default-features = false, features = [
+revm-context = { version = "43.0.3", default-features = false }
+revm-context-interface = { version = "43.0.2", default-features = false }
+revm-database-interface = { version = "=43.0.1", default-features = false }
+revm-handler = { version = "43.0.3", default-features = false }
+revm-inspector = { version = "43.0.3", default-features = false }
+revm-interpreter = { version = "43.0.2", default-features = false }
+revm-precompile = { version = "43.0.3", default-features = false, features = [
     "blst",
     "c-kzg",
     "std",
 ] }
-revm-primitives = { version = "41.0.0", default-features = false, features = [
+revm-primitives = { version = "43.0.0", default-features = false, features = [
     "hashbrown",
     "rand",
     "serde",
     "std",
 ] }
-revm-state = { version = "41.0.0", default-features = false }
-c-kzg = { version = "2.1.7", default-features = false, features = [
+revm-state = { version = "43.0.1", default-features = false }
+c-kzg = { version = "2.1.8", default-features = false, features = [
     "ethereum_kzg_settings",
 ] }
 
-revm-inspectors = { version = "0.41.2", features = ["serde"] }
-foundry-fork-db = "0.27"
+revm-inspectors = { version = "0.44.1", features = ["serde"] }
+# No foundry-fork-db release supports revm 43 (0.27.0 on crates.io pins revm
+# ^41), so a foundry-core git revision is used: the one Foundry v1.8.5 (the
+# latest stable release, on revm 43.0.3) resolves foundry-fork-db to in its
+# Cargo.lock; see https://github.com/foundry-rs/foundry/releases/tag/v1.8.5.
+foundry-fork-db = { git = "https://github.com/foundry-rs/foundry-core", rev = "39c03a49ade2f74a6e97e2af308283a42d78d302" }
 
 ## ethers
 ethers-contract-abigen = { version = "2.0.14", default-features = false }
@@ -342,6 +359,14 @@ jsonpath_lib = "0.3"
 k256 = "0.13"
 log = { version = "0.4.17", default-features = false }
 lru = "0.18.0"
+# `free_use_pagemap` lifts mimalloc 3.5's 256 MiB arena object cap to 16 GiB.
+# `no_opt_arch` stops mimalloc from building for armv8.1-a, which would crash
+# older Linux arm64 CPUs.
+mimalloc-safe = { version = "0.1.68", default-features = false, features = [
+    "free_use_pagemap",
+    "no_opt_arch",
+    "v3",
+] }
 parking_lot = { version = "0.12.1", default-features = false }
 pastey = { version = "0.2.3", default-features = false }
 proptest = "1.7.0"
@@ -469,3 +494,8 @@ useless_transmute = "warn"
 verbose_file_reads = "warn"
 wildcard-imports = "warn"
 zero_sized_map_values = "warn"
+
+[patch.crates-io]
+# v0.44.2 with `TracingInspector::active_trace` made public
+# (https://github.com/paradigmxyz/revm-inspectors/pull/584). Drop once it is released.
+revm-inspectors = { git = "https://github.com/NomicFoundation/revm-inspectors", tag = "v0.44.2-edr.1" }

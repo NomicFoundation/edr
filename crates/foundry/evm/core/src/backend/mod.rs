@@ -1135,7 +1135,7 @@ impl<
         &self,
         mut env: EvmEnvWithChainContext<BlockT, TxT, HardforkT, ChainContextT>,
     ) -> EvmEnvWithChainContext<BlockT, TxT, HardforkT, ChainContextT> {
-        env.cfg.spec = self.inner.spec_id;
+        crate::set_cfg_spec_id(&mut env.cfg, self.inner.spec_id);
         env
     }
 
@@ -1474,14 +1474,15 @@ impl<
             return Ok(());
         }
 
-        // Update block number and timestamp of active fork (if any) with current env
-        // values, in order to preserve values changed by using `roll` and
-        // `warp` cheatcodes.
+        // Update block number, timestamp and slot number of active fork (if any)
+        // with current env values, in order to preserve values changed by using
+        // `roll`, `warp` and `rollSlot` cheatcodes.
         if let Some(active_fork_id) = self.active_fork_id() {
             self.forks.update_block(
                 self.ensure_fork_id(active_fork_id).cloned()?,
                 context.block.number(),
                 context.block.timestamp(),
+                context.block.slot_num(),
             )?;
         }
 
@@ -1595,7 +1596,11 @@ impl<
 
         self.active_fork_ids = Some((id, idx));
         // Update current environment with environment of newly selected fork.
+        // Preserve the configured hardfork (`evm_version`): the fork's env is built
+        // with the default hardfork and must not override it.
+        let spec = context.cfg.spec;
         update_current_env_with_fork_env(context, fork_env);
+        crate::set_cfg_spec_id(context.cfg, spec);
 
         Ok(())
     }
@@ -1622,7 +1627,9 @@ impl<
             if active_id == id {
                 // need to update the block's env settings right away, which is otherwise set
                 // when forks are selected `select_fork`
+                let spec = context.cfg.spec;
                 update_current_env_with_fork_env(context, fork_env);
+                crate::set_cfg_spec_id(context.cfg, spec);
 
                 // we also need to update the journaled_state right away, this has essentially
                 // the same effect as selecting (`select_fork`) by discarding
@@ -2640,6 +2647,7 @@ fn update_env_block<BlockT: BlockEnvTr>(block_env: &mut BlockT, block: &AnyRpcBl
     block_env.set_basefee(block.header.base_fee_per_gas.unwrap_or_default());
     block_env.set_gas_limit(block.header.gas_limit);
     block_env.set_number(U256::from(block.header.number));
+    block_env.set_slot_num(block.header.slot_number.unwrap_or_default());
     if let Some(excess_blob_gas) = block.header.excess_blob_gas {
         block_env.set_blob_excess_gas_and_price(
             excess_blob_gas,
@@ -2753,6 +2761,38 @@ fn is_known_system_sender(sender: Address) -> bool {
 }
 
 #[cfg(test)]
+mod update_env_block_tests {
+    use alloy_consensus::Sealed;
+    use alloy_network::{AnyHeader, AnyRpcBlock, AnyRpcHeader};
+    use alloy_primitives::B256;
+    use alloy_rpc_types::{Block, BlockTransactions};
+    use revm::{
+        context::{Block as _, BlockEnv},
+        primitives::hardfork::SpecId,
+    };
+
+    #[test]
+    fn sets_slot_number() {
+        let mut block_env = BlockEnv::default();
+        for slot_number in [Some(42), Some(u64::MAX), None, Some(0)] {
+            let header = AnyHeader {
+                slot_number,
+                ..AnyHeader::default()
+            };
+            let block = AnyRpcBlock::new(
+                Block::new(
+                    AnyRpcHeader::from_sealed(Sealed::new_unchecked(header, B256::ZERO)),
+                    BlockTransactions::Full(Vec::new()),
+                )
+                .into(),
+            );
+            super::update_env_block(&mut block_env, &block, SpecId::AMSTERDAM);
+            assert_eq!(block_env.slot_num(), slot_number.unwrap_or_default());
+        }
+    }
+}
+
+#[cfg(test)]
 #[cfg(feature = "test-remote")]
 mod tests {
     use std::collections::BTreeSet;
@@ -2761,7 +2801,7 @@ mod tests {
     use alloy_primitives::{Address, U256};
     use alloy_provider::Provider;
     use edr_test_utils::env::json_rpc_url_provider;
-    use foundry_fork_db::cache::{BlockchainDb, BlockchainDbMeta};
+    use foundry_fork_db::cache::{AccountFetchPolicy, BlockchainDb, BlockchainDbMeta};
     use revm::{
         context::{
             result::{HaltReason, InvalidTransaction},
@@ -2831,6 +2871,9 @@ mod tests {
             chain: None,
             block_env: env.block,
             hosts: BTreeSet::default(),
+            fork_hash: None,
+            source_id: None,
+            account_fetch_policy: AccountFetchPolicy::Auto,
         };
 
         let db = BlockchainDb::new(

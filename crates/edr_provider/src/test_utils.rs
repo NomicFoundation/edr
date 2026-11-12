@@ -19,7 +19,9 @@ use parking_lot::RwLock;
 use tokio::runtime;
 
 use crate::{
-    config::{ForkConfig, GasEstimationMode, LocalConfig, MiningConfig, ProviderConfig},
+    config::{
+        ConfigOption, ForkConfig, GasEstimationMode, LocalConfig, MiningConfig, ProviderConfig,
+    },
     error::ProviderErrorForChainSpec,
     observability::ObservabilityConfig,
     time::{CurrentTime, TimeSinceEpoch},
@@ -225,7 +227,7 @@ pub fn create_test_config_with<HardforkT: Default>(
         chain_id: 123,
         coinbase: Address::from(U160::from(1)),
         // SAFETY: literal is non-zero
-        default_transaction_gas_limit: unsafe { NonZeroU64::new_unchecked(30_000_000) },
+        default_transaction_gas_limit: Some(unsafe { NonZeroU64::new_unchecked(30_000_000) }),
         genesis_state: config.genesis_state,
         hardfork: HardforkT::default(),
         initial_base_fee_per_gas: Some(1000000000),
@@ -240,7 +242,7 @@ pub fn create_test_config_with<HardforkT: Default>(
         observability: config.observability.unwrap_or_default(),
         owned_accounts: config.owned_accounts,
         precompile_overrides: HashMap::default(),
-        transaction_gas_cap: None,
+        transaction_gas_cap: ConfigOption::Disable,
     }
 }
 /// Retrieves the pending base fee per gas from the provider data.

@@ -10,7 +10,7 @@ use edr_chain_spec::{
 };
 use edr_chain_spec_evm::{config::EvmConfig, ContextForChainSpec, EvmChainSpec};
 pub use edr_chain_spec_evm::{
-    result::ExecutionResult, CfgEnv, Context, Inspector, Journal, TransactionError,
+    result::ExecutionResult, Cfg, CfgEnv, Context, Inspector, Journal, TransactionError,
 };
 pub use edr_database_components::{DatabaseComponentError, DatabaseComponents, WrapDatabaseRef};
 use edr_primitives::{Address, HashMap, HashSet};

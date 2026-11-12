@@ -1,4 +1,4 @@
-#![cfg(feature = "test-remote")]
+#![cfg(all(feature = "test-remote", feature = "test-utils"))]
 
 use edr_op::{
     test_utils::{isthmus_header_overrides, jovian_header_overrides},

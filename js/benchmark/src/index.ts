@@ -557,9 +557,16 @@ function preprocessConfig(config: any) {
     });
   config = removeNull(config);
 
-  config.providerConfig.blockGasLimit = BigInt(
-    config.providerConfig.defaultTransactionGasLimit
-  );
+  // Scenarios recorded before the provider derived the default transaction
+  // gas limit carry the block gas limit only in `defaultTransactionGasLimit`.
+  const blockGasLimit =
+    config.providerConfig.mining.blockGasLimit ??
+    config.providerConfig.network.Local?.genesisBlockGasLimit ??
+    config.providerConfig.defaultTransactionGasLimit;
+  if (blockGasLimit === undefined) {
+    throw new Error("The scenario does not record a block gas limit");
+  }
+  config.providerConfig.blockGasLimit = BigInt(blockGasLimit);
   delete config.providerConfig.defaultTransactionGasLimit;
 
   config.providerConfig.hardfork = normalizeHardfork(

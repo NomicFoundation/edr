@@ -6,9 +6,8 @@ pub use revm_primitives::{
         Bloom, BloomInput, ChainId, Selector, StorageKey, StorageValue, B512, B64, U128, U160, U64,
         U8,
     },
-    b256, bytes,
-    eip3860::MAX_INITCODE_SIZE,
-    eip7708, hex, hex_literal, keccak256, Address, Bytes, B256, KECCAK_EMPTY, U256,
+    b256, bytes, eip3860, eip7708, eip7954, hex, hex_literal, keccak256, Address, Bytes, B256,
+    KECCAK_EMPTY, U256,
 };
 
 /// Error type for unknown hardfork names, returned when parsing hardfork

@@ -266,7 +266,7 @@ impl<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>
     ) -> Result<(), LoggerError> {
         let CallResultWithMetadata {
             address_to_executed_code,
-            call_trace_arena,
+            execution_trace,
             console_log_inputs,
             execution_result,
             precompile_addresses,
@@ -277,7 +277,7 @@ impl<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>
         let contract_decoder = self.contract_decoder.clone();
         self.indented(|logger| {
             logger.log_contract_and_function_name::<true>(
-                call_trace_arena,
+                execution_trace.as_call_trace_arena(),
                 address_to_executed_code,
                 precompile_addresses,
             );
@@ -297,7 +297,7 @@ impl<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>
                     execution_result,
                     None,
                     address_to_executed_code,
-                    call_trace_arena,
+                    execution_trace,
                     contract_decoder.as_ref(),
                 )
             {
@@ -315,7 +315,7 @@ impl<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>
     ) -> Result<(), LoggerError> {
         let EstimateGasFailure {
             address_to_executed_code,
-            call_trace_arena,
+            execution_trace,
             encoded_console_logs,
             precompile_addresses,
             transaction_failure,
@@ -325,7 +325,7 @@ impl<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>
 
         self.indented(|logger| {
             logger.log_contract_and_function_name::<true>(
-                call_trace_arena,
+                execution_trace.as_call_trace_arena(),
                 address_to_executed_code,
                 precompile_addresses,
             );
@@ -654,7 +654,7 @@ impl<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>
         let contract_decoder = self.contract_decoder.clone();
         self.indented(|logger| {
             logger.log_contract_and_function_name::<false>(
-                &observed_data.call_trace_arena,
+                observed_data.execution_trace.as_call_trace_arena(),
                 &observed_data.address_to_executed_code,
                 precompile_addresses,
             );
@@ -679,7 +679,7 @@ impl<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>
                     result,
                     Some(transaction_hash),
                     &observed_data.address_to_executed_code,
-                    &observed_data.call_trace_arena,
+                    &observed_data.execution_trace,
                     contract_decoder.as_ref(),
                 );
 
@@ -1039,7 +1039,9 @@ impl<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>
         let contract_decoder = self.contract_decoder.clone();
         self.indented(|logger| {
             logger.log_contract_and_function_name::<false>(
-                &transaction_observed_data.call_trace_arena,
+                transaction_observed_data
+                    .execution_trace
+                    .as_call_trace_arena(),
                 &transaction_observed_data.address_to_executed_code,
                 &block_result.precompile_addresses,
             );
@@ -1074,7 +1076,7 @@ impl<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>
                     transaction_result,
                     Some(transaction_hash),
                     &transaction_observed_data.address_to_executed_code,
-                    &transaction_observed_data.call_trace_arena,
+                    &transaction_observed_data.execution_trace,
                     contract_decoder.as_ref(),
                 );
 
@@ -1179,8 +1181,56 @@ fn to_decimal_string(value: &U256, exponent: u8) -> String {
     let (integer, remainder) = value.div_rem(U256::from(10).pow(U256::from(exponent)));
     let decimal = remainder / U256::from(10).pow(U256::from(exponent - MAX_DECIMALS));
 
-    // Remove trailing zeros
-    let decimal = decimal.to_string().trim_end_matches('0').to_string();
+    // Zero-pad `decimal` to restore the leading zeros lost by the division
+    // (`0.01` yields `100`, not `0100`).
+    format!(
+        "{integer}.{decimal:0width$}",
+        width = usize::from(MAX_DECIMALS)
+    )
+    .trim_end_matches('0')
+    .trim_end_matches('.')
+    .to_string()
+}
 
-    format!("{integer}.{decimal}")
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const GWEI: u64 = 1_000_000_000;
+    const ETH: u64 = 1_000_000_000_000_000_000;
+
+    #[test]
+    fn wei_to_human_readable_keeps_leading_fractional_zeros() {
+        assert_eq!(wei_to_human_readable(&U256::from(ETH / 100)), "0.01 ETH");
+        assert_eq!(wei_to_human_readable(&U256::from(ETH / 1_000)), "0.001 ETH");
+        assert_eq!(
+            wei_to_human_readable(&U256::from(ETH / 10_000)),
+            "0.0001 ETH"
+        );
+        assert_eq!(
+            wei_to_human_readable(&U256::from(ETH + ETH / 20)),
+            "1.05 ETH"
+        );
+        assert_eq!(wei_to_human_readable(&U256::from(GWEI / 100)), "0.01 gwei");
+    }
+
+    #[test]
+    fn wei_to_human_readable_omits_empty_fractional_part() {
+        assert_eq!(wei_to_human_readable(&U256::from(ETH)), "1 ETH");
+        assert_eq!(wei_to_human_readable(&U256::from(3 * ETH)), "3 ETH");
+        assert_eq!(wei_to_human_readable(&U256::from(ETH + 1)), "1 ETH");
+        assert_eq!(wei_to_human_readable(&U256::from(GWEI)), "1 gwei");
+    }
+
+    #[test]
+    fn wei_to_human_readable_unchanged_cases() {
+        assert_eq!(wei_to_human_readable(&U256::ZERO), "0 ETH");
+        assert_eq!(wei_to_human_readable(&U256::from(99_999u64)), "99999 wei");
+        assert_eq!(wei_to_human_readable(&U256::from(ETH / 10)), "0.1 ETH");
+        assert_eq!(wei_to_human_readable(&U256::from(ETH + ETH / 2)), "1.5 ETH");
+        assert_eq!(
+            wei_to_human_readable(&U256::from(12_345_678_900_000_000_000u128)),
+            "12.3456 ETH"
+        );
+    }
 }

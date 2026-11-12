@@ -180,7 +180,7 @@ where
             stack.gas_price = Some(env.tx.gas_price());
         }
 
-        env.cfg.spec = spec_id;
+        foundry_evm_core::set_cfg_spec_id(&mut env.cfg, spec_id);
 
         let gas_limit = gas_limit.unwrap_or(env.block.gas_limit());
 

@@ -4,27 +4,15 @@ use std::str::FromStr;
 use edr_chain_config::{ChainOverride, HardforkActivation, HardforkActivations};
 use edr_chain_spec::EvmSpecId;
 use edr_eip1559::{BaseFeeActivation, BaseFeeParams, ConstantBaseFeeParams, DynamicBaseFeeParams};
-use edr_eip7825::transaction_gas_cap_for_hardfork;
 use edr_precompile::PrecompileFn;
 use edr_primitives::{Address, ChainId, HashMap, UnknownHardfork, B256};
+pub use edr_provider::config::ConfigOption;
 use edr_provider::{
     config::{ForkConfig, GasEstimationMode, MiningConfig, NetworkConfig},
     observability::ObservabilityConfig,
     AccountOverride,
 };
 use edr_signer::SecretKey;
-
-/// Configuration option.
-#[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
-#[serde(rename_all = "camelCase")]
-pub enum ConfigOption<T> {
-    /// A custom configuration value.
-    Custom(T),
-    /// Use the default value for this configuration option.
-    Default,
-    /// Disable the configured option.
-    Disable,
-}
 
 /// Chain-agnostic configuration for a provider.
 #[derive(Clone, Debug)]
@@ -38,9 +26,18 @@ pub struct Config {
     pub base_fee_params: Option<Vec<(BaseFeeActivation<String>, ConstantBaseFeeParams)>>,
     pub chain_id: ChainId,
     pub coinbase: Address,
-    /// The default transaction gas limit to use for RPC call and transaction
-    /// requests that do not specify a `gas` value.
-    pub default_transaction_gas_limit: NonZeroU64,
+    /// The gas limit of RPC call and transaction requests that do not specify
+    /// a `gas` value.
+    ///
+    /// When set, it is used as is. Creating the provider fails when it exceeds
+    /// the transaction gas bound of the configured hardfork and transaction gas
+    /// cap. A request at a block whose bound is lower fails like a request with
+    /// an explicit `gas` above that bound.
+    ///
+    /// When not set, it is derived from the hardfork and gas limit of the
+    /// request's block. Before Amsterdam, the transaction gas cap replaces the
+    /// hardfork's bound.
+    pub default_transaction_gas_limit: Option<NonZeroU64>,
     pub gas_estimation_mode: Option<GasEstimationMode>,
     pub genesis_state: HashMap<Address, AccountOverride>,
     pub hardfork: String,
@@ -56,11 +53,13 @@ pub struct Config {
     pub precompile_overrides: HashMap<Address, PrecompileFn>,
     /// Transaction gas cap, introduced in [EIP-7825].
     ///
-    /// When not set, enforcement of the transaction gas cap is disabled and
-    /// transactions with any `gas` value are accepted by the mempool and
-    /// executed without REVM's transaction gas cap check.
+    /// Before Amsterdam it bounds a transaction's `gas`. From Amsterdam
+    /// ([EIP-8037]) it bounds execution gas only: `gas` may exceed it, up to
+    /// the protocol's `TX_MAX_TOTAL_GAS_LIMIT` (2^32 - 1), which this
+    /// option does not affect.
     ///
     /// [EIP-7825]: https://eips.ethereum.org/EIPS/eip-7825
+    /// [EIP-8037]: https://eips.ethereum.org/EIPS/eip-8037
     pub transaction_gas_cap: ConfigOption<u64>,
 }
 
@@ -156,11 +155,6 @@ where
         };
 
         let hardfork = parse_hardfork::<HardforkT>(value.hardfork)?;
-        let transaction_gas_cap = match value.transaction_gas_cap {
-            ConfigOption::Custom(transaction_gas_cap) => Some(transaction_gas_cap),
-            ConfigOption::Default => transaction_gas_cap_for_hardfork(hardfork.clone()),
-            ConfigOption::Disable => None,
-        };
 
         Ok(Self {
             allow_blocks_with_same_timestamp: value.allow_blocks_with_same_timestamp,
@@ -183,7 +177,7 @@ where
             observability: value.observability,
             owned_accounts: value.owned_accounts,
             precompile_overrides: value.precompile_overrides,
-            transaction_gas_cap,
+            transaction_gas_cap: value.transaction_gas_cap,
         })
     }
 }

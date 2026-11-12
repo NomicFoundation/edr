@@ -8,6 +8,7 @@ use crate::{
     build_model::ContractFunctionType,
     contract_decoder::{ContractDecoderError, NestedTraceDecoder},
     nested_trace::{CallTraceArenaConversionError, NestedTrace},
+    recorded_trace_arena::ArenaWithSteps,
     return_data::CheatcodeErrorDetails,
     solidity_tracer::{self, SolidityTracerError},
 };
@@ -293,10 +294,12 @@ pub fn get_stack_trace<
     NestedTraceDecoderT: NestedTraceDecoder<HaltReasonT>,
 >(
     contract_decoder: &NestedTraceDecoderT,
-    failing_trace: &'arena CallTraceArena,
+    failing_trace: impl Into<ArenaWithSteps<'arena>>,
     code_sources: impl IntoIterator<Item = &'arena CallTraceArena>,
     deployed_code: DeployedCode<'arena>,
 ) -> Result<Vec<StackTraceEntry>, StackTraceCreationError<HaltReasonT>> {
+    let failing_trace = failing_trace.into();
+
     let mut address_to_creation_code: HashMap<Address, &Bytes> = deployed_code
         .creation
         .map(|map| map.iter().map(|(k, v)| (*k, v)).collect())
@@ -309,7 +312,7 @@ pub fn get_stack_trace<
 
     for trace in code_sources
         .into_iter()
-        .chain(std::iter::once(failing_trace))
+        .chain(std::iter::once(failing_trace.as_call_trace_arena()))
     {
         for node in trace.nodes() {
             let address = node.trace.address;

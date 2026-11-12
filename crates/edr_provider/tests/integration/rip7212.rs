@@ -107,7 +107,7 @@ async fn rip7212_enabled() -> anyhow::Result<()> {
         &HashMap::default(),
         &HashMap::default(),
         response
-            .call_trace_arenas
+            .execution_traces
             .first()
             .expect("Trace should exist"),
     )
@@ -157,7 +157,7 @@ async fn rip7212_enabled_post_osaka() -> anyhow::Result<()> {
         &HashMap::default(),
         &HashMap::default(),
         response
-            .call_trace_arenas
+            .execution_traces
             .first()
             .expect("Trace should exist"),
     )

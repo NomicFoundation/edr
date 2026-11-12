@@ -1,10 +1,10 @@
-use edr_chain_spec::TransactionValidation;
+use edr_chain_spec::{EvmSpecId, TransactionValidation};
 use edr_eth::BlockSpec;
 use edr_primitives::Bytes;
 use edr_rpc_eth::StateOverrideOptions;
 use edr_runtime::{overrides::StateOverrides, transaction};
 use edr_signer::FakeSign as _;
-use foundry_evm_traces::CallTraceArena;
+use edr_solidity::recorded_trace_arena::RecordedTraceArena;
 
 use crate::{
     data::ProviderData,
@@ -25,7 +25,7 @@ pub fn handle_call_request<
     request: ChainSpecT::RpcCallRequest,
     block_spec: Option<BlockSpec>,
     state_overrides: Option<StateOverrideOptions>,
-) -> Result<(Bytes, Option<CallTraceArena>), ProviderErrorForChainSpec<ChainSpecT>> {
+) -> Result<(Bytes, Option<RecordedTraceArena>), ProviderErrorForChainSpec<ChainSpecT>> {
     let block_spec = resolve_block_spec_for_call_request(block_spec);
 
     let state_overrides =
@@ -35,7 +35,7 @@ pub fn handle_call_request<
     let result = data.run_call(transaction, &block_spec, &state_overrides)?;
 
     let output = result.execution_result.into_output().unwrap_or_default();
-    Ok((output, result.call_trace_arena))
+    Ok((output, result.execution_trace))
 }
 
 pub(crate) fn resolve_block_spec_for_call_request(block_spec: Option<BlockSpec>) -> BlockSpec {
@@ -76,8 +76,8 @@ pub(crate) fn resolve_call_request<
     let request = ChainSpecT::TransactionRequest::from_rpc_type(request, context)?;
     let transaction = request.fake_sign(sender);
 
-    let hardfork = data.hardfork_at_block_spec(block_spec)?;
-    let transaction_gas_cap = data.transaction_gas_cap().unwrap_or(u64::MAX);
-    transaction::validate(transaction, hardfork.into(), transaction_gas_cap)
+    let evm_spec_id: EvmSpecId = data.hardfork_at_block_spec(block_spec)?.into();
+    let execution_gas_bound = data.transaction_execution_gas_bound_at_hardfork(evm_spec_id);
+    transaction::validate(transaction, evm_spec_id, execution_gas_bound)
         .map_err(ProviderError::TransactionCreationError)
 }

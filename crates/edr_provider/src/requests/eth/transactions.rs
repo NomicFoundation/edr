@@ -17,7 +17,7 @@ use crate::{
     data::ProviderData,
     error::{ProviderErrorForChainSpec, TransactionFailureWithCallTraces},
     requests::validation::{
-        validate_eip3860_max_initcode_size, validate_post_merge_block_tags,
+        validate_max_initcode_size, validate_post_merge_block_tags,
         validate_transaction_and_call_request,
     },
     spec::{FromRpcType, Sender as _, SyncProviderSpec, TransactionContext},
@@ -209,10 +209,12 @@ pub fn handle_send_raw_transaction_request<
     validate_send_raw_transaction_request(data, &pooled_transaction)?;
     let signed_transaction = pooled_transaction.into();
 
-    let transaction_gas_cap = data.transaction_gas_cap().unwrap_or(u64::MAX);
-    let signed_transaction =
-        transaction::validate(signed_transaction, data.evm_spec_id(), transaction_gas_cap)
-            .map_err(ProviderError::TransactionCreationError)?;
+    let signed_transaction = transaction::validate(
+        signed_transaction,
+        data.evm_spec_id(),
+        data.transaction_execution_gas_bound(),
+    )
+    .map_err(ProviderError::TransactionCreationError)?;
 
     send_raw_transaction_and_log(data, signed_transaction)
 }
@@ -300,7 +302,7 @@ fn send_raw_transaction_and_log<
                     execution_result,
                     Some(&result.transaction_hash),
                     &observed_data.address_to_executed_code,
-                    &observed_data.call_trace_arena,
+                    &observed_data.execution_trace,
                     data.contract_decoder(),
                 )
             },
@@ -313,7 +315,7 @@ fn send_raw_transaction_and_log<
             return Err(ProviderError::TransactionFailed(Box::new(
                 TransactionFailureWithCallTraces {
                     failure,
-                    call_trace_arenas: traces,
+                    execution_traces: traces,
                 },
             )));
         }
@@ -343,7 +345,7 @@ fn validate_send_raw_transaction_request<
         }
     }
 
-    validate_eip3860_max_initcode_size::<ChainSpecT, TimerT>(
+    validate_max_initcode_size::<ChainSpecT, TimerT>(
         data.hardfork(),
         data.allow_unlimited_initcode_size(),
         transaction.kind().to(),
@@ -402,15 +404,10 @@ mod tests {
             })
             .fake_sign(impersonated_account);
 
-        let transaction_gas_cap = fixture
-            .provider_data
-            .transaction_gas_cap()
-            .unwrap_or(u64::MAX);
-
         let transaction = transaction::validate(
             transaction,
             fixture.provider_data.evm_spec_id(),
-            transaction_gas_cap,
+            fixture.provider_data.transaction_execution_gas_bound(),
         )?;
 
         fixture.provider_data.set_auto_mining(true);

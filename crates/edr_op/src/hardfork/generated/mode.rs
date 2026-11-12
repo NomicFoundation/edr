@@ -3,7 +3,7 @@
 // generated. To make changes, update the generator script instead in
 // `crates/tool/op_chain_config_generator/src/op_chain_config.rs`.
 //
-// source: https://github.com/ethereum-optimism/superchain-registry/tree/bb104b09fcd60fc01c8f8daf0f534aee88ff26de/superchain/configs
+// source: https://github.com/ethereum-optimism/superchain-registry/tree/13907b9bc2b8ac83b37c9c95883b5a4ef41cc6fb/superchain/configs
 
 use edr_chain_config::{ChainConfig, ForkCondition, HardforkActivation, HardforkActivations};
 use edr_eip1559::{BaseFeeActivation, BaseFeeParams, ConstantBaseFeeParams, DynamicBaseFeeParams};

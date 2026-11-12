@@ -262,6 +262,9 @@ impl TracingMode {
 
         Some(TracingInspectorConfig {
             record_steps,
+            record_inputs: true,
+            record_bytecode: false,
+            step_limit: None,
             record_memory_snapshots: false,
             record_stack_snapshots: StackSnapshotType::None,
             record_state_diff: false,
@@ -270,6 +273,7 @@ impl TracingMode {
             exclude_precompile_calls: false,
             record_logs: true,
             record_immediate_bytes: false,
+            record_step_deltas: false,
         })
     }
 }
@@ -475,6 +479,9 @@ mod tests {
             gas_refund_counter: 0,
             gas_used: 0,
             gas_cost: 0,
+            state_gas_cost: None,
+            state_gas_reservoir: None,
+            state_gas_spent: 0,
             storage_change: None,
             status: None,
             immediate_bytes: None,

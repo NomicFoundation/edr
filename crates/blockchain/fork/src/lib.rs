@@ -3,8 +3,6 @@
 #![recursion_limit = "256"]
 
 /// Types and constants for Ethereum improvements proposals (EIPs)
-pub mod eips;
-
 use std::{collections::BTreeMap, fmt::Debug, marker::PhantomData, num::NonZeroU64, sync::Arc};
 
 use derive_where::derive_where;
@@ -22,6 +20,7 @@ use edr_blockchain_api::{
     GetBlockchainLogs, InsertBlock, ReceiptByTransactionHash, ReserveBlocks, RevertToBlock,
     StateAtBlock, TotalDifficultyByBlockHash,
 };
+use edr_blockchain_predeploys::predeploys_activated_between;
 use edr_blockchain_remote::{FetchRemoteBlockError, FetchRemoteReceiptError, RemoteBlockchain};
 use edr_chain_config::{ChainConfig, HardforkActivations};
 use edr_chain_spec::{EvmSpecId, ExecutableTransaction, ProtocolHardfork};
@@ -46,15 +45,47 @@ use edr_utils::{random::RandomHashGenerator, CastArcFrom, CastArcInto};
 use parking_lot::Mutex;
 use tokio::runtime;
 
-use crate::eips::{
-    eip2935::{
-        add_history_storage_contract_to_state_diff, history_storage_contract,
-        HISTORY_STORAGE_ADDRESS,
-    },
-    eip4788::{
-        add_beacon_roots_contract_to_state_diff, beacon_roots_contract, BEACON_ROOTS_ADDRESS,
-    },
-};
+/// Injects, at the fork block, every predeploy introduced after the `remote`
+/// hardfork up to and including the `local` one. The injection does not depend
+/// on whether the remote chain already has the accounts, so the local hardfork
+/// behaves the same on every forked chain.
+fn apply_hardfork_predeploys(
+    irregular_state: &mut IrregularState,
+    fork_block_number: u64,
+    state_root_generator: &Mutex<RandomHashGenerator>,
+    remote: EvmSpecId,
+    local: EvmSpecId,
+) {
+    let predeploys = predeploys_activated_between(remote, local);
+    if predeploys.is_empty() {
+        return;
+    }
+
+    irregular_state
+        .state_override_at_block_number(fork_block_number)
+        .and_modify(|state_override| {
+            for (address, account_info) in &predeploys {
+                state_override
+                    .diff
+                    .apply_account_change(*address, account_info.clone());
+            }
+        })
+        .or_insert_with(|| {
+            let accounts: EvmState = predeploys
+                .into_iter()
+                .map(|(address, account_info)| {
+                    let mut account = Account::from(account_info);
+                    account.status = AccountStatus::Created | AccountStatus::Touched;
+                    (address, account)
+                })
+                .collect();
+
+            StateOverride {
+                diff: StateDiff::from(accounts),
+                state_root: state_root_generator.lock().next_value(),
+            }
+        });
+}
 
 /// An error that occurs upon creation of a [`ForkedBlockchain`].
 #[derive(Debug, thiserror::Error)]
@@ -316,67 +347,13 @@ impl<
                         .clone(),
                 })?;
 
-            let remote_evm_spec_id = remote_hardfork.clone().into();
-            let local_evm_spec_id = hardfork.clone().into();
-            if remote_evm_spec_id < EvmSpecId::PRAGUE && local_evm_spec_id >= EvmSpecId::PRAGUE {
-                let state_root = state_root_generator.lock().next_value();
-
-                irregular_state
-                    .state_override_at_block_number(fork_block_number)
-                    .and_modify(|state_override| {
-                        add_beacon_roots_contract_to_state_diff(&mut state_override.diff);
-                        add_history_storage_contract_to_state_diff(&mut state_override.diff);
-                    })
-                    .or_insert_with(|| {
-                        let beacon_root_account = beacon_roots_contract();
-                        let history_storage_account = history_storage_contract();
-
-                        let accounts: EvmState = [
-                            (BEACON_ROOTS_ADDRESS, {
-                                let mut account = Account::from(beacon_root_account);
-                                account.status = AccountStatus::Created | AccountStatus::Touched;
-                                account
-                            }),
-                            (HISTORY_STORAGE_ADDRESS, {
-                                let mut account = Account::from(history_storage_account);
-                                account.status = AccountStatus::Created | AccountStatus::Touched;
-                                account
-                            }),
-                        ]
-                        .into_iter()
-                        .collect();
-
-                        StateOverride {
-                            diff: StateDiff::from(accounts),
-                            state_root,
-                        }
-                    });
-            } else if remote_evm_spec_id < EvmSpecId::CANCUN
-                && local_evm_spec_id >= EvmSpecId::CANCUN
-            {
-                let state_root = state_root_generator.lock().next_value();
-
-                irregular_state
-                    .state_override_at_block_number(fork_block_number)
-                    .and_modify(|state_override| {
-                        add_beacon_roots_contract_to_state_diff(&mut state_override.diff);
-                    })
-                    .or_insert_with(|| {
-                        let beacon_root_account = beacon_roots_contract();
-                        let accounts: EvmState = [(BEACON_ROOTS_ADDRESS, {
-                            let mut account = Account::from(beacon_root_account);
-                            account.status = AccountStatus::Created | AccountStatus::Touched;
-                            account
-                        })]
-                        .into_iter()
-                        .collect();
-
-                        StateOverride {
-                            diff: StateDiff::from(accounts),
-                            state_root,
-                        }
-                    });
-            }
+            apply_hardfork_predeploys(
+                irregular_state,
+                fork_block_number,
+                &state_root_generator,
+                remote_hardfork.clone().into(),
+                hardfork.clone().into(),
+            );
         }
 
         Ok(Self {

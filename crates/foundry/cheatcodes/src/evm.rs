@@ -810,7 +810,46 @@ impl Cheatcode for lastCallGasCall {
         let Some(last_call_gas) = &state.gas_metering.last_call_gas else {
             bail!("no external call was made yet");
         };
-        Ok(last_call_gas.abi_encode())
+        Ok(last_call_gas.gas.abi_encode())
+    }
+}
+
+impl_is_pure_true!(lastFrameGasCall);
+impl Cheatcode for lastFrameGasCall {
+    fn apply<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
+        HaltReasonT: HaltReasonTr,
+        HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
+    >(
+        &self,
+        state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
+    ) -> Result {
+        let Self {} = self;
+        let Some(last_frame_gas) = &state.gas_metering.last_frame_gas else {
+            bail!("no external call or create was made yet");
+        };
+        Ok(last_frame_gas.gas.abi_encode())
     }
 }
 
@@ -1222,6 +1261,91 @@ impl Cheatcode for getBlockNumberCall {
     ) -> Result {
         let Self {} = self;
         Ok(ccx.ecx.block.number().abi_encode())
+    }
+}
+
+impl_is_pure_true!(rollSlotCall);
+impl Cheatcode for rollSlotCall {
+    fn apply_stateful<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
+        HaltReasonT: HaltReasonTr,
+        HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
+        let Self { newSlotNumber } = *self;
+        ensure!(
+            ccx.ecx.cfg.spec.into() >= SpecId::AMSTERDAM,
+            "`rollSlot` is not supported before the Amsterdam hard fork; \
+             see EIP-7843: https://eips.ethereum.org/EIPS/eip-7843"
+        );
+        ccx.ecx.block.set_slot_num(newSlotNumber);
+        Ok(Vec::default())
+    }
+}
+
+impl_is_pure_true!(getSlotNumberCall);
+impl Cheatcode for getSlotNumberCall {
+    fn apply_stateful<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
+        HaltReasonT: HaltReasonTr,
+        HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
+        let Self {} = self;
+        ensure!(
+            ccx.ecx.cfg.spec.into() >= SpecId::AMSTERDAM,
+            "`getSlotNumber` is not supported before the Amsterdam hard fork; \
+             see EIP-7843: https://eips.ethereum.org/EIPS/eip-7843"
+        );
+        Ok(ccx.ecx.block.slot_num().abi_encode())
     }
 }
 
@@ -1907,6 +2031,42 @@ impl Cheatcode for coolSlotCall {
     }
 }
 
+impl_is_pure_true!(isIsolateModeCall);
+impl Cheatcode for isIsolateModeCall {
+    fn apply<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
+        HaltReasonT: HaltReasonTr,
+        HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
+    >(
+        &self,
+        state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
+    ) -> Result {
+        let Self {} = self;
+        Ok(state.isolate.abi_encode())
+    }
+}
+
 impl_is_pure_true!(readCallersCall);
 impl Cheatcode for readCallersCall {
     fn apply_stateful<
@@ -2071,7 +2231,8 @@ impl Cheatcode for snapshotGasLastCall_0Call {
         let Some(last_call_gas) = &ccx.state.gas_metering.last_call_gas else {
             bail!("no external call was made yet");
         };
-        inner_last_gas_snapshot(ccx, None, Some(name.clone()), last_call_gas.gasTotalUsed)
+        let gas_used = last_call_gas.snapshot_gas_used;
+        inner_last_gas_snapshot(ccx, None, Some(name.clone()), gas_used)
     }
 }
 
@@ -2111,12 +2272,90 @@ impl Cheatcode for snapshotGasLastCall_1Call {
         let Some(last_call_gas) = &ccx.state.gas_metering.last_call_gas else {
             bail!("no external call was made yet");
         };
-        inner_last_gas_snapshot(
-            ccx,
-            Some(group.clone()),
-            Some(name.clone()),
-            last_call_gas.gasTotalUsed,
-        )
+        let gas_used = last_call_gas.snapshot_gas_used;
+        inner_last_gas_snapshot(ccx, Some(group.clone()), Some(name.clone()), gas_used)
+    }
+}
+
+impl_is_pure_true!(snapshotGasLastFrame_0Call);
+impl Cheatcode for snapshotGasLastFrame_0Call {
+    fn apply_stateful<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
+        HaltReasonT: HaltReasonTr,
+        HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
+        let Self { name } = self;
+        let Some(last_frame_gas) = &ccx.state.gas_metering.last_frame_gas else {
+            bail!("no external call or create was made yet");
+        };
+        let gas_used = last_frame_gas.snapshot_gas_used;
+        inner_last_gas_snapshot(ccx, None, Some(name.clone()), gas_used)
+    }
+}
+
+impl_is_pure_true!(snapshotGasLastFrame_1Call);
+impl Cheatcode for snapshotGasLastFrame_1Call {
+    fn apply_stateful<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
+        HaltReasonT: HaltReasonTr,
+        HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
+        let Self { name, group } = self;
+        let Some(last_frame_gas) = &ccx.state.gas_metering.last_frame_gas else {
+            bail!("no external call or create was made yet");
+        };
+        let gas_used = last_frame_gas.snapshot_gas_used;
+        inner_last_gas_snapshot(ccx, Some(group.clone()), Some(name.clone()), gas_used)
     }
 }
 

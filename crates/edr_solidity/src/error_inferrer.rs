@@ -764,6 +764,28 @@ fn check_last_instruction<HaltReasonT: HaltReasonTrait>(
     }
 
     if let Some(failing_function) = failing_function {
+        if trace_strategy.may_revert_in_entry_checks(
+            contract_metadata.as_ref(),
+            last_instruction.location.as_ref(),
+            &failing_function,
+        )? {
+            let called_function = contract_metadata
+                .contract
+                .read()
+                .get_function_from_selector(selector_from(calldata))
+                .cloned();
+            if let Some(called_function) = called_function
+                && !calldata_decodes_for(&called_function, calldata)?
+            {
+                return Ok(Heuristic::Hit(vec![StackTraceEntry::InvalidParamsError {
+                    source_reference: get_function_start_source_reference(
+                        CreateOrCallMessageRef::Call(trace),
+                        &called_function,
+                    )?,
+                }]));
+            }
+        }
+
         // Thunked so only strategies that need the walk pay for it.
         let step_pcs = || evm_step_pcs(steps);
         let revert_source_reference = trace_strategy.revert_source_reference(

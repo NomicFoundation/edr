@@ -27,5 +27,6 @@ contract IsolateOverrideEnabledTest is DSTest {
         assertEq(vm.getNonce(bob), 1);
         counter.increment();
         assertEq(vm.getNonce(bob), 2);
+        assertTrue(vm.isIsolateMode());
     }
 }

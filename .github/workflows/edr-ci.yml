@@ -75,7 +75,7 @@ jobs:
       - uses: ./.github/actions/setup-rust
 
       # Install pre-built binaries for cargo hack
-      - uses: taiki-e/install-action@3f74d7c16a4242f1c95561e98edc25d36adb4375 # v2.87.12
+      - uses: taiki-e/install-action@1919c4a95903d2c33e4a221102edca87309fc14b # v2.89.0
         with:
           tool: cargo-hack@0.6.39
 
@@ -128,7 +128,7 @@ jobs:
         run: cargo llvm-cov --workspace --all-targets --all-features --locked --no-fail-fast --codecov --output-path codecov.json
 
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
+        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
         with:
           files: codecov.json
           name: ${{ matrix.os }}
@@ -221,7 +221,7 @@ jobs:
           cargo llvm-cov report --release --locked --codecov --output-path codecov.json
 
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
+        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
         with:
           files: codecov.json
           name: ${{ matrix.os }}
@@ -260,6 +260,11 @@ jobs:
 
       - name: Run cargo clippy
         run: cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
+
+      # `bench = false` keeps it out of --all-targets, and cargo ignores
+      # --bench next to --all-targets.
+      - name: Run cargo clippy on the gungraun bench
+        run: cargo clippy -p edr_solidity --bench solx_build_info --all-features --locked -- -D warnings
 
   edr-docs:
     name: Build EDR Docs
@@ -379,7 +384,7 @@ jobs:
           # `--release` included to match `build:dev` compilation flags
           cargo llvm-cov report --release --locked --codecov --output-path codecov.json
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
+        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
         with:
           files: codecov.json
           name: ubuntu-24.04
@@ -421,7 +426,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: taiki-e/install-action@3f74d7c16a4242f1c95561e98edc25d36adb4375 # v2.87.12
+      - uses: taiki-e/install-action@1919c4a95903d2c33e4a221102edca87309fc14b # v2.89.0
         with:
           tool: zizmor@1.26.1
       # GH_TOKEN enables the online audits (known-vulnerabilities, tag->SHA resolution).

@@ -1,7 +1,9 @@
 #![cfg(feature = "test-utils")]
 
 //! Verifies the solx (DWARF) stack-trace path through the JSON-RPC
-//! provider. Sections mirror the inference pipeline in `edr_solidity`, so
+//! provider, once with solx's fixtures (contracts read from the solc AST)
+//! and once with the slang compiler's (read from `debugSymbols`). Sections
+//! mirror the inference pipeline in `edr_solidity`, so
 //! each test names the path it pins:
 //!
 //! - **Provider plumbing**: end-to-end smoke on the minimal Counter fixture.
@@ -48,8 +50,8 @@ use edr_provider::{
 use edr_signer::public_key_to_address;
 use edr_solidity::{
     artifacts::{
-        solx::extract_solx_contract_metadata, BuildInfoConfig, CompilerInput, CompilerOutput,
-        SolxBytecode,
+        slang::extract_slang_contract_metadata, solx::extract_solx_contract_metadata,
+        BuildInfoConfig, CompilerInput, CompilerOutput, SolxBytecode,
     },
     contract_decoder::ContractDecoder,
     library_utils::link_hex_string_bytecode,
@@ -63,9 +65,38 @@ use tokio::runtime;
 const STACK_TRACE_SCENARIOS_SOURCE: &str = "project/contracts/StackTraceScenarios.sol";
 const STACK_TRACE_SCENARIOS_BASE_SOURCE: &str = "project/contracts/StackTraceScenariosBase.sol";
 
-/// The `include_str!` literals stay at the call sites — the macro needs a
-/// literal path.
+#[derive(Clone, Copy, Debug)]
+enum Compiler {
+    Solx,
+    Slang,
+}
+
+/// Registers each test once per compiler, as `solx::<test>` and
+/// `slang::<test>`.
+macro_rules! test_each_compiler {
+    ($($test:ident),* $(,)?) => {
+        mod solx {
+            $(
+                #[tokio::test(flavor = "multi_thread")]
+                async fn $test() -> anyhow::Result<()> {
+                    super::$test(super::Compiler::Solx).await
+                }
+            )*
+        }
+
+        mod slang {
+            $(
+                #[tokio::test(flavor = "multi_thread")]
+                async fn $test() -> anyhow::Result<()> {
+                    super::$test(super::Compiler::Slang).await
+                }
+            )*
+        }
+    };
+}
+
 fn assemble_build_info(
+    compiler: Compiler,
     mut input: CompilerInput,
     sources: &[(&str, &str)],
     output: CompilerOutput<SolxBytecode>,
@@ -74,8 +105,13 @@ fn assemble_build_info(
         input.sources.get_mut(*source_key).unwrap().content = (*source_content).to_owned();
     }
 
-    let identified_contracts =
-        extract_solx_contract_metadata("0.8.34".to_owned(), input, output.clone())?;
+    // The build info's `solcVersion` is the Solidity language version for both
+    // compilers; the inference's version-gated heuristics compare against it.
+    let solc_version = "0.8.34".to_owned();
+    let identified_contracts = match compiler {
+        Compiler::Solx => extract_solx_contract_metadata(solc_version, input, output.clone())?,
+        Compiler::Slang => extract_slang_contract_metadata(solc_version, input, output.clone())?,
+    };
 
     Ok((
         BuildInfoConfig {
@@ -86,26 +122,37 @@ fn assemble_build_info(
     ))
 }
 
-fn solx_counter_build_info() -> anyhow::Result<(BuildInfoConfig, CompilerOutput<SolxBytecode>)> {
+fn counter_build_info(
+    compiler: Compiler,
+) -> anyhow::Result<(BuildInfoConfig, CompilerOutput<SolxBytecode>)> {
+    let (input, output) = match compiler {
+        Compiler::Solx => (
+            include_str!("../../../edr_solidity/fixtures/solx_compiler_input.json"),
+            include_str!("../../../edr_solidity/fixtures/solx_compiler_output.json"),
+        ),
+        Compiler::Slang => (
+            include_str!("../../../edr_solidity/fixtures/slang_compiler_input.json"),
+            include_str!("../../../edr_solidity/fixtures/slang_compiler_output.json"),
+        ),
+    };
     assemble_build_info(
-        serde_json::from_str(include_str!(
-            "../../../edr_solidity/fixtures/solx_compiler_input.json"
-        ))?,
+        compiler,
+        serde_json::from_str(input)?,
         &[(
             "Counter.sol",
             include_str!("../../../edr_solidity/fixtures/sources/Counter.sol"),
         )],
-        serde_json::from_str(include_str!(
-            "../../../edr_solidity/fixtures/solx_compiler_output.json"
-        ))?,
+        serde_json::from_str(output)?,
     )
 }
 
-fn solx_stack_trace_scenarios_build_info(
+fn stack_trace_scenarios_build_info(
+    compiler: Compiler,
     input_json: &str,
     output_json: &str,
 ) -> anyhow::Result<(BuildInfoConfig, CompilerOutput<SolxBytecode>)> {
     assemble_build_info(
+        compiler,
         serde_json::from_str(input_json)?,
         &[
             (
@@ -150,15 +197,27 @@ fn make_provider(decoder: ContractDecoder) -> anyhow::Result<(Provider<L1ChainSp
 }
 
 fn stack_trace_scenarios_provider(
+    compiler: Compiler,
 ) -> anyhow::Result<(Provider<L1ChainSpec>, Address, CompilerOutput<SolxBytecode>)> {
-    let (build_info, output) = solx_stack_trace_scenarios_build_info(
-        include_str!(
-            "../../../edr_solidity/fixtures/solx_compiler_input_stack_trace_scenarios.json"
+    let (input, output) = match compiler {
+        Compiler::Solx => (
+            include_str!(
+                "../../../edr_solidity/fixtures/solx_compiler_input_stack_trace_scenarios.json"
+            ),
+            include_str!(
+                "../../../edr_solidity/fixtures/solx_compiler_output_stack_trace_scenarios.json"
+            ),
         ),
-        include_str!(
-            "../../../edr_solidity/fixtures/solx_compiler_output_stack_trace_scenarios.json"
+        Compiler::Slang => (
+            include_str!(
+                "../../../edr_solidity/fixtures/slang_compiler_input_stack_trace_scenarios.json"
+            ),
+            include_str!(
+                "../../../edr_solidity/fixtures/slang_compiler_output_stack_trace_scenarios.json"
+            ),
         ),
-    )?;
+    };
+    let (build_info, output) = stack_trace_scenarios_build_info(compiler, input, output)?;
     let decoder = ContractDecoder::new(build_info);
     let (provider, from) = make_provider(decoder)?;
     Ok((provider, from, output))
@@ -168,15 +227,27 @@ fn stack_trace_scenarios_provider(
 /// statement-attributed since solx 0.1.6, so only these artifacts reach
 /// the declaration-attributed and unmapped-revert inference paths.
 fn stack_trace_scenarios_mode3_provider(
+    compiler: Compiler,
 ) -> anyhow::Result<(Provider<L1ChainSpec>, Address, CompilerOutput<SolxBytecode>)> {
-    let (build_info, output) = solx_stack_trace_scenarios_build_info(
-        include_str!(
-            "../../../edr_solidity/fixtures/solx_compiler_input_stack_trace_scenarios_mode3.json"
+    let (input, output) = match compiler {
+        Compiler::Solx => (
+            include_str!(
+                "../../../edr_solidity/fixtures/solx_compiler_input_stack_trace_scenarios_mode3.json"
+            ),
+            include_str!(
+                "../../../edr_solidity/fixtures/solx_compiler_output_stack_trace_scenarios_mode3.json"
+            ),
         ),
-        include_str!(
-            "../../../edr_solidity/fixtures/solx_compiler_output_stack_trace_scenarios_mode3.json"
+        Compiler::Slang => (
+            include_str!(
+                "../../../edr_solidity/fixtures/slang_compiler_input_stack_trace_scenarios_mode3.json"
+            ),
+            include_str!(
+                "../../../edr_solidity/fixtures/slang_compiler_output_stack_trace_scenarios_mode3.json"
+            ),
         ),
-    )?;
+    };
+    let (build_info, output) = stack_trace_scenarios_build_info(compiler, input, output)?;
     let decoder = ContractDecoder::new(build_info);
     let (provider, from) = make_provider(decoder)?;
     Ok((provider, from, output))
@@ -448,12 +519,13 @@ fn assert_revert_at_line(stack_trace: &[StackTraceEntry], line: u32, reason: &st
 }
 
 fn expect_scenario_revert(
+    compiler: Compiler,
     contract: &str,
     calldata: Bytes,
     line: u32,
     reason: &str,
 ) -> anyhow::Result<Vec<StackTraceEntry>> {
-    let (provider, from, output) = stack_trace_scenarios_provider()?;
+    let (provider, from, output) = stack_trace_scenarios_provider(compiler)?;
     let addr = deploy_stack_trace_scenario(&provider, from, &output, contract)?;
     let stack_trace = expect_failed_call_stack_trace(&provider, from, addr, calldata);
     assert_revert_at_line(&stack_trace, line, reason);
@@ -463,12 +535,13 @@ fn expect_scenario_revert(
 /// Pins both the decoded panic code and the statement the panic is
 /// anchored to.
 fn expect_scenario_panic(
+    compiler: Compiler,
     contract: &str,
     signature: &str,
     code: u64,
     line: u32,
 ) -> anyhow::Result<()> {
-    let (provider, from, output) = stack_trace_scenarios_provider()?;
+    let (provider, from, output) = stack_trace_scenarios_provider(compiler)?;
     let addr = deploy_stack_trace_scenario(&provider, from, &output, contract)?;
     let stack_trace = expect_failed_call_stack_trace(&provider, from, addr, call(signature));
     let entry = assert_single_variant(
@@ -510,9 +583,8 @@ fn expect_scenario_panic(
 /// Pin: stack trace surfaces a [`StackTraceEntry::RevertError`] referencing
 /// Counter.sol. Covers the provider-flow plumbing end-to-end on a second,
 /// minimal artifact assembly (the Counter fixture).
-#[tokio::test(flavor = "multi_thread")]
-async fn revert_error_surfaces_end_to_end_for_counter() -> anyhow::Result<()> {
-    let (build_info, output) = solx_counter_build_info()?;
+async fn revert_error_surfaces_end_to_end_for_counter(compiler: Compiler) -> anyhow::Result<()> {
+    let (build_info, output) = counter_build_info(compiler)?;
     let decoder = ContractDecoder::new(build_info);
     let (provider, from) = make_provider(decoder)?;
 
@@ -546,9 +618,8 @@ async fn revert_error_surfaces_end_to_end_for_counter() -> anyhow::Result<()> {
 
 // ---------- pre-execution guards (infer_before_tracing_call_message) ------
 
-#[tokio::test(flavor = "multi_thread")]
-async fn function_not_payable_error_surfaces() -> anyhow::Result<()> {
-    let (provider, from, output) = stack_trace_scenarios_provider()?;
+async fn function_not_payable_error_surfaces(compiler: Compiler) -> anyhow::Result<()> {
+    let (provider, from, output) = stack_trace_scenarios_provider(compiler)?;
     let addr = deploy_stack_trace_scenario(&provider, from, &output, "NotPayable")?;
     let stack_trace = expect_failed_call_with_value_stack_trace(
         &provider,
@@ -571,9 +642,10 @@ async fn function_not_payable_error_surfaces() -> anyhow::Result<()> {
     Ok(())
 }
 
-#[tokio::test(flavor = "multi_thread")]
-async fn unrecognized_function_without_fallback_error_surfaces() -> anyhow::Result<()> {
-    let (provider, from, output) = stack_trace_scenarios_provider()?;
+async fn unrecognized_function_without_fallback_error_surfaces(
+    compiler: Compiler,
+) -> anyhow::Result<()> {
+    let (provider, from, output) = stack_trace_scenarios_provider(compiler)?;
     let addr = deploy_stack_trace_scenario(&provider, from, &output, "NoFallback")?;
     let stack_trace = expect_failed_call_stack_trace(&provider, from, addr, call("nonExistent()"));
     let anchor = assert_single_variant_anchor(
@@ -595,9 +667,8 @@ async fn unrecognized_function_without_fallback_error_surfaces() -> anyhow::Resu
     Ok(())
 }
 
-#[tokio::test(flavor = "multi_thread")]
-async fn missing_fallback_or_receive_error_surfaces() -> anyhow::Result<()> {
-    let (provider, from, output) = stack_trace_scenarios_provider()?;
+async fn missing_fallback_or_receive_error_surfaces(compiler: Compiler) -> anyhow::Result<()> {
+    let (provider, from, output) = stack_trace_scenarios_provider(compiler)?;
     let addr = deploy_stack_trace_scenario(&provider, from, &output, "NoFallback")?;
     let stack_trace = expect_failed_call_with_value_stack_trace(
         &provider,
@@ -620,9 +691,8 @@ async fn missing_fallback_or_receive_error_surfaces() -> anyhow::Result<()> {
     Ok(())
 }
 
-#[tokio::test(flavor = "multi_thread")]
-async fn fallback_not_payable_error_surfaces() -> anyhow::Result<()> {
-    let (provider, from, output) = stack_trace_scenarios_provider()?;
+async fn fallback_not_payable_error_surfaces(compiler: Compiler) -> anyhow::Result<()> {
+    let (provider, from, output) = stack_trace_scenarios_provider(compiler)?;
     let addr = deploy_stack_trace_scenario(&provider, from, &output, "NonPayableFallback")?;
     let stack_trace = expect_failed_call_with_value_stack_trace(
         &provider,
@@ -645,9 +715,10 @@ async fn fallback_not_payable_error_surfaces() -> anyhow::Result<()> {
     Ok(())
 }
 
-#[tokio::test(flavor = "multi_thread")]
-async fn fallback_not_payable_and_no_receive_error_surfaces() -> anyhow::Result<()> {
-    let (provider, from, output) = stack_trace_scenarios_provider()?;
+async fn fallback_not_payable_and_no_receive_error_surfaces(
+    compiler: Compiler,
+) -> anyhow::Result<()> {
+    let (provider, from, output) = stack_trace_scenarios_provider(compiler)?;
     let addr = deploy_stack_trace_scenario(&provider, from, &output, "NonPayableFallback")?;
     let stack_trace = expect_failed_call_with_value_stack_trace(
         &provider,
@@ -676,9 +747,8 @@ async fn fallback_not_payable_and_no_receive_error_surfaces() -> anyhow::Result<
 }
 
 /// Calling a deployed library's external function directly.
-#[tokio::test(flavor = "multi_thread")]
-async fn direct_library_call_error_surfaces() -> anyhow::Result<()> {
-    let (provider, from, output) = stack_trace_scenarios_provider()?;
+async fn direct_library_call_error_surfaces(compiler: Compiler) -> anyhow::Result<()> {
+    let (provider, from, output) = stack_trace_scenarios_provider(compiler)?;
     let library = deploy_stack_trace_scenario(&provider, from, &output, "ExternalLib")?;
     let stack_trace = expect_failed_call_stack_trace(&provider, from, library, call("fail()"));
     let anchor = assert_single_variant_anchor(
@@ -697,9 +767,10 @@ async fn direct_library_call_error_surfaces() -> anyhow::Result<()> {
 
 // ---------- calldata decoding (check_last_instruction) ----------
 
-#[tokio::test(flavor = "multi_thread")]
-async fn invalid_params_error_surfaces_for_truncated_calldata() -> anyhow::Result<()> {
-    let (provider, from, output) = stack_trace_scenarios_provider()?;
+async fn invalid_params_error_surfaces_for_truncated_calldata(
+    compiler: Compiler,
+) -> anyhow::Result<()> {
+    let (provider, from, output) = stack_trace_scenarios_provider(compiler)?;
     let addr = deploy_stack_trace_scenario(&provider, from, &output, "RequiresArgs")?;
     let mut calldata = selector("needsBoth(uint256,uint256)").as_slice().to_vec();
     calldata.extend_from_slice(&[0u8; 32]); // only one of the two words
@@ -720,41 +791,34 @@ async fn invalid_params_error_surfaces_for_truncated_calldata() -> anyhow::Resul
 
 // ---------- revert/panic/custom (check_revert_or_invalid_opcode) ----------
 
-#[tokio::test(flavor = "multi_thread")]
-async fn panic_code_surfaces_for_assert_failure() -> anyhow::Result<()> {
-    expect_scenario_panic("AssertFails", "fail()", 0x01, 111)
+async fn panic_code_surfaces_for_assert_failure(compiler: Compiler) -> anyhow::Result<()> {
+    expect_scenario_panic(compiler, "AssertFails", "fail()", 0x01, 111)
 }
 
-#[tokio::test(flavor = "multi_thread")]
-async fn panic_code_surfaces_for_arithmetic_overflow() -> anyhow::Result<()> {
-    expect_scenario_panic("Overflows", "bump()", 0x11, 119)
+async fn panic_code_surfaces_for_arithmetic_overflow(compiler: Compiler) -> anyhow::Result<()> {
+    expect_scenario_panic(compiler, "Overflows", "bump()", 0x11, 119)
 }
 
-#[tokio::test(flavor = "multi_thread")]
-async fn panic_code_surfaces_for_division_by_zero() -> anyhow::Result<()> {
-    expect_scenario_panic("DividesByZero", "divide()", 0x12, 127)
+async fn panic_code_surfaces_for_division_by_zero(compiler: Compiler) -> anyhow::Result<()> {
+    expect_scenario_panic(compiler, "DividesByZero", "divide()", 0x12, 127)
 }
 
-#[tokio::test(flavor = "multi_thread")]
-async fn panic_code_surfaces_for_invalid_enum_cast() -> anyhow::Result<()> {
-    expect_scenario_panic("InvalidEnumCast", "cast()", 0x21, 149)
+async fn panic_code_surfaces_for_invalid_enum_cast(compiler: Compiler) -> anyhow::Result<()> {
+    expect_scenario_panic(compiler, "InvalidEnumCast", "cast()", 0x21, 149)
 }
 
-#[tokio::test(flavor = "multi_thread")]
-async fn panic_code_surfaces_for_pop_on_empty_array() -> anyhow::Result<()> {
-    expect_scenario_panic("PopsEmptyArray", "popIt()", 0x31, 158)
+async fn panic_code_surfaces_for_pop_on_empty_array(compiler: Compiler) -> anyhow::Result<()> {
+    expect_scenario_panic(compiler, "PopsEmptyArray", "popIt()", 0x31, 158)
 }
 
-#[tokio::test(flavor = "multi_thread")]
-async fn panic_code_surfaces_for_array_out_of_bounds() -> anyhow::Result<()> {
-    expect_scenario_panic("ArrayOutOfBounds", "read()", 0x32, 135)
+async fn panic_code_surfaces_for_array_out_of_bounds(compiler: Compiler) -> anyhow::Result<()> {
+    expect_scenario_panic(compiler, "ArrayOutOfBounds", "read()", 0x32, 135)
 }
 
 /// `revert MyError(42, "custom error")`: pins the known-selector decode of
 /// custom-error arguments into the message, not just the entry variant.
-#[tokio::test(flavor = "multi_thread")]
-async fn custom_error_decodes_name_and_args() -> anyhow::Result<()> {
-    let (provider, from, output) = stack_trace_scenarios_provider()?;
+async fn custom_error_decodes_name_and_args(compiler: Compiler) -> anyhow::Result<()> {
+    let (provider, from, output) = stack_trace_scenarios_provider(compiler)?;
     let addr = deploy_stack_trace_scenario(&provider, from, &output, "ThrowsCustomError")?;
     let stack_trace = expect_failed_call_stack_trace(&provider, from, addr, call("throwIt()"));
     let entry = assert_single_variant(
@@ -784,17 +848,15 @@ async fn custom_error_decodes_name_and_args() -> anyhow::Result<()> {
     Ok(())
 }
 
-#[tokio::test(flavor = "multi_thread")]
-async fn revert_line_discriminates_between_requires() -> anyhow::Result<()> {
-    expect_scenario_revert("MultipleRequires", call("check()"), 190, "second")?;
+async fn revert_line_discriminates_between_requires(compiler: Compiler) -> anyhow::Result<()> {
+    expect_scenario_revert(compiler, "MultipleRequires", call("check()"), 190, "second")?;
     Ok(())
 }
 
 // ---------- callstack reconstruction (frames, submessages, recursion) ------
 
-#[tokio::test(flavor = "multi_thread")]
-async fn cross_contract_call_keeps_caller_frame() -> anyhow::Result<()> {
-    let (provider, from, output) = stack_trace_scenarios_provider()?;
+async fn cross_contract_call_keeps_caller_frame(compiler: Compiler) -> anyhow::Result<()> {
+    let (provider, from, output) = stack_trace_scenarios_provider(compiler)?;
     let caller = deploy_stack_trace_scenario(&provider, from, &output, "CallsOther")?;
     let stack_trace = expect_failed_call_stack_trace(&provider, from, caller, call("callFail()"));
     assert_revert_at_line(&stack_trace, 196, "called fail");
@@ -812,9 +874,8 @@ async fn cross_contract_call_keeps_caller_frame() -> anyhow::Result<()> {
 
 /// One frame per external call, not collapsed by `filter_redundant_frames`
 /// (solx `recursion_start_idx` = 0).
-#[tokio::test(flavor = "multi_thread")]
-async fn external_recursion_keeps_one_frame_per_call() -> anyhow::Result<()> {
-    let (provider, from, output) = stack_trace_scenarios_provider()?;
+async fn external_recursion_keeps_one_frame_per_call(compiler: Compiler) -> anyhow::Result<()> {
+    let (provider, from, output) = stack_trace_scenarios_provider(compiler)?;
     let addr = deploy_stack_trace_scenario(&provider, from, &output, "DeepRecursion")?;
     let stack_trace = expect_failed_call_stack_trace(
         &provider,
@@ -837,17 +898,21 @@ async fn external_recursion_keeps_one_frame_per_call() -> anyhow::Result<()> {
 
 /// solx's optimizer may unroll the recursion, so only the bottom revert
 /// line is pinned.
-#[tokio::test(flavor = "multi_thread")]
-async fn internal_recursion_pins_bottom_revert_line() -> anyhow::Result<()> {
-    expect_scenario_revert("InternalRecursion", call("start()"), 234, "internal bottom")?;
+async fn internal_recursion_pins_bottom_revert_line(compiler: Compiler) -> anyhow::Result<()> {
+    expect_scenario_revert(
+        compiler,
+        "InternalRecursion",
+        call("start()"),
+        234,
+        "internal bottom",
+    )?;
     Ok(())
 }
 
 /// solx may emit both JUMP-derived and inlined frames at the dispatch
 /// points, so only the bottom revert line is pinned.
-#[tokio::test(flavor = "multi_thread")]
-async fn mutual_recursion_pins_bottom_revert_line() -> anyhow::Result<()> {
-    let (provider, from, output) = stack_trace_scenarios_provider()?;
+async fn mutual_recursion_pins_bottom_revert_line(compiler: Compiler) -> anyhow::Result<()> {
+    let (provider, from, output) = stack_trace_scenarios_provider(compiler)?;
     let a = deploy_stack_trace_scenario(&provider, from, &output, "MutualA")?;
     let b = deploy_stack_trace_scenario(&provider, from, &output, "MutualB")?;
     send_ok(
@@ -872,9 +937,10 @@ async fn mutual_recursion_pins_bottom_revert_line() -> anyhow::Result<()> {
 /// must resolve `inheritedFail` through the base contract's AST
 /// (`linearizedBaseContracts` across files) and the revert must point into
 /// the base's own source.
-#[tokio::test(flavor = "multi_thread")]
-async fn inherited_function_revert_points_into_the_base_source_file() -> anyhow::Result<()> {
-    let (provider, from, output) = stack_trace_scenarios_provider()?;
+async fn inherited_function_revert_points_into_the_base_source_file(
+    compiler: Compiler,
+) -> anyhow::Result<()> {
+    let (provider, from, output) = stack_trace_scenarios_provider(compiler)?;
     let addr = deploy_stack_trace_scenario(&provider, from, &output, "InheritsBase")?;
     let stack_trace =
         expect_failed_call_stack_trace(&provider, from, addr, call("inheritedFail()"));
@@ -893,9 +959,9 @@ async fn inherited_function_revert_points_into_the_base_source_file() -> anyhow:
     Ok(())
 }
 
-#[tokio::test(flavor = "multi_thread")]
-async fn internal_helper_revert_points_at_helper_require() -> anyhow::Result<()> {
+async fn internal_helper_revert_points_at_helper_require(compiler: Compiler) -> anyhow::Result<()> {
     expect_scenario_revert(
+        compiler,
         "InternalHelperChain",
         encode_call_u256("set(uint256)", 0),
         254,
@@ -904,18 +970,18 @@ async fn internal_helper_revert_points_at_helper_require() -> anyhow::Result<()>
     Ok(())
 }
 
-#[tokio::test(flavor = "multi_thread")]
-async fn internal_library_revert_points_into_library() -> anyhow::Result<()> {
-    expect_scenario_revert("UsesInternalLib", call("go()"), 260, "lib boom")?;
+async fn internal_library_revert_points_into_library(compiler: Compiler) -> anyhow::Result<()> {
+    expect_scenario_revert(compiler, "UsesInternalLib", call("go()"), 260, "lib boom")?;
     Ok(())
 }
 
 /// External (public) library function reached through a linked contract:
 /// exercises `linkReferences` placeholder substitution and DELEGATECALL
 /// frame decoding into the library's own debugInfo.
-#[tokio::test(flavor = "multi_thread")]
-async fn linked_external_library_revert_points_into_library() -> anyhow::Result<()> {
-    let (provider, from, output) = stack_trace_scenarios_provider()?;
+async fn linked_external_library_revert_points_into_library(
+    compiler: Compiler,
+) -> anyhow::Result<()> {
+    let (provider, from, output) = stack_trace_scenarios_provider(compiler)?;
     let library = deploy_stack_trace_scenario(&provider, from, &output, "ExternalLib")?;
 
     let unlinked = &output
@@ -940,9 +1006,9 @@ async fn linked_external_library_revert_points_into_library() -> anyhow::Result<
     Ok(())
 }
 
-#[tokio::test(flavor = "multi_thread")]
-async fn fallback_revert_points_at_fallback_body() -> anyhow::Result<()> {
+async fn fallback_revert_points_at_fallback_body(compiler: Compiler) -> anyhow::Result<()> {
     expect_scenario_revert(
+        compiler,
         "FallbackReverts",
         call("nonExistent()"),
         272,
@@ -951,17 +1017,22 @@ async fn fallback_revert_points_at_fallback_body() -> anyhow::Result<()> {
     Ok(())
 }
 
-#[tokio::test(flavor = "multi_thread")]
-async fn receive_revert_points_at_receive_body() -> anyhow::Result<()> {
-    expect_scenario_revert("ReceiveReverts", Bytes::new(), 278, "receive boom")?;
+async fn receive_revert_points_at_receive_body(compiler: Compiler) -> anyhow::Result<()> {
+    expect_scenario_revert(
+        compiler,
+        "ReceiveReverts",
+        Bytes::new(),
+        278,
+        "receive boom",
+    )?;
     Ok(())
 }
 
 // ---------- modifiers (fix_initial_modifier + strategy attribution) ----------
 
-#[tokio::test(flavor = "multi_thread")]
-async fn modifier_revert_points_at_modifier_require() -> anyhow::Result<()> {
+async fn modifier_revert_points_at_modifier_require(compiler: Compiler) -> anyhow::Result<()> {
     expect_scenario_revert(
+        compiler,
         "ModifierGuard",
         encode_call_u256("setIfPositive(uint256)", 0),
         214,
@@ -970,9 +1041,10 @@ async fn modifier_revert_points_at_modifier_require() -> anyhow::Result<()> {
     Ok(())
 }
 
-#[tokio::test(flavor = "multi_thread")]
-async fn nested_modifier_revert_points_at_the_failing_require() -> anyhow::Result<()> {
-    let (provider, from, output) = stack_trace_scenarios_provider()?;
+async fn nested_modifier_revert_points_at_the_failing_require(
+    compiler: Compiler,
+) -> anyhow::Result<()> {
+    let (provider, from, output) = stack_trace_scenarios_provider(compiler)?;
     let addr = deploy_stack_trace_scenario(&provider, from, &output, "ValidatedCounter")?;
     let stack_trace = expect_failed_call_stack_trace(
         &provider,
@@ -984,9 +1056,10 @@ async fn nested_modifier_revert_points_at_the_failing_require() -> anyhow::Resul
     Ok(())
 }
 
-#[tokio::test(flavor = "multi_thread")]
-async fn cross_contract_modifier_revert_keeps_called_function_frame() -> anyhow::Result<()> {
-    let (provider, from, output) = stack_trace_scenarios_provider()?;
+async fn cross_contract_modifier_revert_keeps_called_function_frame(
+    compiler: Compiler,
+) -> anyhow::Result<()> {
+    let (provider, from, output) = stack_trace_scenarios_provider(compiler)?;
     let addr = deploy_stack_trace_scenario(&provider, from, &output, "ValidatedCounterCaller")?;
     let stack_trace = expect_failed_call_stack_trace(
         &provider,
@@ -1006,9 +1079,10 @@ async fn cross_contract_modifier_revert_keeps_called_function_frame() -> anyhow:
     Ok(())
 }
 
-#[tokio::test(flavor = "multi_thread")]
-async fn bare_modifier_revert_attributes_to_the_revert_statement() -> anyhow::Result<()> {
-    let (provider, from, output) = stack_trace_scenarios_provider()?;
+async fn bare_modifier_revert_attributes_to_the_revert_statement(
+    compiler: Compiler,
+) -> anyhow::Result<()> {
+    let (provider, from, output) = stack_trace_scenarios_provider(compiler)?;
     let addr = deploy_stack_trace_scenario(&provider, from, &output, "GuardedBareRevert")?;
     let stack_trace = expect_failed_call_stack_trace(&provider, from, addr, call("fire()"));
     let anchor = assert_single_variant_anchor(
@@ -1029,9 +1103,10 @@ async fn bare_modifier_revert_attributes_to_the_revert_statement() -> anyhow::Re
 
 /// Resolves through `evm.bytecode.debugInfo` (creation code) rather than
 /// `evm.deployedBytecode.debugInfo`.
-#[tokio::test(flavor = "multi_thread")]
-async fn create_revert_surfaces_for_reverting_constructor() -> anyhow::Result<()> {
-    let (provider, from, output) = stack_trace_scenarios_provider()?;
+async fn create_revert_surfaces_for_reverting_constructor(
+    compiler: Compiler,
+) -> anyhow::Result<()> {
+    let (provider, from, output) = stack_trace_scenarios_provider(compiler)?;
     let stack_trace = expect_failed_deploy_stack_trace(
         &provider,
         from,
@@ -1041,9 +1116,10 @@ async fn create_revert_surfaces_for_reverting_constructor() -> anyhow::Result<()
     Ok(())
 }
 
-#[tokio::test(flavor = "multi_thread")]
-async fn create_revert_surfaces_through_constructor_helper() -> anyhow::Result<()> {
-    let (provider, from, output) = stack_trace_scenarios_provider()?;
+async fn create_revert_surfaces_through_constructor_helper(
+    compiler: Compiler,
+) -> anyhow::Result<()> {
+    let (provider, from, output) = stack_trace_scenarios_provider(compiler)?;
     let mut creation = creation_bytes(
         &output,
         STACK_TRACE_SCENARIOS_SOURCE,
@@ -1077,9 +1153,8 @@ fn assert_returndata_size_error_at_call_get(stack_trace: &[StackTraceEntry]) {
     );
 }
 
-#[tokio::test(flavor = "multi_thread")]
-async fn returndata_size_error_surfaces_at_call_site() -> anyhow::Result<()> {
-    let (provider, from, output) = stack_trace_scenarios_provider()?;
+async fn returndata_size_error_surfaces_at_call_site(compiler: Compiler) -> anyhow::Result<()> {
+    let (provider, from, output) = stack_trace_scenarios_provider(compiler)?;
     let callee = deploy_stack_trace_scenario(&provider, from, &output, "ReturnsNothing")?;
     let caller = deploy_stack_trace_scenario(&provider, from, &output, "ExpectsWord")?;
     let stack_trace = expect_failed_call_stack_trace(
@@ -1095,9 +1170,10 @@ async fn returndata_size_error_surfaces_at_call_site() -> anyhow::Result<()> {
 /// solc emits no EXTCODESIZE probe for returndata-expecting calls since
 /// 0.8.10, so a returndata failure — not `NoncontractAccountCalledError` —
 /// is the parity answer here.
-#[tokio::test(flavor = "multi_thread")]
-async fn noncontract_account_call_surfaces_as_returndata_size_error() -> anyhow::Result<()> {
-    let (provider, from, output) = stack_trace_scenarios_provider()?;
+async fn noncontract_account_call_surfaces_as_returndata_size_error(
+    compiler: Compiler,
+) -> anyhow::Result<()> {
+    let (provider, from, output) = stack_trace_scenarios_provider(compiler)?;
     let caller = deploy_stack_trace_scenario(&provider, from, &output, "ExpectsWord")?;
     let eoa = Address::repeat_byte(0x42);
     let stack_trace = expect_failed_call_stack_trace(
@@ -1112,9 +1188,10 @@ async fn noncontract_account_call_surfaces_as_returndata_size_error() -> anyhow:
 
 // ---------- mode-3 twins: pin the compat inference paths ----------
 
-#[tokio::test(flavor = "multi_thread")]
-async fn mode3_nested_modifier_revert_walks_back_to_the_failing_require() -> anyhow::Result<()> {
-    let (provider, from, output) = stack_trace_scenarios_mode3_provider()?;
+async fn mode3_nested_modifier_revert_walks_back_to_the_failing_require(
+    compiler: Compiler,
+) -> anyhow::Result<()> {
+    let (provider, from, output) = stack_trace_scenarios_mode3_provider(compiler)?;
     let addr = deploy_stack_trace_scenario(&provider, from, &output, "ValidatedCounter")?;
     let stack_trace = expect_failed_call_stack_trace(
         &provider,
@@ -1126,9 +1203,10 @@ async fn mode3_nested_modifier_revert_walks_back_to_the_failing_require() -> any
     Ok(())
 }
 
-#[tokio::test(flavor = "multi_thread")]
-async fn mode3_cross_contract_modifier_revert_keeps_called_function_frame() -> anyhow::Result<()> {
-    let (provider, from, output) = stack_trace_scenarios_mode3_provider()?;
+async fn mode3_cross_contract_modifier_revert_keeps_called_function_frame(
+    compiler: Compiler,
+) -> anyhow::Result<()> {
+    let (provider, from, output) = stack_trace_scenarios_mode3_provider(compiler)?;
     let addr = deploy_stack_trace_scenario(&provider, from, &output, "ValidatedCounterCaller")?;
     let stack_trace = expect_failed_call_stack_trace(
         &provider,
@@ -1152,9 +1230,10 @@ async fn mode3_cross_contract_modifier_revert_keeps_called_function_frame() -> a
 /// DWARF gives the bare-revert entry path no statement line, so the
 /// walk-back lands on the last statement that executed. Becomes 68 once
 /// solx emits statement lines there.
-#[tokio::test(flavor = "multi_thread")]
-async fn mode3_bare_modifier_revert_recovers_the_failing_function() -> anyhow::Result<()> {
-    let (provider, from, output) = stack_trace_scenarios_mode3_provider()?;
+async fn mode3_bare_modifier_revert_recovers_the_failing_function(
+    compiler: Compiler,
+) -> anyhow::Result<()> {
+    let (provider, from, output) = stack_trace_scenarios_mode3_provider(compiler)?;
     let addr = deploy_stack_trace_scenario(&provider, from, &output, "GuardedBareRevert")?;
     let stack_trace = expect_failed_call_stack_trace(&provider, from, addr, call("fire()"));
     let anchor = assert_single_variant_anchor(
@@ -1170,3 +1249,43 @@ async fn mode3_bare_modifier_revert_recovers_the_failing_function() -> anyhow::R
     );
     Ok(())
 }
+
+test_each_compiler!(
+    revert_error_surfaces_end_to_end_for_counter,
+    function_not_payable_error_surfaces,
+    unrecognized_function_without_fallback_error_surfaces,
+    missing_fallback_or_receive_error_surfaces,
+    fallback_not_payable_error_surfaces,
+    fallback_not_payable_and_no_receive_error_surfaces,
+    direct_library_call_error_surfaces,
+    invalid_params_error_surfaces_for_truncated_calldata,
+    panic_code_surfaces_for_assert_failure,
+    panic_code_surfaces_for_arithmetic_overflow,
+    panic_code_surfaces_for_division_by_zero,
+    panic_code_surfaces_for_invalid_enum_cast,
+    panic_code_surfaces_for_pop_on_empty_array,
+    panic_code_surfaces_for_array_out_of_bounds,
+    custom_error_decodes_name_and_args,
+    revert_line_discriminates_between_requires,
+    cross_contract_call_keeps_caller_frame,
+    external_recursion_keeps_one_frame_per_call,
+    internal_recursion_pins_bottom_revert_line,
+    mutual_recursion_pins_bottom_revert_line,
+    inherited_function_revert_points_into_the_base_source_file,
+    internal_helper_revert_points_at_helper_require,
+    internal_library_revert_points_into_library,
+    linked_external_library_revert_points_into_library,
+    fallback_revert_points_at_fallback_body,
+    receive_revert_points_at_receive_body,
+    modifier_revert_points_at_modifier_require,
+    nested_modifier_revert_points_at_the_failing_require,
+    cross_contract_modifier_revert_keeps_called_function_frame,
+    bare_modifier_revert_attributes_to_the_revert_statement,
+    create_revert_surfaces_for_reverting_constructor,
+    create_revert_surfaces_through_constructor_helper,
+    returndata_size_error_surfaces_at_call_site,
+    noncontract_account_call_surfaces_as_returndata_size_error,
+    mode3_nested_modifier_revert_walks_back_to_the_failing_require,
+    mode3_cross_contract_modifier_revert_keeps_called_function_frame,
+    mode3_bare_modifier_revert_recovers_the_failing_function,
+);

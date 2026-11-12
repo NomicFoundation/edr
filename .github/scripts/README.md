@@ -4,7 +4,7 @@ Scripts run by GitHub Actions, either with `node <file>.ts` or `require()`d from
 
 `pnpm test:workflows` and `pnpm tsc:workflows` cover this directory. In CI they are the `Test workflow scripts` step and part of `Run lint script`, both in `edr-ci.yml`'s `Build and lint` job. `test:workflows` deliberately runs _before_ `pnpm install`, which is what keeps the first rule below honest rather than aspirational.
 
-Everything in [`scripts/README.md`](../../scripts/README.md) applies, plus two constraints. Both come from how the workflows load these files: the regression benchmark and the compat-pin validation each check this directory out on its own, never run `pnpm install`, and then `require()` a module from a CommonJS context.
+Everything in [`scripts/README.md`](../../scripts/README.md) applies, plus two constraints. Both come from how the workflows load these files: the jobs that load them may have checked out only this directory, may not have run `pnpm install`, and then `require()` a module from a CommonJS context.
 
 **No dependencies.** Only `node:` builtins are available. There is no `node_modules` in those jobs.
 

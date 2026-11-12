@@ -1,0 +1,5 @@
+{
+  "pr": 8753,
+  "sha": "75cc86deafd02707cca64c04009069dde40fa94a",
+  "reason": "defaultTransactionGasLimit became optional in ProviderConfig (#1831)"
+}

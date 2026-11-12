@@ -18,13 +18,15 @@ use edr_inspector_bytecode::ExecutedBytecodeCollector;
 use edr_primitives::{Address, Bytes, HashMap, HashSet};
 use edr_receipt::{log::ExecutionLog, ExecutionResult};
 use edr_solidity::{
-    config::IncludeTraces, contract_decoder::ContractDecoder, tracing::SolidityTracingInspector,
+    config::IncludeTraces,
+    contract_decoder::ContractDecoder,
+    recorded_trace_arena::RecordedTraceArena,
+    tracing::{SolidityTracingInspector, SolidityTracingInspectorArgs},
 };
 use edr_state_api::State;
-use foundry_evm_traces::CallTraceArena;
 use parking_lot::RwLock;
 use revm_inspector::JournalExt;
-use revm_inspectors::tracing::{TracingInspector, TracingInspectorConfig};
+pub use revm_inspectors::tracing::StackSnapshotType;
 
 use crate::{
     console_log::ConsoleLogCollector,
@@ -49,7 +51,36 @@ pub struct ObservabilityConfig {
     pub include_call_traces: IncludeTraces,
     pub on_collected_coverage_fn: Option<Box<dyn SyncOnCollectedCoverageCallback>>,
     pub on_collected_gas_report_fn: Option<Box<dyn SyncOnCollectedGasReportCallback>>,
+    /// How much of the stack each recorded step carries.
+    pub record_stack: StackSnapshotType,
+    /// Records the full stack and memory while enabled. `record_stack` keeps
+    /// its configured value meanwhile.
     pub verbose_raw_tracing: bool,
+}
+
+impl ObservabilityConfig {
+    /// Whether recorded steps carry a memory snapshot.
+    pub fn records_memory(&self) -> bool {
+        self.verbose_raw_tracing
+    }
+
+    /// How much of the stack recorded steps carry.
+    pub fn recorded_stack(&self) -> StackSnapshotType {
+        recorded_stack(self.record_stack, self.verbose_raw_tracing)
+    }
+}
+
+/// How much of the stack recorded steps carry, given the configured amount and
+/// whether verbose raw tracing is enabled.
+pub const fn recorded_stack(
+    record_stack: StackSnapshotType,
+    verbose_raw_tracing: bool,
+) -> StackSnapshotType {
+    if verbose_raw_tracing {
+        StackSnapshotType::Full
+    } else {
+        record_stack
+    }
 }
 
 impl Debug for ObservabilityConfig {
@@ -65,7 +96,8 @@ impl Debug for ObservabilityConfig {
                 "on_collected_gas_report_fn",
                 &self.on_collected_gas_report_fn.is_some(),
             )
-            .field("verbose_raw_traces", &self.verbose_raw_tracing)
+            .field("record_stack", &self.record_stack)
+            .field("verbose_raw_tracing", &self.verbose_raw_tracing)
             .finish()
     }
 }
@@ -77,7 +109,8 @@ pub struct EvmObserverConfig {
     pub include_call_traces: IncludeTraces,
     pub contract_decoder: Arc<RwLock<ContractDecoder>>,
     pub on_collected_coverage_fn: Option<Box<dyn SyncOnCollectedCoverageCallback>>,
-    pub verbose_raw_tracing: bool,
+    pub record_memory: bool,
+    pub record_stack: StackSnapshotType,
 }
 
 impl EvmObserverConfig {
@@ -91,7 +124,18 @@ impl EvmObserverConfig {
             contract_decoder,
             include_call_traces: config.include_call_traces,
             on_collected_coverage_fn: config.on_collected_coverage_fn.clone(),
-            verbose_raw_tracing: config.verbose_raw_tracing,
+            record_memory: config.records_memory(),
+            record_stack: config.recorded_stack(),
+        }
+    }
+}
+
+impl From<&EvmObserverConfig> for SolidityTracingInspectorArgs {
+    fn from(config: &EvmObserverConfig) -> Self {
+        Self {
+            contract_decoder: config.contract_decoder.clone(),
+            record_memory: config.record_memory,
+            record_stack: config.record_stack,
         }
     }
 }
@@ -134,9 +178,9 @@ impl JsonRpcError for EvmObserverCollectionError {
 pub struct EvmObservedData {
     /// Mapping of contract address to executed bytecode
     pub address_to_executed_code: HashMap<Address, Bytes>,
-    /// The call trace arena collected during execution, including ABI-decoded
+    /// The trace collected during execution, including ABI-decoded
     /// information.
-    pub call_trace_arena: CallTraceArena,
+    pub execution_trace: RecordedTraceArena,
     /// Encoded `console.log` call inputs
     pub encoded_console_logs: Vec<Bytes>,
 }
@@ -146,44 +190,35 @@ impl EvmObservedData {
         self,
         include: IncludeTraces,
         is_success: bool,
-    ) -> Option<CallTraceArena> {
+    ) -> Option<RecordedTraceArena> {
         include
             .should_include(|| !is_success)
-            .then_some(self.call_trace_arena)
+            .then_some(self.execution_trace)
     }
 }
 
 impl EvmObserver {
     /// Creates a new instance with the provided configuration.
     pub fn new(config: EvmObserverConfig) -> Self {
+        // The tracing inspector must be created unconditionally: the
+        // recorded traces are needed to generate stack traces for
+        // transaction failures (see `get_stack_trace`) and to detect
+        // internal out-of-gas errors during gas estimation (see
+        // `has_internal_oog`). Whether traces are also included in
+        // responses is decided separately, according to
+        // `include_call_traces`.
+        let tracing_inspector = SolidityTracingInspector::new((&config).into());
+
         let code_coverage = config
             .on_collected_coverage_fn
             .map(CodeCoverageReporter::new);
-
-        let tracing_config = if config.verbose_raw_tracing {
-            TracingInspectorConfig::all()
-        } else {
-            TracingInspectorConfig::default_parity()
-                .set_steps(true)
-                .set_record_logs(true)
-        };
 
         Self {
             bytecode_collector: ExecutedBytecodeCollector::default(),
             code_coverage,
             console_logger: ConsoleLogCollector::default(),
             mocker: Mocker::new(config.call_override.clone()),
-            // The tracing inspector must be created unconditionally: the
-            // recorded traces are needed to generate stack traces for
-            // transaction failures (see `get_stack_trace`) and to detect
-            // internal out-of-gas errors during gas estimation (see
-            // `has_internal_oog`). Whether traces are also included in
-            // responses is decided separately, according to
-            // `include_call_traces`.
-            tracing_inspector: SolidityTracingInspector::new(
-                TracingInspector::new(tracing_config),
-                config.contract_decoder,
-            ),
+            tracing_inspector,
         }
     }
 
@@ -207,13 +242,13 @@ impl EvmObserver {
         }
 
         let address_to_executed_code = bytecode_collector.collect();
-        let call_trace_arena = tracing_inspector
+        let execution_trace = tracing_inspector
             .collect(&address_to_executed_code, precompile_addresses)
             .map_err(EvmObserverCollectionError::AbiDecoding)?;
 
         Ok(EvmObservedData {
             address_to_executed_code,
-            call_trace_arena,
+            execution_trace,
             encoded_console_logs: console_logger.into_encoded_messages(),
         })
     }
@@ -238,7 +273,7 @@ impl EvmObserver {
                 .map_err(EvmObserverCollectionError::OnCollectedCoverageCallback)?;
         }
 
-        let call_trace_arena = tracing_inspector
+        let execution_trace = tracing_inspector
             .take(&address_to_executed_code, precompile_addresses)
             .map_err(EvmObserverCollectionError::AbiDecoding)?;
 
@@ -246,7 +281,7 @@ impl EvmObserver {
 
         Ok(EvmObservedData {
             address_to_executed_code,
-            call_trace_arena,
+            execution_trace,
             encoded_console_logs,
         })
     }
@@ -390,14 +425,14 @@ impl<ExecutionResultT: WithExecutionResult> ObservedExecution<ExecutionResultT> 
     /// Consumes the observed execution, returning the execution result and the
     /// call traces filtered by the observability configuration, using the
     /// EVM-level success of the execution as the success criteria.
-    pub fn into_result_and_filtered_traces(self) -> (ExecutionResultT, Option<CallTraceArena>) {
+    pub fn into_result_and_filtered_traces(self) -> (ExecutionResultT, Option<RecordedTraceArena>) {
         let is_success = self.execution_result.result().is_success();
 
-        let call_trace_arena = self
+        let execution_trace = self
             .evm_observed_data
             .into_call_traces(self.include_call_traces, is_success);
 
-        (self.execution_result, call_trace_arena)
+        (self.execution_result, execution_trace)
     }
 }
 
