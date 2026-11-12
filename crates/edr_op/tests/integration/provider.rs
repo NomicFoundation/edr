@@ -367,5 +367,34 @@ mod base_fee_params {
             assert_eq!(block_base_fee_params.elasticity_multiplier, 4);
             Ok(())
         }
+
+        /// Forks OP Sepolia, whose base fee params differ from the default
+        /// (OP Mainnet's), to check new blocks use the remote chain's.
+        #[tokio::test(flavor = "multi_thread")]
+        async fn provider_uses_remote_chain_base_fee_params_with_default_chain_id(
+        ) -> anyhow::Result<()> {
+            let sepolia_dynamic_base_fee_activation = 26_806_602;
+            let mut config =
+                create_test_config_with(MinimalProviderConfig::fork_with_accounts(ForkConfig {
+                    block_number: Some(sepolia_dynamic_base_fee_activation),
+                    cache_dir: edr_defaults::CACHE_DIR.into(),
+                    chain_overrides: HashMap::default(),
+                    http_headers: None,
+                    url: json_rpc_url_provider::op_sepolia(),
+                }));
+            config.hardfork = Hardfork::Holocene;
+
+            let provider = create_op_provider(config)?;
+
+            trigger_mining_block(&provider)?;
+            let latest_block = latest_block(&provider)?;
+
+            let block_base_fee_params = edr_op::block::decode_base_params(&latest_block.extra_data);
+
+            // OP Sepolia's values from `sepolia_dynamic_base_fee_activation`
+            assert_eq!(block_base_fee_params.max_change_denominator, 250);
+            assert_eq!(block_base_fee_params.elasticity_multiplier, 2);
+            Ok(())
+        }
     }
 }
