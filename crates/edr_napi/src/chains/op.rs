@@ -120,7 +120,7 @@ impl FromStr for OpHardfork {
             edr_op::Hardfork::Holocene => Ok(OpHardfork::Holocene),
             edr_op::Hardfork::Isthmus => Ok(OpHardfork::Isthmus),
             // Not exposed over N-API yet.
-            edr_op::Hardfork::Jovian | edr_op::Hardfork::Lagoon => Err(unsupported()),
+            edr_op::Hardfork::Jovian => Err(unsupported()),
         }
     }
 }
