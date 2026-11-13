@@ -68,3 +68,6 @@ where
 
     Ok((result, execution_traces))
 }
+
+#[cfg(test)]
+mod tests;
