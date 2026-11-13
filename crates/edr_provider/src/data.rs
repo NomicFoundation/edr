@@ -3037,7 +3037,7 @@ fn create_forked_blockchain_and_state<
         },
     )?;
 
-    let block_config = block_config::<ChainSpecT>(config, blockchain.protocol_chain_config());
+    let block_config = block_config::<ChainSpecT>(config, blockchain.remote_chain_config());
 
     let fork_block_number = blockchain.last_block_number();
 
@@ -3170,20 +3170,20 @@ fn create_forked_blockchain_and_state<
 }
 
 /// Builds the config for new blocks, following the protocol parameters of
-/// `protocol_chain_config`, if any.
+/// `chain_config`, if any.
 fn block_config<ChainSpecT: ProviderChainSpec>(
     config: &ProviderConfig<ChainSpecT::ProtocolHardfork>,
-    protocol_chain_config: Option<&ChainConfig<ChainSpecT::ProtocolHardfork>>,
+    chain_config: Option<&ChainConfig<ChainSpecT::ProtocolHardfork>>,
 ) -> BlockConfig<ChainSpecT::ProtocolHardfork> {
     let base_fee_params = config.base_fee_params.clone().unwrap_or_else(|| {
-        protocol_chain_config.map_or_else(
+        chain_config.map_or_else(
             || ChainSpecT::default_base_fee_params().clone(),
             |chain_config| chain_config.base_fee_params.clone(),
         )
     });
 
     let scheduled_blob_params =
-        protocol_chain_config.and_then(|chain_config| chain_config.bpo_hardfork_schedule.clone());
+        chain_config.and_then(|chain_config| chain_config.bpo_hardfork_schedule.clone());
 
     BlockConfig {
         base_fee_params,

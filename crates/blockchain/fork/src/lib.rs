@@ -205,7 +205,7 @@ pub struct ForkedBlockchain<
     >,
     network_id: u64,
     _phantom: PhantomData<fn() -> BlockT>,
-    protocol_chain_config: Option<ChainConfig<HardforkT>>,
+    remote_chain_config: Option<ChainConfig<HardforkT>>,
     // We can force caching here because we only fork from a safe block number.
     #[allow(clippy::type_complexity)]
     remote: RemoteBlockchain<
@@ -363,7 +363,7 @@ impl<
             fork_block_number,
             network_id,
             hardfork,
-            protocol_chain_config: chain_config.cloned(),
+            remote_chain_config: chain_config.cloned(),
             _phantom: PhantomData,
         })
     }
@@ -399,13 +399,13 @@ impl<
 
     /// Returns the remote chain's config, if known. Blocks mined on top of the
     /// fork follow its protocol parameters.
-    pub fn protocol_chain_config(&self) -> Option<&ChainConfig<HardforkT>> {
-        self.protocol_chain_config.as_ref()
+    pub fn remote_chain_config(&self) -> Option<&ChainConfig<HardforkT>> {
+        self.remote_chain_config.as_ref()
     }
 
     /// Returns the remote chain's hardfork activations, ignoring empty ones.
     fn hardfork_activations(&self) -> Option<&HardforkActivations<HardforkT>> {
-        self.protocol_chain_config
+        self.remote_chain_config
             .as_ref()
             .map(|chain_config| &chain_config.hardfork_activations)
             .filter(|hardfork_activations| !hardfork_activations.is_empty())
