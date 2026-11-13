@@ -30,13 +30,14 @@ use edr_blockchain_api::{
     BlockHashByNumber, BlockchainMetadata, GetBlockchainBlock as _, StateAtBlock as _,
 };
 use edr_blockchain_fork::ForkedBlockchainCreationError as ForkedCreationError;
-use edr_chain_config::ChainConfig;
+use edr_chain_config::{ChainConfig, ChainOverride};
 use edr_chain_spec::{
     BlockEnvConstructor as _, ChainSpec, EvmSpecId, ExecutableTransaction, HaltReasonTrait,
     TransactionValidation,
 };
 use edr_chain_spec_block::BlockChainSpec;
 use edr_chain_spec_evm::{config::EvmConfig, result::ExecutionResult, CfgEnv};
+use edr_chain_spec_provider::ProviderChainSpec;
 use edr_eip1559::BaseFeeParams;
 use edr_eip7892::ScheduledBlobParams;
 use edr_eip8037::TransactionGasBounds;
@@ -51,7 +52,7 @@ use edr_gas_report::{GasReport, GasReportCreationError, SyncOnCollectedGasReport
 use edr_mem_pool::{account_next_nonce, MemPool, OrderedTransaction};
 use edr_precompile::PrecompileFn;
 use edr_primitives::{
-    Address, Bytecode, Bytes, HashMap, HashSet, StorageKey, B256, KECCAK_EMPTY, U256,
+    Address, Bytecode, Bytes, ChainId, HashMap, HashSet, StorageKey, B256, KECCAK_EMPTY, U256,
 };
 use edr_receipt::{log::FilterLog, ExecutionReceipt, ReceiptTrait as _};
 use edr_rpc_eth::client::{EthRpcClient, EthRpcClientForChainSpec, HeaderMap};
@@ -2958,6 +2959,32 @@ struct BlockchainAndState<ChainSpecT: BlockChainSpec> {
     next_block_base_fee_per_gas: Option<u128>,
 }
 
+/// Returns the chain spec's configs with `chain_overrides` applied.
+fn chain_configs_with_overrides<ChainSpecT: ProviderChainSpec>(
+    config: &ProviderConfig<ChainSpecT::ProtocolHardfork>,
+    chain_overrides: &HashMap<ChainId, ChainOverride<ChainSpecT::ProtocolHardfork>>,
+) -> HashMap<ChainId, ChainConfig<ChainSpecT::ProtocolHardfork>> {
+    let mut chain_configs = ChainSpecT::chain_configs().clone();
+    for (chain_id, chain_override) in chain_overrides {
+        chain_configs
+            .entry(*chain_id)
+            .and_modify(|chain_config| chain_config.apply_override(chain_override))
+            .or_insert_with(|| ChainConfig {
+                name: chain_override.name.clone(),
+                hardfork_activations: chain_override
+                    .hardfork_activation_overrides
+                    .clone()
+                    .unwrap_or_default(),
+                base_fee_params: config
+                    .base_fee_params
+                    .clone()
+                    .unwrap_or_else(|| ChainSpecT::default_base_fee_params().clone()),
+                bpo_hardfork_schedule: None,
+            });
+    }
+    chain_configs
+}
+
 fn create_forked_blockchain_and_state<
     ChainSpecT: SyncProviderSpec<TimerT>,
     TimerT: Clone + TimeSinceEpoch,
@@ -2989,48 +3016,14 @@ fn create_forked_blockchain_and_state<
         http_headers.clone(),
     )?);
 
-    let mut chain_configs = ChainSpecT::chain_configs().clone();
-    for (chain_id, chain_override) in fork_config.chain_overrides.iter() {
-        chain_configs
-            .entry(*chain_id)
-            .and_modify(|chain_config| chain_config.apply_override(chain_override))
-            .or_insert_with(|| ChainConfig {
-                name: chain_override.name.clone(),
-                hardfork_activations: chain_override
-                    .hardfork_activation_overrides
-                    .clone()
-                    .unwrap_or_default(),
-                base_fee_params: config
-                    .base_fee_params
-                    .clone()
-                    .unwrap_or_else(|| ChainSpecT::default_base_fee_params().clone()),
-                bpo_hardfork_schedule: None,
-            });
-    }
-
-    let scheduled_blob_params = chain_configs
-        .get(&config.chain_id)
-        .and_then(|chain_config| chain_config.bpo_hardfork_schedule.clone());
-
-    let base_fee_params = config.base_fee_params.clone().unwrap_or_else(|| {
-        chain_configs.get(&config.chain_id).cloned().map_or_else(
-            || ChainSpecT::default_base_fee_params().clone(),
-            |chain_config| chain_config.base_fee_params,
-        )
-    });
-
-    let block_config = BlockConfig {
-        base_fee_params,
-        default_difficulty_fn: ChainSpecT::default_block_difficulty,
-        hardfork: config.hardfork.clone(),
-        scheduled_blob_params,
-    };
+    let chain_configs =
+        chain_configs_with_overrides::<ChainSpecT>(config, &fork_config.chain_overrides);
 
     let (blockchain, mut irregular_state) = tokio::task::block_in_place(
         || -> Result<_, ForkedCreationError<ChainSpecT::ProtocolHardfork>> {
             let mut irregular_state = IrregularState::default();
             let blockchain = runtime.block_on(ForkedBlockchainForChainSpec::<ChainSpecT>::new(
-                block_config.hardfork.clone(),
+                config.hardfork.clone(),
                 runtime.clone(),
                 rpc_client.clone(),
                 &mut irregular_state,
@@ -3043,6 +3036,8 @@ fn create_forked_blockchain_and_state<
             Ok((blockchain, irregular_state))
         },
     )?;
+
+    let block_config = block_config::<ChainSpecT>(config, blockchain.remote_chain_config());
 
     let fork_block_number = blockchain.last_block_number();
 
@@ -3174,6 +3169,30 @@ fn create_forked_blockchain_and_state<
     })
 }
 
+/// Builds the config for new blocks, following the protocol parameters of
+/// `chain_config`, if any.
+fn block_config<ChainSpecT: ProviderChainSpec>(
+    config: &ProviderConfig<ChainSpecT::ProtocolHardfork>,
+    chain_config: Option<&ChainConfig<ChainSpecT::ProtocolHardfork>>,
+) -> BlockConfig<ChainSpecT::ProtocolHardfork> {
+    let base_fee_params = config.base_fee_params.clone().unwrap_or_else(|| {
+        chain_config.map_or_else(
+            || ChainSpecT::default_base_fee_params().clone(),
+            |chain_config| chain_config.base_fee_params.clone(),
+        )
+    });
+
+    let scheduled_blob_params =
+        chain_config.and_then(|chain_config| chain_config.bpo_hardfork_schedule.clone());
+
+    BlockConfig {
+        base_fee_params,
+        default_difficulty_fn: ChainSpecT::default_block_difficulty,
+        hardfork: config.hardfork.clone(),
+        scheduled_blob_params,
+    }
+}
+
 fn create_local_blockchain_and_state<
     ChainSpecT: SyncProviderSpec<TimerT>,
     TimerT: Clone + TimeSinceEpoch,
@@ -3218,24 +3237,8 @@ fn create_local_blockchain_and_state<
         })
         .collect();
 
-    let base_fee_params = config.base_fee_params.as_ref().unwrap_or_else(|| {
-        ChainSpecT::chain_configs()
-            .get(&config.chain_id)
-            .map_or_else(ChainSpecT::default_base_fee_params, |chain_config| {
-                &chain_config.base_fee_params
-            })
-    });
-
-    let scheduled_blob_params = ChainSpecT::chain_configs()
-        .get(&config.chain_id)
-        .and_then(|config| config.bpo_hardfork_schedule.clone());
-
-    let block_config = BlockConfig {
-        base_fee_params: base_fee_params.clone(),
-        default_difficulty_fn: ChainSpecT::default_block_difficulty,
-        hardfork: config.hardfork.clone(),
-        scheduled_blob_params,
-    };
+    let block_config =
+        block_config::<ChainSpecT>(config, ChainSpecT::chain_configs().get(&config.chain_id));
 
     let genesis_diff = StateDiff::from(genesis_state);
     let genesis_timestamp = if let Some(initial_time) = local_config.genesis_block_time {

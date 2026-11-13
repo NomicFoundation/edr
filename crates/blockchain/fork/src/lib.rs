@@ -197,7 +197,6 @@ pub struct ForkedBlockchain<
     chain_id: u64,
     fork_block_number: u64,
     hardfork: HardforkT,
-    hardfork_activations: Option<HardforkActivations<HardforkT>>,
     local_storage: ReservableSparseBlockStorage<
         Arc<BlockReceiptT>,
         Arc<LocalBlockT>,
@@ -206,6 +205,7 @@ pub struct ForkedBlockchain<
     >,
     network_id: u64,
     _phantom: PhantomData<fn() -> BlockT>,
+    remote_chain_config: Option<ChainConfig<HardforkT>>,
     // We can force caching here because we only fork from a safe block number.
     #[allow(clippy::type_complexity)]
     remote: RemoteBlockchain<
@@ -257,12 +257,10 @@ impl<
 {
     /// Constructs a new instance.
     ///
-    /// If the remote chain ID is found in the provided `chain_configs`, the
-    /// corresponding `ChainConfig` is used to determine hardfork activations
-    /// and base fee parameters.
-    ///
-    /// Otherwise, the base fee parameters from the [`BlockConfig`] will be used
-    /// as a default.
+    /// The remote chain's config, looked up in `chain_configs` by the remote
+    /// chain ID, provides the hardfork activations for pre-fork blocks and the
+    /// protocol parameters for blocks mined on top of the fork.
+    /// `chain_id_override` only sets the local chain's identity.
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     #[allow(clippy::too_many_arguments)]
     pub async fn new(
@@ -315,26 +313,14 @@ impl<
             rpc_client.get_block_by_number(PreEip1898BlockSpec::Number(fork_block_number));
 
         let chain_config = chain_configs.get(&remote_chain_id);
-        let hardfork_activations = chain_config.as_ref().and_then(
-            |ChainConfig {
-                 hardfork_activations,
-                 ..
-             }| {
-                // Ignore empty hardfork activations
-                if hardfork_activations.is_empty() {
-                    None
-                } else {
-                    Some(hardfork_activations.clone())
-                }
-            },
-        );
+        let hardfork_activations = hardfork_activations(chain_config);
 
         let fork_timestamp = fork_timestamp_future
             .await?
             .expect("Block must exist since block number is less than the latest block number.")
             .timestamp();
 
-        if let Some(hardfork_activations) = hardfork_activations.as_ref() {
+        if let Some(hardfork_activations) = hardfork_activations {
             let remote_hardfork = hardfork_activations
                 .hardfork_at_block(fork_block_number, fork_timestamp)
                 .ok_or_else(|| ForkedBlockchainCreationError::UnsupportedForkBlock {
@@ -365,7 +351,7 @@ impl<
             fork_block_number,
             network_id,
             hardfork,
-            hardfork_activations,
+            remote_chain_config: chain_config.cloned(),
             _phantom: PhantomData,
         })
     }
@@ -397,6 +383,12 @@ impl<
     /// Returns the chain id of the remote blockchain.
     pub fn remote_chain_id(&self) -> u64 {
         self.remote_chain_id
+    }
+
+    /// Returns the remote chain's config, if known. Blocks mined on top of the
+    /// fork follow its protocol parameters.
+    pub fn remote_chain_config(&self) -> Option<&ChainConfig<HardforkT>> {
+        self.remote_chain_config.as_ref()
     }
 
     fn runtime(&self) -> &runtime::Handle {
@@ -516,7 +508,9 @@ impl<
                     .map_err(ForkedBlockchainError::from)
             })
             .and_then(|block| {
-                if let Some(hardfork_activations) = &self.hardfork_activations {
+                if let Some(hardfork_activations) =
+                    hardfork_activations(self.remote_chain_config.as_ref())
+                {
                     let header = block.block_header();
                     hardfork_activations
                         .hardfork_at_block(header.number, header.timestamp)
@@ -1160,6 +1154,15 @@ impl<'a> From<&'a RecommendedForkBlockNumberArgs> for LargestSafeBlockNumberArgs
             latest_block_number: value.latest_block_number,
         }
     }
+}
+
+/// Returns the chain config's hardfork activations, ignoring empty ones.
+fn hardfork_activations<HardforkT>(
+    chain_config: Option<&ChainConfig<HardforkT>>,
+) -> Option<&HardforkActivations<HardforkT>> {
+    chain_config
+        .map(|chain_config| &chain_config.hardfork_activations)
+        .filter(|hardfork_activations| !hardfork_activations.is_empty())
 }
 
 /// Determines the recommended block number for forking a specific chain based
