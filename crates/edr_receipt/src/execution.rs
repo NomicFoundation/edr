@@ -88,9 +88,10 @@ where
             alloy_rlp::Header::decode(&mut temp_buf)?
         };
 
-        // The first value of the receipt is 1 byte long, which means it's the status
-        // code of an EIP-658 receipt.
-        if first_value_header.payload_length == 1 {
+        // The first value of an EIP-658 receipt is its status code: `0x80` (an empty
+        // string, payload length 0) for failure or `0x01` (payload length 1) for
+        // success. A legacy receipt's first value is a 32-byte state root.
+        if first_value_header.payload_length <= 1 {
             let receipt = Eip658::<LogT>::decode(buf)?;
             Ok(Self::Eip658(receipt))
         } else {
