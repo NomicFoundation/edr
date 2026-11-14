@@ -275,5 +275,15 @@ mod tests {
             deposit_nonce: 0x1234,
             deposit_receipt_version: Some(0x01),
         })),
+        deposit_zero_nonce => TypedEnvelope::Deposit(OpExecutionReceipt::Deposit(Deposit {
+            status: true,
+            cumulative_gas_used: 0xffff,
+            logs_bloom: Bloom::random(),
+            logs: vec![
+                ExecutionLog::new_unchecked(Address::random(), vec![B256::random(), B256::random()], Bytes::new()),
+            ],
+            deposit_nonce: 0,
+            deposit_receipt_version: Some(0x01),
+        })),
     }
 }
