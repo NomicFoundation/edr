@@ -4,11 +4,10 @@
 //   node --test .github/scripts/validate-hardhat-compat-pin.test.ts
 
 import assert from "node:assert/strict";
-import { mkdtempSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { writeFileSync } from "node:fs";
 import test from "node:test";
 
+import { tempPinPath } from "./fakes.ts";
 import type { PullRequest } from "./github-script.ts";
 import { validateHardhatCompatPin } from "./validate-hardhat-compat-pin.ts";
 
@@ -38,9 +37,7 @@ function makeDeps({
   comparison?: { status: string };
   unreadable?: boolean;
 } = {}) {
-  const dir = mkdtempSync(join(tmpdir(), "compat-pin-"));
-  // A directory in the pin's place reads as EISDIR, not ENOENT.
-  const pinPath = unreadable ? dir : join(dir, "hardhat-compat-pin.json");
+  const pinPath = tempPinPath({ unreadable });
   if (raw !== undefined) writeFileSync(pinPath, raw);
 
   const captured: Captured = {
@@ -161,8 +158,8 @@ test("merged PR passes with a remove-the-pin notice, skipping the sha check", as
     hardhatPr: { state: "closed", merged: true, head: { sha: HEAD_SHA } },
   });
   await validateHardhatCompatPin(deps);
-  assert.match(captured.notices.join("\n"), /already been merged/);
-  // The merged branch must return, not fall through into the closed branch.
+  assert.match(captured.notices.join("\n"), /can now be removed/);
+  // A merged PR must not also produce the closed-without-merging warning.
   assert.deepEqual(captured.warnings, []);
   assert.deepEqual(captured.compared, []);
 });
