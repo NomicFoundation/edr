@@ -263,7 +263,9 @@
   },
   "labels": ["dependencies", "no changeset needed"],
   "configMigration": true,
-  "dependencyDashboard": false,
+  "dependencyDashboard": {
+    "enabled": false
+  },
   "osvVulnerabilityAlerts": true,
   "vulnerabilityAlerts": {
     "enabled": true
