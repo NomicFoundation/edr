@@ -2897,8 +2897,8 @@ where
     ) -> Result<EstimateGasResult, ProviderErrorForChainSpec<ChainSpecT>> {
         let cfg_env = self.create_evm_config_at_block_spec(block_spec)?;
         // Minimum gas cost that is required for transaction to be included in
-        // a block
-        let spec_id = self.evm_spec_id();
+        // the target block, under that block's hardfork
+        let spec_id: EvmSpecId = cfg_env.spec.clone().into();
         let minimum_cost = transaction::calculate_initial_tx_gas_for_tx(
             &transaction,
             spec_id,

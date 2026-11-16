@@ -251,3 +251,65 @@ async fn plain_transfer_estimation_unchanged_with_no_internal_out_of_gas() -> an
 
     Ok(())
 }
+
+#[cfg(feature = "test-remote")]
+mod fork {
+    use edr_eip2930::AccessListItem;
+    use edr_eth::BlockSpec;
+    use edr_primitives::B256;
+
+    use super::*;
+    use crate::common::provider::{mainnet_fork_config, OSAKA_MAINNET_BLOCK_NUMBER};
+
+    /// Enough access list entries for Amsterdam's intrinsic gas (EIP-2780,
+    /// EIP-8038, EIP-7981) to exceed Osaka's, despite the lower base cost.
+    const ACCESS_LIST_ENTRIES: u8 = 20;
+
+    fn access_list() -> Vec<AccessListItem> {
+        (1..=ACCESS_LIST_ENTRIES)
+            .map(|index| AccessListItem {
+                address: Address::with_last_byte(index),
+                storage_keys: vec![B256::ZERO],
+            })
+            .collect()
+    }
+
+    /// Estimates a call to an EOA carrying an access list at the Osaka fork
+    /// block, on a provider whose local hardfork is `hardfork`.
+    fn estimate_access_list_transfer_at_osaka_block(
+        hardfork: edr_chain_l1::Hardfork,
+    ) -> anyhow::Result<u64> {
+        let mut config = mainnet_fork_config(OSAKA_MAINNET_BLOCK_NUMBER);
+        config.hardfork = hardfork;
+        let (provider, from) = new_provider(config)?;
+
+        let response = provider.handle_request(ProviderRequest::with_single(
+            MethodInvocation::EstimateGas(
+                L1CallRequest {
+                    from: Some(from),
+                    to: Some(Address::repeat_byte(0xee)),
+                    access_list: Some(access_list()),
+                    ..L1CallRequest::default()
+                },
+                Some(BlockSpec::Number(OSAKA_MAINNET_BLOCK_NUMBER)),
+            ),
+        ))?;
+
+        let gas: U64 = response.deserialize_result()?;
+        Ok(gas.to::<u64>())
+    }
+
+    /// An estimate at a historical block follows that block's hardfork, not
+    /// the provider's local one.
+    #[tokio::test(flavor = "multi_thread")]
+    async fn estimate_at_historical_block_follows_block_hardfork() -> anyhow::Result<()> {
+        let osaka_provider_estimate =
+            estimate_access_list_transfer_at_osaka_block(edr_chain_l1::Hardfork::Osaka)?;
+        let amsterdam_provider_estimate =
+            estimate_access_list_transfer_at_osaka_block(edr_chain_l1::Hardfork::Amsterdam)?;
+
+        assert_eq!(amsterdam_provider_estimate, osaka_provider_estimate);
+
+        Ok(())
+    }
+}
