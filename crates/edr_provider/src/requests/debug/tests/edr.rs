@@ -17,8 +17,59 @@
 //! - The spec does not define `debug_traceCall`, so EDR follows geth. It
 //!   defaults to the latest block, traces a creation without a recipient and
 //!   persists no state.
+//! - The spec's `StructLog` and `OpcodeTransactionTrace` schemas do not forbid
+//!   additional properties. EDR pins their field sets anyway. EDR serialises
+//!   alloy's `StructLog`, which revm-inspectors fills, verbatim. A field added
+//!   by either crate would reach every consumer of the trace. Such a field must
+//!   be deliberate and get a changeset. The test also asserts that the steps
+//!   together carry every field, so an empty or partial trace cannot pass it.
+//!   From Amsterdam, EDR adds the EIP-8037 `stateGasCost` and
+//!   `stateGasReservoir` fields deliberately, and the `eip8037` integration
+//!   tests pin them.
+
+use std::collections::BTreeSet;
 
 use super::*;
+
+/// The properties of the spec's `OpcodeTransactionTrace` schema.
+const TRACE_FIELDS: [&str; 4] = ["failed", "gas", "returnValue", "structLogs"];
+/// The properties of the spec's `StructLog` schema.
+const STRUCT_LOG_FIELDS: [&str; 11] = [
+    "pc",
+    "op",
+    "gas",
+    "gasCost",
+    "depth",
+    "error",
+    "refund",
+    "stack",
+    "memory",
+    "returnData",
+    "storage",
+];
+
+/// Gas cost of a cold account access, in gas units (EIP-2929).
+const COLD_ACCOUNT_ACCESS_COST: u64 = 2_600;
+/// Gas limit of a transaction to `caller_code` whose callee loops, in gas
+/// units. It pays the caller's cold `SSTORE` and cold `CALL`, and leaves
+/// `LOOP_GAS_BUDGET` for the caller's other steps and the callee. The callee
+/// exhausts all but the sixty-fourth that EIP-150 keeps back, and that share
+/// pays the caller's steps after the call.
+const CALLING_LOOP_GAS_LIMIT: u64 = TRANSACTION_BASE_GAS
+    + COLD_SLOAD_COST
+    + SSTORE_SET_GAS
+    + COLD_ACCOUNT_ACCESS_COST
+    + LOOP_GAS_BUDGET;
+
+/// Returns the keys of a JSON object, and panics when `object` is not one.
+fn keys(object: &Value) -> BTreeSet<&str> {
+    object
+        .as_object()
+        .unwrap_or_else(|| panic!("an object is expected, got {object}"))
+        .keys()
+        .map(String::as_str)
+        .collect()
+}
 
 #[test]
 fn undefined_opcode_is_reported_as_unknown() -> anyhow::Result<()> {
@@ -235,6 +286,48 @@ fn trace_call_does_not_persist_state() -> anyhow::Result<()> {
     assert_eq!(
         field(step_with_op(&trace, OpCode::SLOAD.as_str()), "storage"),
         &storage(&[(SLOT, UNSET_VALUE)])
+    );
+
+    Ok(())
+}
+
+#[test]
+fn trace_and_struct_logs_have_exactly_the_spec_fields() -> anyhow::Result<()> {
+    let mut fixture = TraceFixture::new(&[
+        (CONTRACT, &caller_code(CallKind::Call)),
+        (CALLEE, &INFINITE_LOOP_CODE),
+    ])?;
+    let transaction_hash = fixture.send(
+        TxKind::Call(CONTRACT),
+        &[],
+        CALLING_LOOP_GAS_LIMIT,
+        U256::ZERO,
+    )?;
+
+    let trace = fixture.trace_transaction(
+        transaction_hash,
+        Some(json!({ "enableMemory": true, "enableReturnData": true })),
+    )?;
+
+    assert_eq!(
+        keys(&trace),
+        BTreeSet::from(TRACE_FIELDS),
+        "the trace should carry only the OpcodeTransactionTrace fields"
+    );
+    let struct_log_fields = BTreeSet::from(STRUCT_LOG_FIELDS);
+    let mut step_fields = BTreeSet::new();
+    for step in struct_logs(&trace) {
+        for key in keys(step) {
+            assert!(
+                struct_log_fields.contains(key),
+                "`{key}` is not a spec field in {step}"
+            );
+            step_fields.insert(key);
+        }
+    }
+    assert_eq!(
+        step_fields, struct_log_fields,
+        "the steps should together exercise every StructLog field"
     );
 
     Ok(())
