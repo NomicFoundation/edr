@@ -301,6 +301,8 @@ mod fork {
 
     /// An estimate at a historical block follows that block's hardfork, not
     /// the provider's local one.
+    ///
+    /// Requirement: `eth_estimateGas.minimum-follows-block-hardfork`
     #[tokio::test(flavor = "multi_thread")]
     async fn estimate_at_historical_block_follows_block_hardfork() -> anyhow::Result<()> {
         let osaka_provider_estimate =
