@@ -292,7 +292,6 @@ mod fork {
         Ok(())
     }
 
-    /// Requirement: `hardfork-at-block.resolution`
     #[tokio::test(flavor = "multi_thread")]
     async fn call_without_gas_follows_the_executing_block_hardfork() -> anyhow::Result<()> {
         let provider = new_fork_gas_reporter_provider(
