@@ -17,7 +17,7 @@ use edr_block_api::{
     Block, BlockAndTotalDifficulty, FetchBlockReceipts as _, GenesisBlockFactory,
     GenesisBlockOptions,
 };
-use edr_block_builder_api::{BuiltBlockAndState, DatabaseComponents, WrapDatabaseRef};
+use edr_block_builder_api::BuiltBlockAndState;
 use edr_block_header::{
     calculate_next_base_fee_per_blob_gas, BlockConfig, BlockHeader, HeaderOverrides,
 };
@@ -47,8 +47,9 @@ use edr_eth::{
     reward_percentile::RewardPercentile,
     BlockSpec, BlockTag, Eip1898BlockSpec,
 };
-use edr_evm::{guaranteed_dry_run_with_inspector, ExecutionResultWithMetadata};
+use edr_evm::{set_guarantees, ExecutionResultWithMetadata};
 use edr_gas_report::{GasReport, GasReportCreationError, SyncOnCollectedGasReportCallback};
+use edr_inspection::{DebugTraceRequest, InspectedExecution, InspectionError, InspectionRequest};
 use edr_mem_pool::{account_next_nonce, MemPool, OrderedTransaction};
 use edr_precompile::PrecompileFn;
 use edr_primitives::{
@@ -57,7 +58,6 @@ use edr_primitives::{
 use edr_receipt::{log::FilterLog, ExecutionReceipt, ReceiptTrait as _};
 use edr_rpc_eth::client::{EthRpcClient, EthRpcClientForChainSpec, HeaderMap};
 use edr_runtime::{
-    inspector::DualInspector,
     overrides::{StateOverrides, StateRefOverrider},
     transaction,
 };
@@ -83,7 +83,6 @@ use indexmap::IndexMap;
 use itertools::izip;
 use lru::LruCache;
 use parking_lot::RwLock;
-use revm_inspectors::tracing::DebugInspector;
 use rpds::HashTrieMapSync;
 use tokio::runtime;
 
@@ -105,8 +104,8 @@ use crate::{
     logger::SyncLogger,
     mock::SyncCallOverride,
     observability::{
-        observe_execution, EvmObservedData, EvmObserver, EvmObserverConfig, ObservabilityConfig,
-        ObservedExecution,
+        evm_observer_config, observe_execution, EvmObservedData, EvmObserver, EvmObserverConfig,
+        ObservabilityConfig, ObservedExecution,
     },
     pending::BlockchainWithPending,
     requests::hardhat::rpc_types::ForkMetadata,
@@ -1691,7 +1690,7 @@ where
                 .or_else(|| Some(self.parent_beacon_block_root_generator.next_value()));
         }
 
-        let mut evm_observer = EvmObserver::new(EvmObserverConfig::new(
+        let mut evm_observer = EvmObserver::new(evm_observer_config(
             &self.observability,
             self.contract_decoder.clone(),
         ));
@@ -2003,14 +2002,12 @@ where
     ) -> Result<DebugTraceResultWithCallTraces, ProviderErrorForChainSpec<ChainSpecT>> {
         let cfg_env = self.create_evm_config_at_block_spec(block_spec)?;
 
-        let mut debug_inspector = DebugInspector::new(tracing_options)
-            .map_err(DebugTraceError::from_debug_inspector_creation_error)?;
-
         // Disable call overrides for `debug_traceCall`
         let observer_config = EvmObserverConfig {
             call_override: None,
-            ..EvmObserverConfig::new(&self.observability, self.contract_decoder.clone())
+            ..evm_observer_config(&self.observability, self.contract_decoder.clone())
         };
+        let include_call_traces = observer_config.include_call_traces;
 
         let custom_precompiles = self.precompile_overrides.clone();
 
@@ -2022,39 +2019,41 @@ where
                 scheduled_blob_params.as_ref(),
             ));
 
-            let observed_execution = observe_execution(&observer_config, |observer| {
-                guaranteed_dry_run_with_inspector::<ChainSpecT, _, _, _, _>(
-                    blockchain,
-                    state.as_ref(),
-                    cfg_env,
-                    transaction.clone(),
-                    &block_env,
-                    &custom_precompiles,
-                    &mut DualInspector::new(&mut debug_inspector, observer),
-                )
-                .map_err(ProviderError::RunTransaction)
+            let mut cfg_env = cfg_env;
+            set_guarantees(&mut cfg_env);
+
+            let request = InspectionRequest {
+                observer: observer_config,
+                debug_trace: Some(DebugTraceRequest {
+                    options: tracing_options,
+                    context: None,
+                }),
+            };
+
+            let InspectedExecution {
+                execution,
+                observed,
+                geth_trace,
+            } = ChainSpecT::dry_run_with_inspection(
+                blockchain,
+                state.as_ref(),
+                cfg_env,
+                transaction,
+                &block_env,
+                &custom_precompiles,
+                request,
+            )
+            .map_err(|error| match error {
+                InspectionError::Transaction(error) => ProviderError::RunTransaction(error),
+                InspectionError::Collection(error) => ProviderError::from(error),
+                error => ProviderError::DebugTrace(DebugTraceError::from_inspection_error(error)),
             })?;
 
-            let mut database = WrapDatabaseRef(DatabaseComponents {
-                blockchain,
-                state: state.as_ref(),
-            });
-
-            let (execution_result, execution_trace) =
-                observed_execution.into_result_and_filtered_traces();
-
-            let geth_trace = debug_inspector
-                .get_result(
-                    None,
-                    &transaction,
-                    &block_env,
-                    &execution_result.into_result_and_state(),
-                    &mut database,
-                )
-                .map_err(DebugTraceError::from_debug_inspector_result_error)?;
+            let execution_trace =
+                observed.into_call_traces(include_call_traces, execution.result.is_success());
 
             Ok(DebugTraceResultWithCallTraces {
-                result: geth_trace,
+                result: geth_trace.expect("a debug trace was requested"),
                 execution_traces: execution_trace.into_iter().collect(),
             })
         })?
@@ -2493,7 +2492,7 @@ where
 
         let custom_precompiles = self.precompile_overrides.clone();
         let observer_config =
-            EvmObserverConfig::new(&self.observability, self.contract_decoder.clone());
+            evm_observer_config(&self.observability, self.contract_decoder.clone());
 
         let gas_report_args =
             self.observability
@@ -2817,7 +2816,7 @@ where
         let prev_block_spec = Some(BlockSpec::Number(prev_block_number));
         let observer_config = EvmObserverConfig {
             call_override: None,
-            ..EvmObserverConfig::new(&self.observability, self.contract_decoder.clone())
+            ..evm_observer_config(&self.observability, self.contract_decoder.clone())
         };
 
         let scheduled_blob_params = self.scheduled_blob_params().cloned();
@@ -2908,7 +2907,7 @@ where
 
         let custom_precompiles = self.precompile_overrides.clone();
         let observer_config =
-            EvmObserverConfig::new(&self.observability, self.contract_decoder.clone());
+            evm_observer_config(&self.observability, self.contract_decoder.clone());
 
         let contract_decoder = Arc::clone(&self.contract_decoder);
         let scheduled_blob_params = self.scheduled_blob_params().cloned();
@@ -3766,7 +3765,7 @@ mod tests {
             let transaction = resolve_call_request(data, request, &block_spec, &state_overrides)?;
             let cfg_env = data.create_evm_config_at_block_spec(&block_spec)?;
             let observer_config =
-                EvmObserverConfig::new(&data.observability, data.contract_decoder.clone());
+                evm_observer_config(&data.observability, data.contract_decoder.clone());
             let custom_precompiles = data.precompile_overrides.clone();
             let scheduled_blob_params = data.scheduled_blob_params().cloned();
 

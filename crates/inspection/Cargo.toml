@@ -1,0 +1,30 @@
+[package]
+name = "edr_inspection"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+alloy-rpc-types-trace.workspace = true
+dyn-clone.workspace = true
+edr_block_miner.workspace = true
+edr_blockchain_api.workspace = true
+edr_chain_spec.workspace = true
+edr_chain_spec_evm.workspace = true
+edr_coverage.workspace = true
+edr_database_components.workspace = true
+edr_evm.workspace = true
+edr_inspector_bytecode.workspace = true
+edr_precompile.workspace = true
+edr_primitives.workspace = true
+edr_receipt.workspace = true
+edr_runtime.workspace = true
+edr_solidity.workspace = true
+edr_state_api.workspace = true
+parking_lot.workspace = true
+revm-inspector.workspace = true
+revm-inspectors.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+
+[lints]
+workspace = true

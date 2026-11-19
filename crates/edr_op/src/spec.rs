@@ -8,6 +8,7 @@ use edr_block_header::{
 };
 use edr_block_local::LocalBlockCreationError;
 use edr_block_remote::FetchRemoteReceiptError;
+use edr_blockchain_api::BlockHashByNumber;
 use edr_chain_config::ChainConfig;
 use edr_chain_l1::rpc::{call::L1CallRequest, TransactionRequest};
 use edr_chain_spec::{
@@ -16,26 +17,30 @@ use edr_chain_spec::{
 };
 use edr_chain_spec_block::BlockChainSpec;
 use edr_chain_spec_evm::{
-    handler::EthInstructions, to_evm_cfg_env, Context, ContextForChainSpec, Database, Evm,
-    EvmChainSpec, ExecuteEvm as _, ExecutionResultAndState, InspectEvm as _, InterpreterResult,
-    LocalContext, PrecompileProvider, TransactionError,
+    handler::EthInstructions, to_evm_cfg_env, BlockEnvTrait, Context, ContextForChainSpec,
+    Database, Evm, EvmChainSpec, ExecuteEvm as _, ExecutionResultAndState, InspectEvm as _,
+    InterpreterResult, LocalContext, PrecompileProvider, TransactionError,
 };
 use edr_chain_spec_provider::ProviderChainSpec;
 use edr_chain_spec_receipt::ReceiptChainSpec;
 use edr_chain_spec_rpc::{RpcBlockChainSpec, RpcChainSpec};
 use edr_eip1559::BaseFeeParams;
 use edr_eip7892::ScheduledBlobParams;
+use edr_inspection::{
+    InspectedExecution, InspectionChainSpec, InspectionErrorForChainSpec, InspectionRequest,
+};
 use edr_napi_core::{
     napi,
     spec::{cast_provider_result_to_response, SyncNapiSpec},
 };
-use edr_primitives::{HashMap, U256};
+use edr_precompile::PrecompileFn;
+use edr_primitives::{Address, HashMap, U256};
 use edr_provider::{
     time::TimeSinceEpoch, ProviderErrorForChainSpec, ProviderSpec, ResponseWithCallTraces,
     TransactionFailureReason,
 };
 use edr_receipt::ExecutionReceiptChainSpec;
-use edr_state_api::{StateDebug as _, StateDiff};
+use edr_state_api::{State, StateDebug as _, StateDiff};
 use edr_state_persistent_trie::PersistentStateTrie;
 use op_revm::{precompiles::OpPrecompiles, L1BlockInfo, OpEvm};
 use revm_context::{result::EVMError, CfgEnv, Journal, JournalTr as _};
@@ -213,6 +218,35 @@ impl EvmChainSpec for OpChainSpec {
         ));
 
         evm.inspect_tx(transaction).map_err(cast_evm_error)
+    }
+}
+
+impl InspectionChainSpec for OpChainSpec {
+    fn dry_run_with_inspection<
+        BlockT: BlockEnvTrait,
+        BlockchainT: BlockHashByNumber<Error: 'static + std::error::Error + Send + Sync> + Clone,
+        StateT: State<Error: 'static + std::error::Error + Send + Sync> + Clone,
+    >(
+        blockchain: BlockchainT,
+        state: StateT,
+        cfg: CfgEnv<Self::ProtocolHardfork>,
+        transaction: Self::SignedTransaction,
+        block: BlockT,
+        custom_precompiles: &HashMap<Address, PrecompileFn>,
+        request: InspectionRequest,
+    ) -> Result<
+        InspectedExecution<Self::HaltReason>,
+        InspectionErrorForChainSpec<Self, BlockchainT::Error, StateT::Error>,
+    > {
+        edr_inspection::revm::dry_run_with_inspection::<Self, _, _, _>(
+            blockchain,
+            state,
+            cfg,
+            transaction,
+            block,
+            custom_precompiles,
+            request,
+        )
     }
 }
 
@@ -424,7 +458,7 @@ impl<TimerT: Clone + TimeSinceEpoch> SyncNapiSpec<TimerT> for OpChainSpec {
 mod tests {
 
     use edr_block_header::BlobGas;
-    use edr_chain_spec::{BlockEnvConstructor as _, BlockEnvTrait as _};
+    use edr_chain_spec::BlockEnvConstructor as _;
     use edr_primitives::{Address, Bloom, Bytes, B256, B64, U256};
 
     use super::*;
