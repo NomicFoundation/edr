@@ -11,6 +11,7 @@ use edr_chain_spec::TransactionValidation;
 use edr_chain_spec_block::BlockChainSpec;
 use edr_chain_spec_evm::{config::EvmConfig, DatabaseComponentError};
 use edr_eip1559::ConstantBaseFeeParams;
+use edr_inspection::{EvmObservedData, InspectionRequest};
 use edr_primitives::{Address, Bytes, HashMap, B256, KECCAK_NULL_RLP, U256};
 use edr_state_api::{DynState, StateError};
 
@@ -195,43 +196,19 @@ impl<'builder, BlockchainErrorT: 'static + std::error::Error + Send + Sync>
         self.eth.add_transaction(transaction)
     }
 
-    fn add_transaction_with_inspector<InspectorT>(
+    fn add_transaction_with_inspection(
         &mut self,
         transaction: OpSignedTransaction,
-        inspector: &mut InspectorT,
+        request: InspectionRequest,
     ) -> Result<
-        (),
+        EvmObservedData,
         BlockTransactionError<
             DatabaseComponentError<Self::BlockchainError, StateError>,
             <OpSignedTransaction as TransactionValidation>::ValidationError,
         >,
-    >
-    where
-        InspectorT: for<'inspector> edr_chain_spec_evm::Inspector<
-            edr_chain_spec_evm::ContextForChainSpec<
-                OpChainSpec,
-                <OpChainSpec as edr_chain_spec::BlockEnvChainSpec>::BlockEnv<
-                    'inspector,
-                    PartialHeader,
-                >,
-                WrapDatabaseRef<
-                    DatabaseComponents<
-                        &'inspector dyn edr_blockchain_api::Blockchain<
-                            OpBlockReceipt,
-                            <OpChainSpec as BlockChainSpec>::Block,
-                            Self::BlockchainError,
-                            Hardfork,
-                            Self::LocalBlock,
-                            OpSignedTransaction,
-                        >,
-                        &'inspector dyn DynState,
-                    >,
-                >,
-            >,
-        >,
-    {
+    > {
         self.eth
-            .add_transaction_with_inspector(transaction, inspector)
+            .add_transaction_with_inspection(transaction, request)
     }
 
     fn finalize_block(

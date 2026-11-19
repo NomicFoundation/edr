@@ -21,10 +21,13 @@ use edr_chain_spec::{
 use edr_chain_spec_block::BlockChainSpec;
 use edr_chain_spec_evm::{
     config::EvmConfig, ContextForChainSpec, DatabaseComponentError, EvmChainSpec,
-    ExecutionResultAndState, Inspector, TransactionError,
+    ExecutionResultAndState, TransactionError,
 };
 use edr_chain_spec_receipt::ReceiptConstructor;
-use edr_evm::{dry_run, dry_run_with_inspector};
+use edr_evm::dry_run;
+use edr_inspection::{
+    EvmObservedData, InspectedExecution, InspectionChainSpec, InspectionError, InspectionRequest,
+};
 use edr_precompile::OverriddenPrecompileProvider;
 use edr_primitives::{
     keccak256, Address, Bloom, HashMap, HashSet, B256, KECCAK_NULL_RLP, KECCAK_RLP_EMPTY_ARRAY,
@@ -451,39 +454,22 @@ impl<
 
         Ok(())
     }
-    /// Tries to add a transaction to the block.
+    /// Tries to add a transaction to the block, observing its execution as
+    /// described by `request`.
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
-    pub fn add_transaction_with_inspector<InspectorT>(
+    pub fn add_transaction_with_inspection(
         &mut self,
         transaction: ChainSpecT::SignedTransaction,
-        extension: &mut InspectorT,
+        request: InspectionRequest,
     ) -> Result<
-        (),
+        EvmObservedData,
         BlockTransactionErrorForChainSpec<
             ChainSpecT,
             DatabaseComponentError<BlockchainErrorT, StateError>,
         >,
     >
     where
-        InspectorT: for<'inspector> Inspector<
-            ContextForChainSpec<
-                ChainSpecT,
-                ChainSpecT::BlockEnv<'inspector, PartialHeader>,
-                WrapDatabaseRef<
-                    DatabaseComponents<
-                        &'inspector dyn Blockchain<
-                            BlockReceiptT,
-                            BlockT,
-                            BlockchainErrorT,
-                            ChainSpecT::ProtocolHardfork,
-                            LocalBlockT,
-                            ChainSpecT::SignedTransaction,
-                        >,
-                        &'inspector dyn DynState,
-                    >,
-                >,
-            >,
-        >,
+        ChainSpecT: InspectionChainSpec,
     {
         self.validate_transaction(&transaction)?;
 
@@ -502,24 +488,34 @@ impl<
                 },
             )?;
 
-        let transaction_result = dry_run_with_inspector::<ChainSpecT, _, _, _, _>(
+        let InspectedExecution {
+            execution,
+            observed,
+            geth_trace: _,
+        } = ChainSpecT::dry_run_with_inspection(
             self.blockchain,
             self.state.as_ref(),
             self.cfg.clone(),
             transaction.clone(),
             block_env,
             self.custom_precompiles,
-            extension,
+            request,
         )
-        .map_err(BlockTransactionError::from)?;
+        .map_err(|error| match error {
+            InspectionError::Transaction(error) => BlockTransactionError::from(error),
+            InspectionError::Collection(error) => BlockTransactionError::Inspection(error),
+            InspectionError::Database(_) | InspectionError::DebugTracer(_) => {
+                unreachable!("only the debug tracer fails with these, and none was requested")
+            }
+        })?;
 
         self.add_transaction_result(
             receipt_builder,
             transaction,
-            transaction_result.into_result_and_state(),
+            execution.into_result_and_state(),
         );
 
-        Ok(())
+        Ok(observed)
     }
     fn add_transaction_result(
         &mut self,
@@ -812,6 +808,7 @@ impl<
         // type. `GenericChainSpec` shares it, as it reuses `L1Hardfork`.
         ChainSpecT: BlockChainSpec<ProtocolHardfork = Hardfork>
             + BlockEnvChainSpec
+            + InspectionChainSpec
             + EvmChainSpec<
                 Context: Default,
                 SignedTransaction: Clone + ExecutableTransaction + alloy_rlp::Encodable,
@@ -909,40 +906,19 @@ impl<
         self.eth.add_transaction(transaction)
     }
 
-    fn add_transaction_with_inspector<InspectorT>(
+    fn add_transaction_with_inspection(
         &mut self,
         transaction: ChainSpecT::SignedTransaction,
-        inspector: &mut InspectorT,
+        request: InspectionRequest,
     ) -> Result<
-        (),
+        EvmObservedData,
         BlockTransactionError<
             DatabaseComponentError<Self::BlockchainError, StateError>,
             <ChainSpecT::SignedTransaction as TransactionValidation>::ValidationError,
         >,
-    >
-    where
-        InspectorT: for<'inspector> Inspector<
-            ContextForChainSpec<
-                ChainSpecT,
-                ChainSpecT::BlockEnv<'inspector, PartialHeader>,
-                WrapDatabaseRef<
-                    DatabaseComponents<
-                        &'inspector dyn Blockchain<
-                            BlockReceiptT,
-                            BlockT,
-                            Self::BlockchainError,
-                            ChainSpecT::ProtocolHardfork,
-                            LocalBlockT,
-                            ChainSpecT::SignedTransaction,
-                        >,
-                        &'inspector dyn DynState,
-                    >,
-                >,
-            >,
-        >,
-    {
+    > {
         self.eth
-            .add_transaction_with_inspector(transaction, inspector)
+            .add_transaction_with_inspection(transaction, request)
     }
 
     fn finalize_block(

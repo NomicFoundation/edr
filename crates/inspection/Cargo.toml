@@ -6,7 +6,6 @@ edition.workspace = true
 [dependencies]
 alloy-rpc-types-trace.workspace = true
 dyn-clone.workspace = true
-edr_block_miner.workspace = true
 edr_blockchain_api.workspace = true
 edr_chain_spec.workspace = true
 edr_chain_spec_evm.workspace = true
