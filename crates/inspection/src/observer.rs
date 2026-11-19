@@ -1,6 +1,5 @@
 use std::sync::Arc;
 
-use edr_block_miner::FlushInspectorData;
 use edr_blockchain_api::BlockHashByNumber;
 use edr_chain_spec_evm::{
     interpreter::{
@@ -151,52 +150,6 @@ impl EvmObserver {
             execution_trace,
             encoded_console_logs: console_logger.into_encoded_messages(),
         })
-    }
-
-    pub fn flush_and_report(
-        &mut self,
-        precompile_addresses: &HashSet<Address>,
-    ) -> Result<EvmObservedData, EvmObserverCollectionError> {
-        let Self {
-            bytecode_collector,
-            code_coverage,
-            console_logger,
-            mocker: _mocker,
-            tracing_inspector,
-        } = self;
-
-        let address_to_executed_code = bytecode_collector.take();
-
-        if let Some(code_coverage) = code_coverage {
-            code_coverage
-                .flush_and_report()
-                .map_err(EvmObserverCollectionError::OnCollectedCoverageCallback)?;
-        }
-
-        let execution_trace = tracing_inspector
-            .take(&address_to_executed_code, precompile_addresses)
-            .map_err(EvmObserverCollectionError::AbiDecoding)?;
-
-        let encoded_console_logs = console_logger.take_encoded_messages();
-
-        Ok(EvmObservedData {
-            address_to_executed_code,
-            execution_trace,
-            encoded_console_logs,
-        })
-    }
-}
-
-impl FlushInspectorData for EvmObserver {
-    type Output = EvmObservedData;
-
-    type Error = EvmObserverCollectionError;
-
-    fn flush_inspector_data(
-        &mut self,
-        precompile_addresses: &HashSet<Address>,
-    ) -> Result<Self::Output, Self::Error> {
-        self.flush_and_report(precompile_addresses)
     }
 }
 

@@ -3,21 +3,19 @@ use std::{cmp::Ordering, fmt::Debug, marker::PhantomData, sync::Arc};
 use edr_block_api::Block;
 use edr_block_builder_api::{
     BlockBuilder, BlockBuilderCreationError, BlockFinalizeError, BlockInputs,
-    BlockTransactionError, Blockchain, ExecutionResult, PrecompileFn, WrapDatabaseRef,
+    BlockTransactionError, Blockchain, ExecutionResult, PrecompileFn,
 };
 pub use edr_block_builder_api::{BuiltBlockAndState, BuiltBlockAndStateWithMetadata};
-use edr_block_header::{
-    calculate_next_base_fee_per_blob_gas, BlockConfig, HeaderOverrides, PartialHeader,
-};
+use edr_block_header::{calculate_next_base_fee_per_blob_gas, BlockConfig, HeaderOverrides};
 use edr_chain_spec::{
     ChainSpec, EvmTransactionValidationError, ExecutableTransaction, HaltReasonTrait,
     ProtocolHardforkChainSpec, TransactionValidation,
 };
 use edr_chain_spec_block::BlockChainSpec;
-use edr_chain_spec_evm::{
-    config::EvmConfig, ContextForChainSpec, DatabaseComponentError, Inspector, TransactionError,
+use edr_chain_spec_evm::{config::EvmConfig, DatabaseComponentError, TransactionError};
+use edr_inspection::{
+    EvmObservedData, EvmObserverCollectionError, EvmObserverConfig, InspectionRequest,
 };
-use edr_database_components::DatabaseComponents;
 use edr_mem_pool::{MemPool, OrderedTransaction};
 use edr_primitives::{Address, HashMap, HashSet, B256};
 use edr_signer::SignatureError;
@@ -189,7 +187,7 @@ impl<BlockT, HaltReasonT: HaltReasonTrait, InspectorDataT>
 // `DebugContext` cannot be simplified further
 #[allow(clippy::type_complexity)]
 #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
-pub fn mine_block<ChainSpecT, BlockchainErrorT, InspectorT>(
+pub fn mine_block<ChainSpecT, BlockchainErrorT>(
     blockchain: &dyn Blockchain<
         ChainSpecT::Receipt,
         ChainSpecT::Block,
@@ -205,15 +203,20 @@ pub fn mine_block<ChainSpecT, BlockchainErrorT, InspectorT>(
     overrides: HeaderOverrides<ChainSpecT::ProtocolHardfork>,
     min_gas_price: u128,
     mine_ordering: MineOrdering,
-    mut inspector: Option<&mut InspectorT>,
+    observer: Option<&EvmObserverConfig>,
     custom_precompiles: &HashMap<Address, PrecompileFn>,
 ) -> Result<
     MineBlockResultAndStateWithMetadata<
         ChainSpecT::LocalBlock,
         ChainSpecT::HaltReason,
-        InspectorT::Output,
+        EvmObservedData,
     >,
-    MineBlockErrorForChainSpec<BlockchainErrorT, ChainSpecT, InspectorT::Error, StateError>,
+    MineBlockErrorForChainSpec<
+        BlockchainErrorT,
+        ChainSpecT,
+        EvmObserverCollectionError,
+        StateError,
+    >,
 >
 where
     BlockchainErrorT: 'static + std::error::Error + Send + Sync,
@@ -223,26 +226,6 @@ where
                                + Debug
                                + TransactionValidation<ValidationError: PartialEq>,
     >,
-    InspectorT: FlushInspectorData
-        + for<'inspector> Inspector<
-            ContextForChainSpec<
-                ChainSpecT,
-                ChainSpecT::BlockEnv<'inspector, PartialHeader>,
-                WrapDatabaseRef<
-                    DatabaseComponents<
-                        &'inspector dyn Blockchain<
-                            ChainSpecT::Receipt,
-                            ChainSpecT::Block,
-                            BlockchainErrorT,
-                            ChainSpecT::ProtocolHardfork,
-                            ChainSpecT::LocalBlock,
-                            ChainSpecT::SignedTransaction,
-                        >,
-                        &'inspector dyn DynState,
-                    >,
-                >,
-            >,
-        >,
 {
     let block_inputs = BlockInputs::empty(blockchain.hardfork());
     let mut block_builder = ChainSpecT::BlockBuilder::new_block_builder(
@@ -284,18 +267,16 @@ where
         let caller = *transaction.caller();
 
         {
-            let result = if let Some(inspector) = inspector.as_mut() {
-                let result = block_builder.add_transaction_with_inspector(transaction, inspector);
-
-                if result.is_ok() {
-                    let inspector_data = inspector
-                        .flush_inspector_data(block_builder.precompile_addresses())
-                        .map_err(MineBlockError::CollectInspectorDataError)?;
-
-                    transaction_inspector_data.push(inspector_data);
-                }
-
-                result
+            let result = if let Some(observer) = observer {
+                block_builder
+                    .add_transaction_with_inspection(
+                        transaction,
+                        InspectionRequest {
+                            observer: observer.clone(),
+                            debug_trace: None,
+                        },
+                    )
+                    .map(|inspector_data| transaction_inspector_data.push(inspector_data))
             } else {
                 block_builder.add_transaction(transaction)
             };
@@ -311,6 +292,9 @@ where
                         == EvmTransactionValidationError::GasPriceLessThanBasefee.into() =>
                     {
                         pending_transactions.remove_caller(&caller);
+                    }
+                    BlockTransactionError::Inspection(error) => {
+                        return Err(MineBlockError::CollectInspectorDataError(error));
                     }
                     remainder => return Err(MineBlockError::BlockTransaction(remainder)),
                 }
@@ -431,22 +415,6 @@ pub enum MineTransactionError<BlockchainErrorT, HardforkT, TransactionValidation
     State(StateError),
 }
 
-/// A trait for flushing and returning data that was observed during execution
-/// from inspectors, in preparation for the next transaction.
-pub trait FlushInspectorData {
-    /// The type of error that can occur while flushing data.
-    type Error;
-
-    /// The type of data collected from the inspector.
-    type Output;
-
-    /// Flushes collected data from the instance and returns it.
-    fn flush_inspector_data(
-        &mut self,
-        precompile_addresses: &HashSet<Address>,
-    ) -> Result<Self::Output, Self::Error>;
-}
-
 /// Mines a block with a single transaction.
 ///
 /// If the transaction is invalid, returns an error.
@@ -455,10 +423,8 @@ pub trait FlushInspectorData {
 #[allow(clippy::type_complexity)]
 #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
 pub fn mine_block_with_single_transaction<
-    'builder,
     ChainSpecT: BlockChainSpec,
     BlockchainErrorT: 'static + std::error::Error + Send + Sync,
-    InspectorT,
 >(
     blockchain: &dyn Blockchain<
         ChainSpecT::Receipt,
@@ -474,33 +440,16 @@ pub fn mine_block_with_single_transaction<
     evm_config: &EvmConfig,
     overrides: HeaderOverrides<ChainSpecT::ProtocolHardfork>,
     min_gas_price: u128,
-    inspector: Option<&mut InspectorT>,
+    observer: Option<&EvmObserverConfig>,
     custom_precompiles: &HashMap<Address, PrecompileFn>,
 ) -> Result<
-    BuiltBlockAndStateWithMetadata<ChainSpecT::LocalBlock, ChainSpecT::HaltReason>,
-    MineTransactionErrorForChainSpec<ChainSpecT, BlockchainErrorT>,
->
-where
-    InspectorT: for<'inspector> Inspector<
-        ContextForChainSpec<
-            ChainSpecT,
-            ChainSpecT::BlockEnv<'inspector, PartialHeader>,
-            WrapDatabaseRef<
-                DatabaseComponents<
-                    &'inspector dyn Blockchain<
-                        ChainSpecT::Receipt,
-                        ChainSpecT::Block,
-                        BlockchainErrorT,
-                        ChainSpecT::ProtocolHardfork,
-                        ChainSpecT::LocalBlock,
-                        ChainSpecT::SignedTransaction,
-                    >,
-                    &'inspector dyn DynState,
-                >,
-            >,
-        >,
+    MineBlockResultAndStateWithMetadata<
+        ChainSpecT::LocalBlock,
+        ChainSpecT::HaltReason,
+        EvmObservedData,
     >,
-{
+    MineTransactionErrorForChainSpec<ChainSpecT, BlockchainErrorT>,
+> {
     let max_priority_fee_per_gas = transaction
         .max_priority_fee_per_gas()
         .unwrap_or_else(|| transaction.gas_price());
@@ -583,15 +532,28 @@ where
         custom_precompiles,
     )?;
 
-    if let Some(inspector) = inspector {
-        block_builder.add_transaction_with_inspector(transaction, inspector)?;
+    let transaction_inspector_data = if let Some(observer) = observer {
+        let inspector_data = block_builder.add_transaction_with_inspection(
+            transaction,
+            InspectionRequest {
+                observer: observer.clone(),
+                debug_trace: None,
+            },
+        )?;
+        vec![inspector_data]
     } else {
         block_builder.add_transaction(transaction)?;
-    }
+        Vec::new()
+    };
 
-    block_builder
+    let block_and_state = block_builder
         .finalize_block()
-        .map_err(MineTransactionError::Finalize)
+        .map_err(MineTransactionError::Finalize)?;
+
+    Ok(MineBlockResultAndStateWithMetadata::new(
+        block_and_state,
+        transaction_inspector_data,
+    ))
 }
 
 fn effective_miner_fee(transaction: &impl ExecutableTransaction, base_fee: Option<u128>) -> u128 {

@@ -8,11 +8,12 @@ use edr_chain_spec::{
     BlockEnvChainSpec, ChainSpec, EvmSpecId, HaltReasonTrait, ProtocolHardforkChainSpec,
     TransactionValidation,
 };
-use edr_chain_spec_evm::{config::EvmConfig, ContextForChainSpec, EvmChainSpec};
+use edr_chain_spec_evm::{config::EvmConfig, EvmChainSpec};
 pub use edr_chain_spec_evm::{
     result::ExecutionResult, Cfg, CfgEnv, Context, Inspector, Journal, TransactionError,
 };
 pub use edr_database_components::{DatabaseComponentError, DatabaseComponents, WrapDatabaseRef};
+use edr_inspection::{EvmObservedData, EvmObserverCollectionError, InspectionRequest};
 use edr_primitives::{Address, HashMap, HashSet};
 use edr_state_api::{DynState, StateDiff, StateError};
 pub use revm_precompile::PrecompileFn;
@@ -96,6 +97,9 @@ pub enum BlockTransactionError<DatabaseErrorT, TransactionValidationErrorT> {
     /// Transaction has higher blob gas usage than is remaining in block
     #[error("Transaction has higher blob gas usage than is remaining in block")]
     ExceedsBlockBlobGasLimit,
+    /// Error while collecting the observed data of the transaction.
+    #[error(transparent)]
+    Inspection(EvmObserverCollectionError),
     /// Transaction error
     #[error(transparent)]
     Transaction(#[from] TransactionError<DatabaseErrorT, TransactionValidationErrorT>),
@@ -185,38 +189,19 @@ pub trait BlockBuilder<
         >,
     >;
 
-    /// Adds a transaction to the block.
-    fn add_transaction_with_inspector<InspectorT>(
+    /// Adds a transaction to the block, observing its execution as described
+    /// by `request`.
+    fn add_transaction_with_inspection(
         &mut self,
         transaction: ChainSpecT::SignedTransaction,
-        inspector: &mut InspectorT,
+        request: InspectionRequest,
     ) -> Result<
-        (),
+        EvmObservedData,
         BlockTransactionErrorForChainSpec<
             ChainSpecT,
             DatabaseComponentError<Self::BlockchainError, StateError>,
         >,
-    >
-    where
-        InspectorT: for<'inspector> Inspector<
-            ContextForChainSpec<
-                ChainSpecT,
-                ChainSpecT::BlockEnv<'inspector, PartialHeader>,
-                WrapDatabaseRef<
-                    DatabaseComponents<
-                        &'inspector dyn Blockchain<
-                            BlockReceiptT,
-                            BlockT,
-                            Self::BlockchainError,
-                            ChainSpecT::ProtocolHardfork,
-                            Self::LocalBlock,
-                            ChainSpecT::SignedTransaction,
-                        >,
-                        &'inspector dyn DynState,
-                    >,
-                >,
-            >,
-        >;
+    >;
 
     /// Finalizes the block.
     fn finalize_block(

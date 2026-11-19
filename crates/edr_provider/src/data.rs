@@ -17,13 +17,14 @@ use edr_block_api::{
     Block, BlockAndTotalDifficulty, FetchBlockReceipts as _, GenesisBlockFactory,
     GenesisBlockOptions,
 };
-use edr_block_builder_api::BuiltBlockAndState;
+use edr_block_builder_api::{BlockTransactionError, BuiltBlockAndState};
 use edr_block_header::{
     calculate_next_base_fee_per_blob_gas, BlockConfig, BlockHeader, HeaderOverrides,
 };
 use edr_block_miner::{
     mine_block, mine_block_with_single_transaction, MineBlockResultAndStateWithMetadata,
     MineBlockResultWithMetadata, MineBlockResultWithMetadataForChainSpec, MineOrdering,
+    MineTransactionError,
 };
 use edr_blockchain_api::{
     r#dyn::{DynBlockchain, DynBlockchainError},
@@ -104,7 +105,7 @@ use crate::{
     logger::SyncLogger,
     mock::SyncCallOverride,
     observability::{
-        evm_observer_config, EvmObservedData, EvmObserver, EvmObserverConfig, ObservabilityConfig,
+        evm_observer_config, EvmObservedData, EvmObserverConfig, ObservabilityConfig,
         ObservedExecution,
     },
     pending::BlockchainWithPending,
@@ -1583,7 +1584,7 @@ where
             &mut ProviderData<ChainSpecT, TimerT>,
             &EvmConfig,
             HeaderOverrides<ChainSpecT::ProtocolHardfork>,
-            &mut EvmObserver,
+            &EvmObserverConfig,
         ) -> Result<
             MineBlockResultAndStateWithMetadata<
                 <ChainSpecT as GenesisBlockFactory>::LocalBlock,
@@ -1650,7 +1651,7 @@ where
             &mut ProviderData<ChainSpecT, TimerT>,
             &EvmConfig,
             HeaderOverrides<ChainSpecT::ProtocolHardfork>,
-            &mut EvmObserver,
+            &EvmObserverConfig,
         ) -> Result<
             MineBlockResultAndStateWithMetadata<
                 <ChainSpecT as GenesisBlockFactory>::LocalBlock,
@@ -1690,12 +1691,10 @@ where
                 .or_else(|| Some(self.parent_beacon_block_root_generator.next_value()));
         }
 
-        let mut evm_observer = EvmObserver::new(evm_observer_config(
-            &self.observability,
-            self.contract_decoder.clone(),
-        ));
+        let observer_config =
+            evm_observer_config(&self.observability, self.contract_decoder.clone());
 
-        let result = mine_fn(self, &evm_config, options, &mut evm_observer)?;
+        let result = mine_fn(self, &evm_config, options, &observer_config)?;
 
         if let Some(callback) = self.observability.on_collected_gas_report_fn.as_ref() {
             let mut contract_decoder = self.contract_decoder.write();
@@ -2595,7 +2594,7 @@ where
         &mut self,
         evm_config: &EvmConfig,
         options: HeaderOverrides<ChainSpecT::ProtocolHardfork>,
-        evm_observer: &mut EvmObserver,
+        observer_config: &EvmObserverConfig,
     ) -> Result<
         MineBlockResultAndStateWithMetadata<
             <ChainSpecT as GenesisBlockFactory>::LocalBlock,
@@ -2606,7 +2605,7 @@ where
     > {
         let state_to_be_modified = (*self.current_state()?).clone();
 
-        let result = mine_block::<ChainSpecT, _, _>(
+        let result = mine_block::<ChainSpecT, _>(
             self.blockchain.as_ref(),
             &self.block_config,
             state_to_be_modified,
@@ -2615,7 +2614,7 @@ where
             options,
             self.min_gas_price,
             self.mining_order,
-            Some(evm_observer),
+            Some(observer_config),
             &self.precompile_overrides,
         )?;
 
@@ -2628,7 +2627,7 @@ where
         evm_config: &EvmConfig,
         options: HeaderOverrides<ChainSpecT::ProtocolHardfork>,
         transaction: ChainSpecT::SignedTransaction,
-        evm_observer: &mut EvmObserver,
+        observer_config: &EvmObserverConfig,
     ) -> Result<
         MineBlockResultAndStateWithMetadata<
             <ChainSpecT as GenesisBlockFactory>::LocalBlock,
@@ -2639,7 +2638,7 @@ where
     > {
         let state_to_be_modified = (*self.current_state()?).clone();
 
-        let result = mine_block_with_single_transaction::<ChainSpecT, _, _>(
+        let result = mine_block_with_single_transaction::<ChainSpecT, _>(
             self.blockchain.as_ref(),
             &self.block_config,
             state_to_be_modified,
@@ -2647,16 +2646,17 @@ where
             evm_config,
             options,
             self.min_gas_price,
-            Some(evm_observer),
+            Some(observer_config),
             &self.precompile_overrides,
-        )?;
+        )
+        .map_err(|error| match error {
+            MineTransactionError::BlockTransaction(BlockTransactionError::Inspection(error)) => {
+                ProviderError::from(error)
+            }
+            error => error.into(),
+        })?;
 
-        let inspector_data = evm_observer.flush_and_report(&result.precompile_addresses)?;
-
-        Ok(MineBlockResultAndStateWithMetadata::new(
-            result,
-            vec![inspector_data],
-        ))
+        Ok(result)
     }
 }
 
@@ -2687,12 +2687,12 @@ where
             self.notify_subscribers_about_pending_transaction(&transaction_hash);
 
             let result = self.mine_and_commit_block_impl(
-                move |provider, config, options, evm_observer| {
+                move |provider, config, options, observer_config| {
                     provider.mine_block_with_single_transaction(
                         config,
                         options,
                         transaction,
-                        evm_observer,
+                        observer_config,
                     )
                 },
                 self.header_overrides(),
