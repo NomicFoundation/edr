@@ -25,7 +25,7 @@ Both features require solc 0.8 or newer, and there is no per-source exemption. O
 
 `eip712ExcludeGlobs` keeps the sources it matches out of EIP-712 collection. Each glob is matched against a source file's path relative to `projectRoot`, spelled with forward slashes, for example `contracts/vendor/**` or `node_modules/@uniswap/permit2/**`, written without a leading `./` or `/`. A `*` does not cross a `/`, while a `**` does, and a file outside the project root is matched by its absolute path instead.
 
-A struct declared in a matching file is not collected, even when the matching file is the running test's own source. That is how a project settles two reachable structs that share a name but declare different members, which is otherwise rejected as ambiguous. Exclusion affects EIP-712 collection alone: an excluded source still contributes its inline configuration, is still parsed, and a syntax error in it still rejects the run.
+A struct declared in a matching file is not collected, even when the matching file is the running test's own source. A struct whose member resolves to a declaration in a matching file is rejected as well, even when a collected file declares a struct of the same name, and the lookup names the excluded file. That is how a project settles two reachable structs that share a name but declare different members, which is otherwise rejected as ambiguous. Exclusion affects EIP-712 collection alone: an excluded source still contributes its inline configuration, is still parsed, and a syntax error in it still rejects the run.
 
 There is no setting for the opposite direction, because every struct a test source reaches is collected, dependencies included. Nothing has to be listed to be found.
 

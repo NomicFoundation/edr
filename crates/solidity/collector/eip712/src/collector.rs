@@ -51,19 +51,26 @@ impl Eip712Type {
             root: &EncodableStruct,
             encodables: &HashMap<String, EncodableStruct>,
         ) -> Result<Vec<String>, MissingStructDependency> {
+            /// A canonical type inlines its dependencies by bare name, so the
+            /// traversal is by name too. Every dependency was checked to
+            /// resolve to the declaration collection selected for that name.
+            fn dependency_names(struct_def: &EncodableStruct) -> Vec<String> {
+                struct_def
+                    .direct_struct_deps
+                    .iter()
+                    .map(|dependency| dependency.name.clone())
+                    .collect()
+            }
+
             let mut visited = HashSet::new();
-            let mut stack = root.direct_struct_deps.clone();
+            let mut stack = dependency_names(root);
 
             while let Some(next) = stack.pop() {
                 if next == root.name || visited.contains(&next) {
                     continue;
                 }
 
-                stack.extend(
-                    dependency(encodables, root, &next)?
-                        .direct_struct_deps
-                        .clone(),
-                );
+                stack.extend(dependency_names(dependency(encodables, root, &next)?));
                 visited.insert(next);
             }
 
@@ -259,7 +266,7 @@ impl UnitStructs {
             })
             .collect();
 
-        into_collection(collected, root_file_id, excluded_only)
+        into_collection(collected, root_file_id, excluded_only, excluded_file_ids)
     }
 }
 
@@ -271,18 +278,42 @@ fn into_collection(
     collected: Vec<CollectedStruct>,
     root_file_id: &str,
     mut already_rejected: HashMap<String, RejectReason>,
+    excluded_file_ids: &HashSet<&str>,
 ) -> Eip712TypeCollection {
+    // Deduplication keeps a single declaration per name, so the dependency
+    // check below must see them all: otherwise which one a member resolves to
+    // would decide the outcome by file-id order alone.
+    let mut dependencies_by_name: HashMap<String, Vec<StructDependency>> = HashMap::new();
+    for struct_def in &collected {
+        dependencies_by_name
+            .entry(struct_def.name.clone())
+            .or_default()
+            .extend(struct_dependencies(struct_def));
+    }
+    for dependencies in dependencies_by_name.values_mut() {
+        dependencies.sort();
+        dependencies.dedup();
+    }
+
     let DedupedCollection {
         unique,
         duplicates,
         ambiguous,
+        selected_declarations,
     } = dedup_by_name(collected, root_file_id);
     already_rejected.extend(duplicates);
 
     let EncodableCollection {
         encodables,
         rejected,
-    } = reject_non_encodable(unique, already_rejected, &ambiguous);
+    } = reject_non_encodable(
+        unique,
+        already_rejected,
+        &ambiguous,
+        &selected_declarations,
+        &dependencies_by_name,
+        excluded_file_ids,
+    );
 
     let types = encodables
         .iter()
@@ -306,37 +337,71 @@ struct CollectedStruct {
     members: Vec<CollectedMember>,
 }
 
+/// A struct referenced by another struct's member, identified by the
+/// declaration the member resolved to rather than by name alone.
+#[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
+struct StructDependency {
+    name: String,
+    file_id: String,
+}
+
 struct EncodableStruct {
     pub name: String,
     pub members: Vec<EncodableMember>,
-    /// The names of structs directly referenced by a struct's members (array
-    /// suffixes stripped, self-references excluded).
-    pub direct_struct_deps: Vec<String>,
+    /// The structs directly referenced by a struct's members (array suffixes
+    /// stripped, self-references excluded).
+    pub direct_struct_deps: Vec<StructDependency>,
+}
+
+/// The structs a declaration's members reference, each identified by the
+/// declaration it resolves to, sorted and without repeats.
+///
+/// A member is a self-reference only when it resolves to this very
+/// declaration. A same-named struct from another file is a dependency, and
+/// inlining this body for it would hash the wrong type.
+fn struct_dependencies(struct_def: &CollectedStruct) -> Vec<StructDependency> {
+    let mut dependencies: Vec<StructDependency> = struct_def
+        .members
+        .iter()
+        .filter_map(|member| {
+            let EncodedMemberType {
+                encoded,
+                struct_file_id,
+            } = member.encoded_type.as_ref().ok()?;
+            let file_id = struct_file_id.as_ref()?;
+            let name = base_type_name(encoded);
+
+            (name != struct_def.name || *file_id != struct_def.file_id).then(|| StructDependency {
+                name: name.to_owned(),
+                file_id: file_id.clone(),
+            })
+        })
+        .collect();
+
+    // Two members of the same struct type are one dependency, and naming it
+    // twice in a rejection would read as two.
+    dependencies.sort();
+    dependencies.dedup();
+
+    dependencies
 }
 
 impl EncodableStruct {
     /// Constructs a new instance from a [`CollectedStruct`], rejecting it if
     /// any member is not encodable.
-    fn new(
-        struct_def: CollectedStruct,
-        is_struct_fn: impl Fn(&str) -> bool,
-    ) -> Result<Self, RejectReason> {
+    fn new(struct_def: CollectedStruct) -> Result<Self, RejectReason> {
+        let direct_struct_deps = struct_dependencies(&struct_def);
+
         let mut members = Vec::new();
         let mut unresolved_members = Vec::new();
         let mut non_encodable_members = Vec::new();
-        let mut direct_struct_deps = Vec::new();
 
         for member in struct_def.members {
             match member.encoded_type {
-                Ok(encoded_type) => {
-                    let base = base_type_name(encoded_type.as_str());
-                    if base != struct_def.name && is_struct_fn(base) {
-                        direct_struct_deps.push(base.to_owned());
-                    }
-
+                Ok(EncodedMemberType { encoded, .. }) => {
                     members.push(EncodableMember {
                         name: member.name,
-                        encoded_type,
+                        encoded_type: encoded,
                     });
                 }
                 Err(MemberTypeProblem::Unresolved { declared }) => {
@@ -363,11 +428,6 @@ impl EncodableStruct {
             });
         }
 
-        // Two members of the same struct type are one dependency, and naming
-        // it twice in a rejection would read as two.
-        direct_struct_deps.sort();
-        direct_struct_deps.dedup();
-
         Ok(Self {
             name: struct_def.name,
             members,
@@ -379,7 +439,45 @@ impl EncodableStruct {
 #[derive(Clone, Debug)]
 struct CollectedMember {
     name: String,
-    encoded_type: Result<String, MemberTypeProblem>,
+    encoded_type: Result<EncodedMemberType, MemberTypeProblem>,
+}
+
+/// A member type in its EIP-712 encoding, together with the file declaring the
+/// struct it is based on.
+///
+/// A canonical type inlines a dependency by bare name, so the declaring file is
+/// the only thing that tells two same-named structs apart.
+#[derive(Clone, Debug)]
+struct EncodedMemberType {
+    encoded: String,
+    /// `Some` when the base type is a struct, naming the file that declares it.
+    /// Array suffixes leave it unchanged.
+    struct_file_id: Option<String>,
+}
+
+impl EncodedMemberType {
+    /// Constructs an encoding whose base type is no struct, so it is never a
+    /// dependency.
+    fn elementary(encoded: String) -> Self {
+        Self {
+            encoded,
+            struct_file_id: None,
+        }
+    }
+
+    /// Wraps the encoding in an array suffix, keeping the base type's
+    /// declaring file.
+    fn in_array(self, suffix: &str) -> Self {
+        let Self {
+            encoded,
+            struct_file_id,
+        } = self;
+
+        Self {
+            encoded: format!("{encoded}{suffix}"),
+            struct_file_id,
+        }
+    }
 }
 
 /// Why a struct member has no EIP-712 encoding.
@@ -403,7 +501,7 @@ struct EncodableMember {
 
 /// Encodes a member's type, distinguishing a type that did not resolve from
 /// one that resolved to something EIP-712 cannot encode.
-fn encode_member(member: &StructMember) -> Result<String, MemberTypeProblem> {
+fn encode_member(member: &StructMember) -> Result<EncodedMemberType, MemberTypeProblem> {
     let Some(resolved) = member.get_type() else {
         return Err(MemberTypeProblem::Unresolved {
             declared: declared_type_name(&member.type_name()),
@@ -435,33 +533,33 @@ fn declared_type_name(type_name: &TypeName) -> Option<String> {
 /// become `address`, user-defined value types resolve to their underlying
 /// elementary type, structs become their bare name (a dependency), and
 /// non-encodable types (mappings, functions, fixed-point) yield `None`.
-fn encode_member_type(ty: &Type) -> Option<String> {
+fn encode_member_type(ty: &Type) -> Option<EncodedMemberType> {
     match ty {
         Type::Address(_) | Type::Contract(_) | Type::Interface(_) | Type::Library(_) => {
-            Some("address".to_owned())
+            Some(EncodedMemberType::elementary("address".to_owned()))
         }
-        Type::Boolean(_) => Some("bool".to_owned()),
+        Type::Boolean(_) => Some(EncodedMemberType::elementary("bool".to_owned())),
         Type::Integer(integer) => {
             let prefix = if integer.signed() { "" } else { "u" };
             let bits = integer.bits();
-            Some(format!("{prefix}int{bits}"))
+            Some(EncodedMemberType::elementary(format!("{prefix}int{bits}")))
         }
         Type::ByteArray(byte_array) => {
             let width = byte_array.width();
-            Some(format!("bytes{width}"))
+            Some(EncodedMemberType::elementary(format!("bytes{width}")))
         }
-        Type::Bytes(_) => Some("bytes".to_owned()),
-        Type::String(_) => Some("string".to_owned()),
-        Type::Enum(_) => Some("uint8".to_owned()),
+        Type::Bytes(_) => Some(EncodedMemberType::elementary("bytes".to_owned())),
+        Type::String(_) => Some(EncodedMemberType::elementary("string".to_owned())),
+        Type::Enum(_) => Some(EncodedMemberType::elementary("uint8".to_owned())),
         Type::Struct(struct_type) => match struct_type.definition() {
-            Definition::Struct(struct_def) => Some(struct_def.name().unparse().to_owned()),
+            Definition::Struct(struct_def) => Some(EncodedMemberType {
+                encoded: struct_def.name().unparse().to_owned(),
+                struct_file_id: Some(struct_def.get_file_id().to_owned()),
+            }),
             _ => None,
         },
         Type::UserDefinedValue(udvt) => udvt.target_type().as_ref().and_then(encode_member_type),
-        Type::Array(array) => {
-            let base = encode_member_type(&array.element_type())?;
-            Some(format!("{base}[]"))
-        }
+        Type::Array(array) => Some(encode_member_type(&array.element_type())?.in_array("[]")),
         Type::FixedSizeArray(array) => {
             let base = encode_member_type(&array.element_type())?;
             // Slang yields 0 for a length it cannot constant-fold, e.g.
@@ -470,7 +568,7 @@ fn encode_member_type(ty: &Type) -> Option<String> {
             // `[0]` would hash a type the source does not declare.
             match array.size() {
                 0 => None,
-                size => Some(format!("{base}[{size}]")),
+                size => Some(base.in_array(&format!("[{size}]"))),
             }
         }
         Type::Mapping(_)
@@ -561,6 +659,22 @@ pub enum RejectReason {
         /// The referenced names that resolve to more than one struct.
         dependencies: Vec<String>,
     },
+    /// The struct references a struct declared in an excluded file. An
+    /// excluded file contributes no struct, so there is no body to inline
+    /// under the dependency's name, whatever a collected file of that name
+    /// declares.
+    #[error(
+        "struct references {} declared in {} excluded from EIP-712 type collection: {}. Reference \
+         a definition from a collected file, or narrow the exclusion",
+        pluralize_with(.dependencies.len(), "a type", "types"),
+        pluralize_with(.dependencies.len(), "a file", "files"),
+        .dependencies.join(", ")
+    )]
+    DependenciesInExcludedFiles {
+        /// The referenced structs, sorted, each naming the struct and the
+        /// file declaring it.
+        dependencies: Vec<String>,
+    },
     /// The struct is well-formed but references a struct that was itself
     /// rejected, so it cannot be encoded either.
     #[error(
@@ -582,6 +696,10 @@ struct DedupedCollection {
     /// its dependencies by bare name, so a struct *referencing* such a name
     /// would have to guess which body to inline and is rejected instead.
     pub ambiguous: HashSet<String>,
+    /// For every name that is not `ambiguous`, the collected files whose
+    /// declaration is the one `unique` holds. Several files can declare the
+    /// very same body, and a member resolving to any of them encodes alike.
+    pub selected_declarations: HashMap<String, HashSet<String>>,
 }
 
 /// Resolves structs sharing a name to a single definition.
@@ -608,6 +726,7 @@ fn dedup_by_name(collected: Vec<CollectedStruct>, root_file_id: &str) -> Deduped
     let mut unique: HashMap<String, CollectedStruct> = HashMap::new();
     let mut duplicates: HashMap<String, RejectReason> = HashMap::new();
     let mut ambiguous = HashSet::new();
+    let mut selected_declarations: HashMap<String, HashSet<String>> = HashMap::new();
     for (struct_name, struct_defs) in by_name {
         let (first, rest) = struct_defs
             .split_first()
@@ -615,6 +734,10 @@ fn dedup_by_name(collected: Vec<CollectedStruct>, root_file_id: &str) -> Deduped
 
         let fingerprint = make_fingerprint(first);
         if rest.iter().all(|def| make_fingerprint(def) == fingerprint) {
+            selected_declarations.insert(
+                struct_name.clone(),
+                struct_defs.iter().map(|def| def.file_id.clone()).collect(),
+            );
             unique.insert(struct_name, first.clone());
             continue;
         }
@@ -639,6 +762,7 @@ fn dedup_by_name(collected: Vec<CollectedStruct>, root_file_id: &str) -> Deduped
         unique,
         duplicates,
         ambiguous,
+        selected_declarations,
     }
 }
 
@@ -651,7 +775,7 @@ fn make_fingerprint(struct_def: &CollectedStruct) -> String {
         .iter()
         .map(|member| {
             let ty = match &member.encoded_type {
-                Ok(encoded_type) => encoded_type.as_str(),
+                Ok(encoded_type) => encoded_type.encoded.as_str(),
                 Err(MemberTypeProblem::Unresolved { .. }) => "<unresolved>",
                 Err(MemberTypeProblem::NotEncodable) => "<unsupported>",
             };
@@ -672,49 +796,108 @@ struct EncodableCollection {
     pub rejected: HashMap<String, RejectReason>,
 }
 
+/// Rejects a name whose declarations reference a struct body that cannot be
+/// inlined under the dependency's bare name.
+///
+/// A canonical type names its dependencies by bare name alone, so a member must
+/// resolve to the declaration that collection selected for that name.
+/// `dependencies` spans every collected declaration of the name, so the verdict
+/// does not turn on which one deduplication kept. A name no collected file
+/// declares is left to the fixed point in [`reject_non_encodable`], which
+/// reports it through the rejection the name itself already carries.
+fn unencodable_dependencies(
+    dependencies: &[StructDependency],
+    ambiguous: &HashSet<String>,
+    selected_declarations: &HashMap<String, HashSet<String>>,
+    excluded_file_ids: &HashSet<&str>,
+) -> Option<RejectReason> {
+    /// Names a dependency together with the file it resolved to, so a report
+    /// distinguishes same-named structs.
+    fn describe(dependency: &StructDependency) -> String {
+        let StructDependency { name, file_id } = dependency;
+        format!("`{name}` in {file_id}")
+    }
+
+    let mut ambiguous_dependencies = Vec::new();
+    let mut excluded_dependencies = Vec::new();
+
+    for dependency in dependencies {
+        if ambiguous.contains(&dependency.name) {
+            ambiguous_dependencies.push(dependency.name.clone());
+            continue;
+        }
+
+        let Some(selected_files) = selected_declarations.get(&dependency.name) else {
+            continue;
+        };
+
+        if selected_files.contains(&dependency.file_id) {
+            continue;
+        }
+
+        debug_assert!(
+            excluded_file_ids.contains(dependency.file_id.as_str()),
+            "a dependency resolves to a collected or an excluded file, and a collected \
+             declaration deduplication did not select differs from the selected one, which makes \
+             the name ambiguous: {dependency:?}"
+        );
+        excluded_dependencies.push(describe(dependency));
+    }
+
+    // Only one reason is reported, most actionable first.
+    if !ambiguous_dependencies.is_empty() {
+        // Two members of the same ambiguous type are one dependency, and
+        // naming it twice would read as two.
+        ambiguous_dependencies.dedup();
+
+        return Some(RejectReason::AmbiguousDependencies {
+            dependencies: ambiguous_dependencies,
+        });
+    }
+
+    if !excluded_dependencies.is_empty() {
+        return Some(RejectReason::DependenciesInExcludedFiles {
+            dependencies: excluded_dependencies,
+        });
+    }
+
+    None
+}
+
 /// Rejects structs that (transitively) reference non-encodable structs.
 fn reject_non_encodable(
     collected: HashMap<String, CollectedStruct>,
     previously_rejected: HashMap<String, RejectReason>,
     ambiguous: &HashSet<String>,
+    selected_declarations: &HashMap<String, HashSet<String>>,
+    dependencies_by_name: &HashMap<String, Vec<StructDependency>>,
+    excluded_file_ids: &HashSet<&str>,
 ) -> EncodableCollection {
     let mut encodables = HashMap::new();
-
-    // Every struct name in the unit, including those already rejected (e.g. as
-    // duplicates): a member referencing such a struct is still a struct
-    // dependency, so the dependent must be rejected alongside it.
-    let struct_names: HashSet<String> = collected
-        .keys()
-        .cloned()
-        .chain(previously_rejected.keys().cloned())
-        .collect();
 
     // Seeded with the earlier rejections so the fixed point below propagates
     // those to their dependents too.
     let mut newly_rejected = previously_rejected;
 
     for (name, struct_def) in collected {
-        match EncodableStruct::new(struct_def, |struct_name| struct_names.contains(struct_name)) {
+        match EncodableStruct::new(struct_def) {
             Ok(encodable) => {
-                // A canonical type inlines its dependencies by bare name, so a
-                // struct referencing an ambiguous one cannot be encoded without
-                // guessing which definition was meant.
-                let ambiguous_dependencies: Vec<String> = encodable
-                    .direct_struct_deps
-                    .iter()
-                    .filter(|dependency| ambiguous.contains(*dependency))
-                    .cloned()
-                    .collect();
+                let dependencies = dependencies_by_name
+                    .get(&name)
+                    .expect("every collected name was scanned for its dependencies");
 
-                if ambiguous_dependencies.is_empty() {
-                    encodables.insert(name, encodable);
-                } else {
-                    newly_rejected.insert(
-                        name,
-                        RejectReason::AmbiguousDependencies {
-                            dependencies: ambiguous_dependencies,
-                        },
-                    );
+                match unencodable_dependencies(
+                    dependencies,
+                    ambiguous,
+                    selected_declarations,
+                    excluded_file_ids,
+                ) {
+                    Some(reason) => {
+                        newly_rejected.insert(name, reason);
+                    }
+                    None => {
+                        encodables.insert(name, encodable);
+                    }
                 }
             }
             Err(reason) => {
@@ -740,8 +923,8 @@ fn reject_non_encodable(
             let unusable_dependencies = encodable
                 .direct_struct_deps
                 .iter()
-                .filter(|dependency| !encodables.contains_key(*dependency))
-                .map(ToOwned::to_owned)
+                .filter(|dependency| !encodables.contains_key(&dependency.name))
+                .map(|dependency| dependency.name.clone())
                 .collect::<Vec<_>>();
 
             if !unusable_dependencies.is_empty() {
@@ -1380,6 +1563,147 @@ mod tests {
             get_canonical_type(&collection, "Wallet"),
             "Wallet(Person owner)Person(address addr,string handle)"
         );
+    }
+
+    /// A member resolving to an excluded file's struct must not be encoded
+    /// with the body of a same-named struct that *is* collected: the two hash
+    /// differently.
+    #[test]
+    fn excluded_dependency_is_not_replaced_by_a_collected_namesake() {
+        let collection = collect_without(
+            &[
+                (
+                    "root.sol",
+                    "import \"a.sol\";
+                     import \"c.sol\";",
+                ),
+                ("a.sol", "struct S { uint256 a; }"),
+                ("b.sol", "struct S { address b; }"),
+                (
+                    "c.sol",
+                    "import {S} from \"b.sol\";
+                     struct Wrapper { S s; }",
+                ),
+            ],
+            &["b.sol"],
+        );
+
+        assert_eq!(get_canonical_type(&collection, "S"), "S(uint256 a)");
+        assert!(
+            matches!(
+                collection.get("Wrapper"),
+                Err(Eip712CollectionLookupError::Rejected(Eip712TypeRejected {
+                    reason: RejectReason::DependenciesInExcludedFiles { dependencies },
+                    ..
+                })) if dependencies == vec!["`S` in b.sol".to_owned()]
+            ),
+            "{:?}",
+            collection.get("Wrapper")
+        );
+    }
+
+    /// A member whose type merely shares the struct's name is a dependency,
+    /// not a self-reference. Treating it as one would encode `T(T inner)` and
+    /// drop the referenced body altogether.
+    #[test]
+    fn same_named_dependency_from_another_file_is_no_self_reference() {
+        let collection = collect_without(
+            &[
+                ("root.sol", "import \"d.sol\";"),
+                (
+                    "d.sol",
+                    "import {T as OtherT} from \"e.sol\";
+                     struct T { OtherT inner; }",
+                ),
+                ("e.sol", "struct T { uint256 t; }"),
+            ],
+            &["e.sol"],
+        );
+
+        assert!(
+            matches!(
+                collection.get("T"),
+                Err(Eip712CollectionLookupError::Rejected(Eip712TypeRejected {
+                    reason: RejectReason::DependenciesInExcludedFiles { dependencies },
+                    ..
+                })) if dependencies == vec!["`T` in e.sol".to_owned()]
+            ),
+            "{:?}",
+            collection.get("T")
+        );
+    }
+
+    /// Deduplication keeps one declaration of a name, so an excluded
+    /// dependency of any of them must reject the name. Otherwise the verdict
+    /// would turn on which file id happens to sort first.
+    #[test]
+    fn an_excluded_dependency_of_any_declaration_rejects_the_name() {
+        const COLLECTED_DEPENDENCY: &str = "import {S} from \"a.sol\";
+                                            struct W { S s; }";
+        const EXCLUDED_DEPENDENCY: &str = "import {S} from \"b.sol\";
+                                           struct W { S s; }";
+
+        for (c_source, d_source) in [
+            (COLLECTED_DEPENDENCY, EXCLUDED_DEPENDENCY),
+            (EXCLUDED_DEPENDENCY, COLLECTED_DEPENDENCY),
+        ] {
+            let collection = collect_without(
+                &[
+                    (
+                        "root.sol",
+                        "import \"c.sol\";
+                         import \"d.sol\";",
+                    ),
+                    ("a.sol", "struct S { uint256 a; }"),
+                    ("b.sol", "struct S { address b; }"),
+                    ("c.sol", c_source),
+                    ("d.sol", d_source),
+                ],
+                &["b.sol"],
+            );
+
+            assert_eq!(get_canonical_type(&collection, "S"), "S(uint256 a)");
+            assert!(
+                matches!(
+                    collection.get("W"),
+                    Err(Eip712CollectionLookupError::Rejected(Eip712TypeRejected {
+                        reason: RejectReason::DependenciesInExcludedFiles { dependencies },
+                        ..
+                    })) if dependencies == vec!["`S` in b.sol".to_owned()]
+                ),
+                "{:?}",
+                collection.get("W")
+            );
+        }
+    }
+
+    /// Two declarations of a name whose members resolve to declarations that
+    /// are themselves identical still encode: every dependency identity is one
+    /// the collection selected for that name.
+    #[test]
+    fn declarations_resolving_to_identical_dependencies_still_collapse() {
+        let collection = collect(&[
+            (
+                "root.sol",
+                "import \"c.sol\";
+                 import \"d.sol\";",
+            ),
+            ("a.sol", "struct S { uint256 a; }"),
+            ("b.sol", "struct S { uint256 a; }"),
+            (
+                "c.sol",
+                "import {S} from \"a.sol\";
+                 struct W { S s; }",
+            ),
+            (
+                "d.sol",
+                "import {S} from \"b.sol\";
+                 struct W { S s; }",
+            ),
+        ]);
+
+        assert_eq!(get_canonical_type(&collection, "S"), "S(uint256 a)");
+        assert_eq!(get_canonical_type(&collection, "W"), "W(S s)S(uint256 a)");
     }
 
     #[test]
