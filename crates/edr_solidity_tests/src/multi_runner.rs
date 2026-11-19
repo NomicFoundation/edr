@@ -687,10 +687,9 @@ impl<
             find_time,
         );
 
-        // Collection reads and parses files, so it must not run on the async
-        // runtime's poll thread. Any problem it finds fails the run here,
-        // before any test executes.
-        let contracts = tokio::task::block_in_place(|| self.collect_suite_sources(contracts))?;
+        // Any problem collection finds fails the run here, before any test
+        // executes.
+        let contracts = self.collect_suite_sources(contracts)?;
 
         // Gas reports are collected for each suite and merged at the end to allow
         // parallel execution of test suites.

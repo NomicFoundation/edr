@@ -1212,3 +1212,24 @@ async fn test_function_override_isolate_ignored_with_gas_report() {
         )]),
     );
 }
+
+/// `test_collect` runs the whole synchronous `MultiContractRunner::test`
+/// inline on the runtime driving it, so the source collection that `test`
+/// performs must not ask for a blocking hint only a multi-threaded runtime
+/// grants.
+///
+/// The filter selects no suite on purpose: executing one hangs on a
+/// current-thread runtime for reasons of its own, which is not what this
+/// guards.
+#[tokio::test]
+async fn test_collect_on_a_current_thread_runtime() {
+    let filter = SolidityTestFilter::new(".*", ".*", ".*core/NoSuchContract");
+    let runner = TEST_DATA_DEFAULT.runner().await;
+    let results = runner
+        .test_collect(filter)
+        .await
+        .expect("the run produces results")
+        .suite_results;
+
+    assert!(results.is_empty());
+}
