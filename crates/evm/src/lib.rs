@@ -207,57 +207,6 @@ pub fn guaranteed_dry_run<
     )
 }
 
-/// Runs a transaction while observing with an inspector, without committing the
-/// state, while disabling balance checks and creating accounts for new
-/// addresses.
-#[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
-// Cannot meaningfully be simplified further
-#[allow(clippy::type_complexity)]
-pub fn guaranteed_dry_run_with_inspector<
-    // As this generic type always needs to be specified, placing it first makes the function
-    // easier to use; e.g.
-    // ```
-    // dry_run::<MyChainSpec, _, _, _>(...)
-    // ```
-    EvmChainSpecT: EvmChainSpec,
-    BlockT: BlockEnvTrait,
-    BlockchainT: BlockHashByNumber<Error: 'static + std::error::Error + Send + Sync>,
-    InspectorT: Inspector<
-        ContextForChainSpec<
-            EvmChainSpecT,
-            BlockT,
-            WrapDatabaseRef<DatabaseComponents<BlockchainT, StateT>>,
-        >,
-    >,
-    StateT: State<Error: 'static + std::error::Error + Send + Sync>,
->(
-    blockchain: BlockchainT,
-    state: StateT,
-    mut cfg: CfgEnv<EvmChainSpecT::ProtocolHardfork>,
-    transaction: EvmChainSpecT::SignedTransaction,
-    block: BlockT,
-    custom_precompiles: &HashMap<Address, PrecompileFn>,
-    inspector: &mut InspectorT,
-) -> Result<
-    ExecutionResultAndStateWithMetadata<EvmChainSpecT::HaltReason>,
-    TransactionError<
-        DatabaseComponentError<BlockchainT::Error, StateT::Error>,
-        <EvmChainSpecT::SignedTransaction as TransactionValidation>::ValidationError,
-    >,
-> {
-    set_guarantees(&mut cfg);
-
-    dry_run_with_inspector::<EvmChainSpecT, _, _, _, _>(
-        blockchain,
-        state,
-        cfg,
-        transaction,
-        block,
-        custom_precompiles,
-        inspector,
-    )
-}
-
 /// Runs a transaction, committing the state in the process.
 #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
 // Cannot meaningfully be simplified further

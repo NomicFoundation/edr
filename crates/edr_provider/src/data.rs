@@ -104,8 +104,8 @@ use crate::{
     logger::SyncLogger,
     mock::SyncCallOverride,
     observability::{
-        evm_observer_config, observe_execution, EvmObservedData, EvmObserver, EvmObserverConfig,
-        ObservabilityConfig, ObservedExecution,
+        evm_observer_config, EvmObservedData, EvmObserver, EvmObserverConfig, ObservabilityConfig,
+        ObservedExecution,
     },
     pending::BlockchainWithPending,
     requests::hardhat::rpc_types::ForkMetadata,
@@ -2510,22 +2510,20 @@ where
         self.execute_in_block_context(Some(block_spec), |blockchain, block, state| {
             let state_overrider = StateRefOverrider::new(state_overrides, state.as_ref());
 
-            let observed_execution = observe_execution(&observer_config, |observer|  {
-                let block_env = ChainSpecT::BlockEnv::new_block_env(
-                    block.block_header(),
-                    cfg_env.spec.clone(),
-                    scheduled_blob_params.as_ref(),
-                );
-                call::run_call::<ChainSpecT, _, _, _>(
-                    blockchain,
-                    block_env,
-                    state_overrider,
-                    cfg_env,
-                    transaction.clone(),
-                        &custom_precompiles,
-                    observer,
-                )
-            })?;
+            let block_env = ChainSpecT::BlockEnv::new_block_env(
+                block.block_header(),
+                cfg_env.spec.clone(),
+                scheduled_blob_params.as_ref(),
+            );
+            let observed_execution = call::run_call::<ChainSpecT, _, _>(
+                blockchain,
+                block_env,
+                state_overrider,
+                cfg_env,
+                transaction.clone(),
+                &custom_precompiles,
+                &observer_config,
+            )?;
 
             if let Some(GasReportArgs {
                 callback,
@@ -3670,10 +3668,7 @@ mod tests {
         use edr_state_api::{account::AccountInfo, State, StateError};
 
         use super::*;
-        use crate::{
-            observability::{observe_execution, ObservedExecution},
-            requests::eth::resolve_call_request,
-        };
+        use crate::{observability::ObservedExecution, requests::eth::resolve_call_request};
 
         /// The action named by the injected storage error.
         const FAILING_READ_ACTION: &str = "read the failing storage slot";
@@ -3775,23 +3770,21 @@ mod tests {
                         inner: StateRefOverrider::new(&state_overrides, state.as_ref()),
                         fail_read,
                     };
-                    observe_execution(&observer_config, |observer| {
-                        let block_env =
-                            <L1ChainSpec as edr_chain_spec::BlockEnvChainSpec>::BlockEnv::new_block_env(
-                                block.block_header(),
-                                cfg_env.spec,
-                                scheduled_blob_params.as_ref(),
-                            );
-                        call::run_call::<L1ChainSpec, _, _, _>(
-                            blockchain,
-                            block_env,
-                            state,
-                            cfg_env,
-                            transaction,
-                            &custom_precompiles,
-                            observer,
-                        )
-                    })
+                    let block_env =
+                        <L1ChainSpec as edr_chain_spec::BlockEnvChainSpec>::BlockEnv::new_block_env(
+                            block.block_header(),
+                            cfg_env.spec,
+                            scheduled_blob_params.as_ref(),
+                        );
+                    call::run_call::<L1ChainSpec, _, _>(
+                        blockchain,
+                        block_env,
+                        state,
+                        cfg_env,
+                        transaction,
+                        &custom_precompiles,
+                        &observer_config,
+                    )
                 })?;
 
             Ok(result)

@@ -30,9 +30,7 @@ use crate::{
     config::GasEstimationMode,
     data::call,
     error::{EstimateGasFailure, ProviderErrorForChainSpec, TransactionFailure},
-    observability::{
-        observe_execution, EvmObservedData, EvmObserver, EvmObserverConfig, ObservedExecution,
-    },
+    observability::{EvmObservedData, EvmObserverConfig, ObservedExecution},
     time::TimeSinceEpoch,
     ProviderError, ProviderSpec, TransactionFailureReason,
 };
@@ -134,21 +132,21 @@ impl<'a, ChainSpecT: ChainSpec + ProtocolHardforkChainSpec + BlockEnvChainSpec>
 fn run_with_gas_limit<ChainSpecT: ProviderChainSpec<SignedTransaction: TransactionMut>>(
     context: &GasCallContext<'_, ChainSpecT>,
     gas_limit: u64,
-    observer: &mut EvmObserver,
+    observer_config: &EvmObserverConfig,
 ) -> Result<
-    ExecutionResultWithMetadata<ChainSpecT::HaltReason>,
+    ObservedExecution<ExecutionResultWithMetadata<ChainSpecT::HaltReason>>,
     ProviderErrorForChainSpec<ChainSpecT>,
 > {
     let mut transaction = context.transaction.clone();
     transaction.set_gas_limit(gas_limit);
-    call::run_call::<ChainSpecT, _, _, _>(
+    call::run_call::<ChainSpecT, _, _>(
         context.blockchain,
         context.new_block_env(),
         context.state,
         context.cfg_env.clone(),
         transaction,
         context.custom_precompiles,
-        observer,
+        observer_config,
     )
 }
 
@@ -298,17 +296,15 @@ fn measure_gas_with_full_limit<
     let ObservedExecution {
         evm_observed_data,
         execution_result,
-    } = observe_execution(observer_config, |observer| {
-        call::run_call::<'_, ChainSpecT, _, _, _>(
-            context.blockchain,
-            context.new_block_env(),
-            context.state,
-            context.cfg_env.clone(),
-            context.transaction.clone(),
-            context.custom_precompiles,
-            observer,
-        )
-    })?;
+    } = call::run_call::<ChainSpecT, _, _>(
+        context.blockchain,
+        context.new_block_env(),
+        context.state,
+        context.cfg_env.clone(),
+        context.transaction.clone(),
+        context.custom_precompiles,
+        observer_config,
+    )?;
 
     let initial_gas_or_failure = match execution_result.result {
         ExecutionResult::Success { gas, .. } => {
@@ -359,9 +355,7 @@ fn probe_gas_limit<ChainSpecT: ProviderChainSpec<SignedTransaction: TransactionM
     gas_limit: u64,
     estimation_mode: GasEstimationMode,
 ) -> Result<GasProbe, ProviderErrorForChainSpec<ChainSpecT>> {
-    let observed_limited_execution = observe_execution(observer_config, |observer| {
-        run_with_gas_limit(context, gas_limit, observer)
-    })?;
+    let observed_limited_execution = run_with_gas_limit(context, gas_limit, observer_config)?;
 
     let accepted = estimation_mode.accepts(
         observed_limited_execution.result(),
