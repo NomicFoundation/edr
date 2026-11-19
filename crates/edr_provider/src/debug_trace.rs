@@ -1,28 +1,29 @@
 use std::fmt::Debug;
 
 use alloy_rpc_types_trace::geth::{GethDebugTracingOptions, GethTrace};
-use edr_block_builder_api::{DatabaseComponents, WrapDatabaseRef};
 use edr_block_header::BlockHeader;
 use edr_blockchain_api::{r#dyn::DynBlockchainError, BlockHashByNumber};
 use edr_chain_spec::{ChainSpec, EvmSpecId, ExecutableTransaction as _, TransactionValidation};
-use edr_chain_spec_block::BlockChainSpec;
 use edr_chain_spec_evm::{BlockEnvTrait as _, CfgEnv, DatabaseComponentError, TransactionError};
-use edr_evm::{dry_run_with_inspector, run};
+use edr_chain_spec_provider::ProviderChainSpec;
+use edr_evm::run;
+use edr_inspection::{
+    DebugTraceContext, DebugTraceRequest, DebugTracerError, InspectedExecution, InspectionError,
+    InspectionRequest,
+};
 use edr_primitives::{HashMap, B256, U256};
-use edr_runtime::inspector::DualInspector;
 use edr_solidity::recorded_trace_arena::RecordedTraceArena;
 use edr_state_api::{DynState, StateError};
-use revm_inspectors::tracing::{DebugInspector, DebugInspectorError, MuxError, TransactionContext};
 
 use crate::{
     error::{JsonRpcError, INTERNAL_ERROR, INVALID_PARAMS},
-    observability::{observe_execution, EvmObserverCollectionError, EvmObserverConfig},
+    observability::{EvmObserverCollectionError, EvmObserverConfig},
 };
 
 /// Get trace output for `debug_traceTransaction`
 #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
 #[allow(clippy::too_many_arguments)]
-pub fn debug_trace_transaction<'header, ChainSpecT: BlockChainSpec<SignedTransaction: Clone>>(
+pub fn debug_trace_transaction<'header, ChainSpecT: ProviderChainSpec<SignedTransaction: Clone>>(
     blockchain: &dyn BlockHashByNumber<Error = DynBlockchainError>,
     // Take ownership of the state so that we can apply throw-away modifications on it
     mut state: Box<dyn DynState>,
@@ -48,49 +49,40 @@ pub fn debug_trace_transaction<'header, ChainSpecT: BlockChainSpec<SignedTransac
 
     for (transaction_index, transaction) in transactions.into_iter().enumerate() {
         if transaction.transaction_hash() == transaction_hash {
-            let mut debug_inspector = DebugInspector::new(tracing_options)
-                .map_err(DebugTraceError::from_debug_inspector_creation_error)?;
-
-            let transaction_hash = *transaction.transaction_hash();
-
-            let observed_execution = observe_execution(&observer_config, |observer| {
-                dry_run_with_inspector::<ChainSpecT, _, _, _, _>(
-                    blockchain,
-                    state.as_ref(),
-                    evm_config,
-                    transaction.clone(),
-                    &block,
-                    &HashMap::default(),
-                    &mut DualInspector::new(&mut debug_inspector, observer),
-                )
-                .map_err(DebugTraceErrorForChainSpec::<ChainSpecT>::from)
-            })?;
-
-            let mut database = WrapDatabaseRef(DatabaseComponents {
-                blockchain,
-                state: state.as_ref(),
-            });
-
-            let (execution_result, execution_trace) =
-                observed_execution.into_result_and_filtered_traces();
-
-            let geth_trace = debug_inspector
-                .get_result(
-                    Some(TransactionContext {
+            let include_call_traces = observer_config.include_call_traces;
+            let request = InspectionRequest {
+                observer: observer_config,
+                debug_trace: Some(DebugTraceRequest {
+                    options: tracing_options,
+                    context: Some(DebugTraceContext {
                         block_hash: Some(block_hash),
-                        tx_index: Some(transaction_index),
-                        tx_hash: Some(transaction_hash),
+                        transaction_index: Some(transaction_index),
+                        transaction_hash: Some(*transaction.transaction_hash()),
                     }),
-                    &transaction,
-                    &block,
-                    &execution_result.into_result_and_state(),
-                    &mut database,
-                )
-                .map_err(DebugTraceError::from_debug_inspector_result_error)?;
+                }),
+            };
+
+            let InspectedExecution {
+                execution,
+                observed,
+                geth_trace,
+            } = ChainSpecT::dry_run_with_inspection(
+                blockchain,
+                state.as_ref(),
+                evm_config,
+                transaction,
+                &block,
+                &HashMap::default(),
+                request,
+            )
+            .map_err(DebugTraceError::from_inspection_error)?;
+
+            let execution_trace =
+                observed.into_call_traces(include_call_traces, execution.result.is_success());
 
             return Ok(DebugTraceResultWithCallTraces {
                 execution_traces: execution_trace.into_iter().collect(),
-                result: geth_trace,
+                result: geth_trace.expect("a debug trace was requested"),
             });
         } else {
             run::<ChainSpecT, _, _, _>(
@@ -149,8 +141,8 @@ pub enum DebugTraceError<TransactionValidationErrorT> {
     #[error("JS Tracer is not enabled")]
     JsTracerNotEnabled,
     /// Error from `MuxInspector`
-    #[error(transparent)]
-    MuxInspector(#[from] MuxError),
+    #[error("{0}")]
+    MuxInspector(String),
     /// An error occurred while invoking a `SyncOnCollectedCoverageCallback`.
     #[error(transparent)]
     OnCollectedCoverageCallback(Box<dyn std::error::Error + Send + Sync>),
@@ -172,40 +164,28 @@ pub enum DebugTraceError<TransactionValidationErrorT> {
 }
 
 impl<TransactionValidationErrorT> DebugTraceError<TransactionValidationErrorT> {
-    /// Converts from a `DebugInspectorError` that occurs when calling
-    /// `DebugInspector::new`.
-    pub fn from_debug_inspector_creation_error(error: DebugInspectorError) -> Self {
-        match error {
-            DebugInspectorError::InvalidTracerConfig => DebugTraceError::InvalidTracerConfig,
-            DebugInspectorError::JsTracerNotEnabled => DebugTraceError::JsTracerNotEnabled,
-            DebugInspectorError::MuxInspector(error) => DebugTraceError::MuxInspector(error),
-            DebugInspectorError::UnsupportedTracer => DebugTraceError::UnsupportedTracer,
-            DebugInspectorError::Database(_) => {
-                unreachable!("Database errors should not occur while calling `DebugInspector::new`")
-            }
-        }
-    }
-
-    /// Converts from a `DebugInspectorError` that occurs when calling
-    /// `DebugInspector::get_result`.
-    pub fn from_debug_inspector_result_error(
-        error: DebugInspectorError<DatabaseComponentError<DynBlockchainError, StateError>>,
+    /// Converts from the error of an inspected execution.
+    pub fn from_inspection_error(
+        error: InspectionError<
+            DatabaseComponentError<DynBlockchainError, StateError>,
+            TransactionValidationErrorT,
+        >,
     ) -> Self {
         match error {
-            DebugInspectorError::Database(DatabaseComponentError::Blockchain(error)) => {
+            InspectionError::Collection(error) => error.into(),
+            InspectionError::Database(DatabaseComponentError::Blockchain(error)) => {
                 DebugTraceError::Blockchain(error)
             }
-            DebugInspectorError::Database(DatabaseComponentError::State(error)) => {
+            InspectionError::Database(DatabaseComponentError::State(error)) => {
                 DebugTraceError::State(error)
             }
-            DebugInspectorError::InvalidTracerConfig
-            | DebugInspectorError::JsTracerNotEnabled
-            | DebugInspectorError::MuxInspector(_)
-            | DebugInspectorError::UnsupportedTracer => {
-                unreachable!(
-                    "These `DebugInspectorError`s should not occur while calling `DebugInspector::::get_result`"
-                )
-            }
+            InspectionError::DebugTracer(error) => match error {
+                DebugTracerError::InvalidTracerConfig => DebugTraceError::InvalidTracerConfig,
+                DebugTracerError::JsTracerNotEnabled => DebugTraceError::JsTracerNotEnabled,
+                DebugTracerError::MuxInspector(error) => DebugTraceError::MuxInspector(error),
+                DebugTracerError::UnsupportedTracer => DebugTraceError::UnsupportedTracer,
+            },
+            InspectionError::Transaction(error) => DebugTraceError::TransactionError(error),
         }
     }
 }

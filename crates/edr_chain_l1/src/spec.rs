@@ -7,6 +7,7 @@ use edr_block_header::{
 };
 use edr_block_local::{EthLocalBlock, LocalBlockCreationError};
 use edr_block_remote::FetchRemoteReceiptError;
+use edr_blockchain_api::BlockHashByNumber;
 use edr_chain_config::ChainConfig;
 use edr_chain_spec::{
     BlockEnvChainSpec, BlockEnvForHardfork, ChainSpec, ContextChainSpec, EvmHardforkChainSpec,
@@ -25,9 +26,13 @@ use edr_chain_spec_receipt::ReceiptChainSpec;
 use edr_chain_spec_rpc::{RpcBlockChainSpec, RpcChainSpec};
 use edr_eip1559::BaseFeeParams;
 use edr_eip7892::ScheduledBlobParams;
-use edr_primitives::{Bytes, HashMap, U256};
+use edr_inspection::{
+    InspectedExecution, InspectionChainSpec, InspectionErrorForChainSpec, InspectionRequest,
+};
+use edr_precompile::PrecompileFn;
+use edr_primitives::{Address, Bytes, HashMap, U256};
 use edr_receipt::{log::FilterLog, ExecutionReceiptChainSpec};
-use edr_state_api::StateDiff;
+use edr_state_api::{State, StateDiff};
 use revm_context_interface::JournalTr as _;
 use serde::{de::DeserializeOwned, Serialize};
 
@@ -182,6 +187,35 @@ impl EvmChainSpec for L1ChainSpec {
         );
 
         evm.inspect_tx(transaction).map_err(TransactionError::from)
+    }
+}
+
+impl InspectionChainSpec for L1ChainSpec {
+    fn dry_run_with_inspection<
+        BlockT: BlockEnvTrait,
+        BlockchainT: BlockHashByNumber<Error: 'static + std::error::Error + Send + Sync> + Clone,
+        StateT: State<Error: 'static + std::error::Error + Send + Sync> + Clone,
+    >(
+        blockchain: BlockchainT,
+        state: StateT,
+        cfg: CfgEnv<Self::ProtocolHardfork>,
+        transaction: Self::SignedTransaction,
+        block: BlockT,
+        custom_precompiles: &HashMap<Address, PrecompileFn>,
+        request: InspectionRequest,
+    ) -> Result<
+        InspectedExecution<Self::HaltReason>,
+        InspectionErrorForChainSpec<Self, BlockchainT::Error, StateT::Error>,
+    > {
+        edr_inspection::revm::dry_run_with_inspection::<Self, _, _, _>(
+            blockchain,
+            state,
+            cfg,
+            transaction,
+            block,
+            custom_precompiles,
+            request,
+        )
     }
 }
 

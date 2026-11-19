@@ -30,6 +30,7 @@ members = [
     "crates/edr_eth",
     "crates/edr_gas_report",
     "crates/edr_instrument",
+    "crates/inspection",
     "crates/inspector/bytecode",
     "crates/edr_macros",
     "crates/edr_napi",
@@ -177,6 +178,7 @@ edr_eth = { path = "crates/edr_eth" }
 edr_evm = { path = "crates/evm" }
 edr_gas_report = { path = "crates/edr_gas_report" }
 edr_generic = { path = "crates/edr_generic" }
+edr_inspection = { path = "crates/inspection" }
 edr_inspector_bytecode = { path = "crates/inspector/bytecode" }
 edr_instrument = { path = "crates/edr_instrument" }
 edr_macros = { path = "crates/edr_macros" }

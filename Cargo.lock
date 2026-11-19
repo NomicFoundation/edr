@@ -2846,6 +2846,7 @@ dependencies = [
  "edr_block_header",
  "edr_block_local",
  "edr_block_remote",
+ "edr_blockchain_api",
  "edr_chain_config",
  "edr_chain_spec",
  "edr_chain_spec_block",
@@ -2859,6 +2860,7 @@ dependencies = [
  "edr_eip7702",
  "edr_eip7892",
  "edr_evm",
+ "edr_inspection",
  "edr_precompile",
  "edr_primitives",
  "edr_receipt",
@@ -2932,6 +2934,7 @@ dependencies = [
  "edr_chain_spec_rpc",
  "edr_eip1559",
  "edr_eip7892",
+ "edr_inspection",
  "edr_primitives",
  "edr_transaction",
 ]
@@ -3203,6 +3206,8 @@ dependencies = [
  "edr_eip7702",
  "edr_eip7892",
  "edr_eth",
+ "edr_inspection",
+ "edr_precompile",
  "edr_primitives",
  "edr_provider",
  "edr_receipt",
@@ -3223,6 +3228,33 @@ dependencies = [
  "serial_test",
  "thiserror 2.0.21",
  "tokio",
+]
+
+[[package]]
+name = "edr_inspection"
+version = "0.3.8"
+dependencies = [
+ "alloy-rpc-types-trace",
+ "dyn-clone",
+ "edr_block_miner",
+ "edr_blockchain_api",
+ "edr_chain_spec",
+ "edr_chain_spec_evm",
+ "edr_coverage",
+ "edr_database_components",
+ "edr_evm",
+ "edr_inspector_bytecode",
+ "edr_precompile",
+ "edr_primitives",
+ "edr_receipt",
+ "edr_runtime",
+ "edr_solidity",
+ "edr_state_api",
+ "parking_lot",
+ "revm-inspector",
+ "revm-inspectors",
+ "serde_json",
+ "thiserror 2.0.21",
 ]
 
 [[package]]
@@ -3393,7 +3425,9 @@ dependencies = [
  "edr_eip7702",
  "edr_eip7892",
  "edr_eth",
+ "edr_inspection",
  "edr_napi_core",
+ "edr_precompile",
  "edr_primitives",
  "edr_provider",
  "edr_receipt",
@@ -3489,6 +3523,7 @@ dependencies = [
  "edr_eth",
  "edr_evm",
  "edr_gas_report",
+ "edr_inspection",
  "edr_inspector_bytecode",
  "edr_mem_pool",
  "edr_precompile",

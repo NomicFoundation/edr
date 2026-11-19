@@ -307,7 +307,8 @@ pub fn run<
     })
 }
 
-fn set_guarantees<HardforkT: Into<EvmSpecId>>(config: &mut CfgEnv<HardforkT>) {
+/// Disables balance, nonce and block gas limit checks.
+pub fn set_guarantees<HardforkT: Into<EvmSpecId>>(config: &mut CfgEnv<HardforkT>) {
     config.disable_balance_check = true;
     config.disable_block_gas_limit = true;
     config.disable_nonce_check = true;

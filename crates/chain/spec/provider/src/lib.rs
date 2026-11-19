@@ -10,6 +10,7 @@ use edr_chain_spec_receipt::ReceiptChainSpec;
 use edr_chain_spec_rpc::{RpcChainSpec, RpcEthBlock, RpcTransaction, RpcTypeFrom};
 use edr_eip1559::BaseFeeParams;
 use edr_eip7892::ScheduledBlobParams;
+use edr_inspection::InspectionChainSpec;
 use edr_primitives::{HashMap, B256, U256};
 use edr_transaction::{TransactionAndBlock, TransactionType};
 
@@ -39,7 +40,7 @@ pub trait ProviderChainSpec: BlockChainSpec<
             EthBlockData<Self::SignedTransaction>,
             Error: Send + Sync + std::error::Error,
         >,
-    >
+    > + InspectionChainSpec
 {
     /// Returns the chain configurations for this chain type.
     fn chain_configs() -> &'static HashMap<u64, ChainConfig<Self::ProtocolHardfork>>;

@@ -298,7 +298,6 @@ fn measure_gas_with_full_limit<
     let ObservedExecution {
         evm_observed_data,
         execution_result,
-        ..
     } = observe_execution(observer_config, |observer| {
         call::run_call::<'_, ChainSpecT, _, _, _>(
             context.blockchain,
