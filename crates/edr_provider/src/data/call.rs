@@ -1,15 +1,19 @@
 use edr_block_header::BlockHeader;
 use edr_blockchain_api::{r#dyn::DynBlockchainError, BlockHashByNumber};
 use edr_chain_spec::BlobExcessGasAndPrice;
-use edr_chain_spec_evm::{BlockEnvTrait, CfgEnv, ContextForChainSpec, Inspector};
+use edr_chain_spec_evm::{BlockEnvTrait, CfgEnv};
 use edr_chain_spec_provider::ProviderChainSpec;
-use edr_database_components::{DatabaseComponents, WrapDatabaseRef};
-use edr_evm::{guaranteed_dry_run_with_inspector, ExecutionResultWithMetadata};
+use edr_evm::{set_guarantees, ExecutionResultWithMetadata};
+use edr_inspection::{InspectedExecution, InspectionError, InspectionRequest};
 use edr_precompile::PrecompileFn;
 use edr_primitives::{Address, HashMap, B256, U256};
 use edr_state_api::{State, StateError};
 
-use crate::{error::ProviderErrorForChainSpec, ProviderError};
+use crate::{
+    error::ProviderErrorForChainSpec,
+    observability::{EvmObserverConfig, ObservedExecution},
+    ProviderError,
+};
 
 /// A wrapper around a block environment that forces the base fee to be zero.
 ///
@@ -65,42 +69,55 @@ impl<BlockEnvT: BlockEnvTrait> BlockEnvTrait for BlockEnvWithZeroBaseFee<BlockEn
     }
 }
 
-/// Execute a transaction as a call. Returns the gas used and the output.
-pub(super) fn run_call<'call, ChainSpecT, BlockchainT, InspectorT, StateT>(
+/// Executes a transaction as a call, observed as described by
+/// `observer_config`.
+pub(super) fn run_call<'call, ChainSpecT, BlockchainT, StateT>(
     blockchain: BlockchainT,
     block_env: ChainSpecT::BlockEnv<'call, BlockHeader>,
     state: StateT,
-    cfg_env: CfgEnv<ChainSpecT::ProtocolHardfork>,
+    mut cfg_env: CfgEnv<ChainSpecT::ProtocolHardfork>,
     transaction: ChainSpecT::SignedTransaction,
     custom_precompiles: &'call HashMap<Address, PrecompileFn>,
-    inspector: &'call mut InspectorT,
+    observer_config: &EvmObserverConfig,
 ) -> Result<
-    ExecutionResultWithMetadata<ChainSpecT::HaltReason>,
+    ObservedExecution<ExecutionResultWithMetadata<ChainSpecT::HaltReason>>,
     ProviderErrorForChainSpec<ChainSpecT>,
 >
 where
     BlockchainT: BlockHashByNumber<Error = DynBlockchainError>,
     ChainSpecT: ProviderChainSpec,
-    InspectorT: Inspector<
-        ContextForChainSpec<
-            ChainSpecT,
-            BlockEnvWithZeroBaseFee<ChainSpecT::BlockEnv<'call, BlockHeader>>,
-            WrapDatabaseRef<DatabaseComponents<BlockchainT, StateT>>,
-        >,
-    >,
     StateT: State<Error = StateError>,
 {
-    guaranteed_dry_run_with_inspector::<ChainSpecT, _, _, _, _>(
-        blockchain,
-        state,
+    set_guarantees(&mut cfg_env);
+
+    let request = InspectionRequest {
+        observer: observer_config.clone(),
+        debug_trace: None,
+    };
+
+    let InspectedExecution {
+        execution,
+        observed,
+        geth_trace: _,
+    } = ChainSpecT::dry_run_with_inspection(
+        &blockchain,
+        &state,
         cfg_env,
         transaction,
         BlockEnvWithZeroBaseFee { inner: block_env },
         custom_precompiles,
-        inspector,
+        request,
     )
-    .map_or_else(
-        |error| Err(ProviderError::RunTransaction(error)),
-        |result| Ok(result.into_result_with_metadata()),
-    )
+    .map_err(|error| match error {
+        InspectionError::Transaction(error) => ProviderError::RunTransaction(error),
+        InspectionError::Collection(error) => ProviderError::from(error),
+        InspectionError::Database(_) | InspectionError::DebugTracer(_) => {
+            unreachable!("only the debug tracer fails with these, and none was requested")
+        }
+    })?;
+
+    Ok(ObservedExecution {
+        evm_observed_data: observed,
+        execution_result: execution.into_result_with_metadata(),
+    })
 }

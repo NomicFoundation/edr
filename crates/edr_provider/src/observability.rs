@@ -2,12 +2,11 @@ use core::fmt::Debug;
 use std::sync::Arc;
 
 use edr_coverage::reporter::SyncOnCollectedCoverageCallback;
-use edr_evm::{ExecutionResultAndStateWithMetadata, ExecutionResultWithMetadata};
+use edr_evm::ExecutionResultWithMetadata;
 use edr_gas_report::SyncOnCollectedGasReportCallback;
 pub use edr_inspection::{
     EvmObservedData, EvmObserver, EvmObserverCollectionError, EvmObserverConfig,
 };
-use edr_primitives::{Address, HashSet};
 use edr_receipt::ExecutionResult;
 use edr_solidity::{config::IncludeTraces, contract_decoder::ContractDecoder};
 use parking_lot::RwLock;
@@ -110,61 +109,14 @@ impl JsonRpcError for EvmObserverCollectionError {
     }
 }
 
-/// Abstracts over [`ExecutionResultWithMetadata`] and
-/// [`ExecutionResultAndStateWithMetadata`] so that [`observe_execution`] can be
-/// generic over both without duplicating the observer lifecycle.
-pub(crate) trait WithExecutionResult {
-    type HaltReason;
-    fn precompile_addresses(&self) -> &HashSet<Address>;
-    fn result(&self) -> &ExecutionResult<Self::HaltReason>;
-}
-
-impl<HaltReasonT> WithExecutionResult for ExecutionResultWithMetadata<HaltReasonT> {
-    type HaltReason = HaltReasonT;
-    fn precompile_addresses(&self) -> &HashSet<Address> {
-        &self.precompile_addresses
-    }
-    fn result(&self) -> &ExecutionResult<HaltReasonT> {
-        &self.result
-    }
-}
-
-impl<HaltReasonT> WithExecutionResult for ExecutionResultAndStateWithMetadata<HaltReasonT> {
-    type HaltReason = HaltReasonT;
-    fn precompile_addresses(&self) -> &HashSet<Address> {
-        &self.precompile_addresses
-    }
-    fn result(&self) -> &ExecutionResult<HaltReasonT> {
-        &self.result
-    }
-}
+/// The result of an execution, along with what the observer collected.
 pub(crate) struct ObservedExecution<ExecutionResultT> {
     pub evm_observed_data: EvmObservedData,
     pub execution_result: ExecutionResultT,
 }
 
-impl<ExecutionResultT: WithExecutionResult> ObservedExecution<ExecutionResultT> {
-    pub fn result(&self) -> &ExecutionResult<ExecutionResultT::HaltReason> {
-        self.execution_result.result()
+impl<HaltReasonT> ObservedExecution<ExecutionResultWithMetadata<HaltReasonT>> {
+    pub fn result(&self) -> &ExecutionResult<HaltReasonT> {
+        &self.execution_result.result
     }
-}
-
-pub(crate) fn observe_execution<
-    ExecutionResultT: WithExecutionResult,
-    ErrorT: From<EvmObserverCollectionError>,
-    ExecutionFn: FnOnce(&mut EvmObserver) -> Result<ExecutionResultT, ErrorT>,
->(
-    observer_config: &EvmObserverConfig,
-    observable_execution: ExecutionFn,
-) -> Result<ObservedExecution<ExecutionResultT>, ErrorT> {
-    let mut observer = EvmObserver::new(observer_config.clone());
-
-    let execution_result = observable_execution(&mut observer)?;
-
-    let evm_observed_data = observer.collect_and_report(execution_result.precompile_addresses())?;
-
-    Ok(ObservedExecution {
-        evm_observed_data,
-        execution_result,
-    })
 }
