@@ -2,6 +2,10 @@
 // `node --test`'s default patterns (`*.test.ts`, `test-*.ts`, ...), or the
 // runner would load it as a test file.
 
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
 import type { WorkflowRun } from "./github-script.ts";
 import type { Clock } from "./wait-for-workflow-run.ts";
 
@@ -36,4 +40,23 @@ export function runsOf(page: RunPage): WorkflowRun[] {
     return [];
   }
   return Array.isArray(page) ? page : [page];
+}
+
+// A well-formed compat pin, as the file content and as its parts.
+export const PIN_SHA = "a".repeat(40);
+export const PIN_PR = 5678;
+export const PIN_REASON = "needs hardhat counterpart";
+export const PIN_FILE = JSON.stringify({
+  pr: PIN_PR,
+  sha: PIN_SHA,
+  reason: PIN_REASON,
+});
+
+/**
+ * The path a pin would have in a fresh temp dir. `unreadable` puts a
+ * directory in its place, which reads as EISDIR rather than ENOENT.
+ */
+export function tempPinPath({ unreadable = false } = {}): string {
+  const dir = mkdtempSync(join(tmpdir(), "compat-pin-"));
+  return unreadable ? dir : join(dir, "hardhat-compat-pin.json");
 }
