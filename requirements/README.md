@@ -15,7 +15,7 @@ requirements/
 └── rpc/<method>.md            # one file per JSON-RPC method
 ```
 
-Add new top-level folders as needed (for example `solidity-tests/`, `napi/`, `chains/op/`). Prefer extending an existing file over creating a new one; split a file when it no longer reads as one topic.
+Add new top-level folders as needed (for example `solidity-tests/`, `napi/`, `chains/op/`). Prefer extending an existing file over creating a new one; split a file when it passes about 500 lines or no longer reads as one topic.
 
 ## File format
 
@@ -43,7 +43,7 @@ One paragraph of context: what this is, from a user's point of view.
 - IDs are stable: don't rename them when wording changes. Slugs instead of numbers so concurrent PRs don't collide.
 - PRs reference requirements by ID in their description (see below).
 - To remove a requirement, delete it. The git history keeps the old wording. First search for tests tagged with its ID. If they still pass, check whether the requirement really goes away or the tests were tagged with the wrong ID. Then delete the tests that only checked the removed requirement, and retag the others.
-- Cross-references point one way only: a requirement names the IDs it depends on in its text (for example a method requirement naming a concept requirement). Concepts don't list the requirements that use them; search for the ID instead.
+- Cross-references point one way only: a requirement names the IDs it depends on in its text (for example a method requirement naming a concept requirement). Concepts don't list the requirements that use them; search for the concept's ID instead.
 
 ## Writing requirements
 
@@ -69,3 +69,5 @@ fn estimate_at_historical_block_follows_block_hardfork() {}
 ## In PR descriptions
 
 In PRs that touch behavior, add a **Requirements** section that lists each affected ID with one of: `added`, `amended`, `removed`, `fixed` (code now meets an existing requirement), `validated` (a test was added for an existing requirement). If no requirement is affected, write `none`.
+
+If the code and a requirement disagree, one of them is a bug; say which in the PR.
