@@ -60,6 +60,7 @@ members = [
     "crates/evm",
     "crates/mem_pool",
     "crates/precompile",
+    "crates/spike/evm2",
     "crates/primitives",
     "crates/receipt/builder/api",
     "crates/state/api",

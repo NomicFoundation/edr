@@ -1,0 +1,33 @@
+[package]
+name = "edr_spike_evm2"
+version.workspace = true
+edition.workspace = true
+publish = false
+
+[dependencies]
+alloy-consensus = { workspace = true, features = ["std"] }
+alloy-primitives.workspace = true
+anyhow.workspace = true
+edr_blockchain_api.workspace = true
+edr_chain_l1.workspace = true
+edr_chain_spec_evm.workspace = true
+edr_evm.workspace = true
+edr_primitives.workspace = true
+edr_signer.workspace = true
+edr_state_api.workspace = true
+edr_state_persistent_trie.workspace = true
+evm2 = { git = "https://github.com/alloy-rs/evm2", rev = "35aa32800b147b00e616d4e1869a3835aa86701f", default-features = false, features = [
+    "std",
+    "map-foldhash",
+    "bn",
+    "blst",
+    "portable",
+] }
+evm2-inspectors = { git = "https://github.com/alloy-rs/evm2", rev = "35aa32800b147b00e616d4e1869a3835aa86701f", default-features = false, features = [
+    "std",
+] }
+revm-context.workspace = true
+revm-inspectors.workspace = true
+revm-interpreter.workspace = true
+sha2 = { workspace = true, features = ["std"] }
+thiserror.workspace = true
