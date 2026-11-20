@@ -1,9 +1,14 @@
-use std::{collections::HashMap, path::PathBuf};
+use std::{
+    collections::{BTreeMap, HashMap},
+    path::{Path, PathBuf},
+};
 
 pub use edr_coverage::reporter::SyncOnCollectedCoverageCallback;
 use edr_eip8037::TransactionGasBounds;
 use edr_primitives::{Address, B256, U256};
 use edr_solidity::config::IncludeTraces;
+use edr_solidity_parser_slang::compilation::file_id_of;
+pub use edr_solidity_parser_slang::exclusions::InvalidExclusionGlob;
 use foundry_evm::{
     backend::Predeploy,
     evm_context::{BlockEnvTr, HardforkTr, TransactionEnvTr},
@@ -13,7 +18,7 @@ use foundry_evm::{
 
 use crate::{
     fork::CreateFork,
-    inline_config::{ImportResolver, InlineConfigErrors, InlineConfigProfiles},
+    inline_config::{ImportResolver, InlineConfigProfiles},
     opts::{Env as EvmEnv, EvmOpts},
 };
 
@@ -28,10 +33,179 @@ pub enum SolidityTestRunnerConfigError {
     /// Failed to normalize project root
     #[error("Failed to normalize project root with error: {0}")]
     InvalidProjectRoot(std::io::Error),
-    /// One or more test sources carry invalid inline configuration. Carries
-    /// every problem found, each located at its source line.
-    #[error("Found invalid inline configuration in test sources:\n{0}")]
-    InlineConfig(InlineConfigErrors),
+    /// An EIP-712 source exclusion glob could not be compiled.
+    #[error(transparent)]
+    InvalidEip712ExcludeGlob(#[from] InvalidExclusionGlob),
+    /// Several `testSourcePaths` entries name one file.
+    #[error(
+        "`testSourcePaths` entries {} name the same file: {file_id}; one source name per file",
+        quoted_sources(.sources)
+    )]
+    TestSourcePathShared {
+        /// The shared file, spelled the way the parser identifies it.
+        file_id: String,
+        /// The source names pointing at it, sorted.
+        sources: Vec<PathBuf>,
+    },
+}
+
+/// Renders source names as a backtick-quoted list: ``a`, `b` and `c``.
+fn quoted_sources(sources: &[PathBuf]) -> String {
+    let quoted: Vec<String> = sources
+        .iter()
+        .map(|source| format!("`{}`", source.display()))
+        .collect();
+
+    match quoted.split_last() {
+        None => String::new(),
+        Some((last, [])) => last.clone(),
+        Some((last, leading)) => format!("{} and {last}", leading.join(", ")),
+    }
+}
+
+/// The test sources to collect from: which file each solc source name is read
+/// from, holding one source name per file.
+///
+/// Built through [`Self::try_from`] or grown through [`Self::insert`], which
+/// both reject a file two source names point at. Collection parses a file
+/// once and serves it under one name, so the clash is rejected before it
+/// gets there.
+#[derive(Clone, Debug, Default)]
+pub struct TestSourcePaths {
+    /// Keyed by file id, so a second source name for a file is
+    /// unrepresentable rather than caught downstream.
+    entries: HashMap<String, TestSourceEntry>,
+    /// The file id of each source name, the inverse of [`Self::entries`],
+    /// because a lookup has a source name in hand.
+    file_ids: HashMap<PathBuf, String>,
+}
+
+/// What one [`TestSourcePaths`] entry holds beyond the file id it is keyed by.
+#[derive(Clone, Debug)]
+struct TestSourceEntry {
+    /// The solc source name the file is collected under.
+    source: PathBuf,
+    /// The path the file is read from.
+    path: PathBuf,
+}
+
+/// The file one test source name is read from.
+#[derive(Clone, Copy, Debug)]
+pub struct TestSourceFile<'a> {
+    /// The identity the parser gives the file. Collection keys one root by it.
+    pub file_id: &'a str,
+    /// The path the file is read from.
+    pub path: &'a Path,
+}
+
+impl TestSourcePaths {
+    /// Whether collection is disabled, which no entries does.
+    pub fn is_empty(&self) -> bool {
+        self.entries.is_empty()
+    }
+
+    /// The file `source` is read from, or `None` when it has no entry.
+    pub fn get(&self, source: &Path) -> Option<TestSourceFile<'_>> {
+        let file_id = self.file_ids.get(source)?;
+        let entry = self
+            .entries
+            .get(file_id)
+            .expect("every source name's file id is an entry");
+
+        Some(TestSourceFile {
+            file_id,
+            path: &entry.path,
+        })
+    }
+
+    /// Every source name with an entry.
+    pub fn source_names(&self) -> impl Iterator<Item = &Path> {
+        self.entries.values().map(|entry| entry.source.as_path())
+    }
+
+    /// Adds or replaces `source`'s entry, keeping one source name per file.
+    ///
+    /// A `source` that already names another file is re-pointed at `path`,
+    /// freeing its old file id, like [`HashMap::insert`] replacing a key's
+    /// value. A `path` another source name already claims is rejected with
+    /// [`SolidityTestRunnerConfigError::TestSourcePathShared`] instead,
+    /// leaving `self` unchanged.
+    pub fn insert(
+        &mut self,
+        source: PathBuf,
+        path: PathBuf,
+    ) -> Result<(), SolidityTestRunnerConfigError> {
+        let file_id = file_id_of(&path);
+
+        if let Some(existing) = self.entries.get(&file_id)
+            && existing.source != source
+        {
+            let mut sources = vec![existing.source.clone(), source];
+            sources.sort();
+
+            return Err(SolidityTestRunnerConfigError::TestSourcePathShared { file_id, sources });
+        }
+
+        if let Some(old_file_id) = self.file_ids.insert(source.clone(), file_id.clone())
+            && old_file_id != file_id
+        {
+            self.entries.remove(&old_file_id);
+        }
+        self.entries
+            .insert(file_id, TestSourceEntry { source, path });
+
+        Ok(())
+    }
+
+    /// Drops `source`'s entry, freeing its file id, and returns the path it
+    /// named. Returns `None` when `source` has no entry.
+    pub fn remove(&mut self, source: &Path) -> Option<PathBuf> {
+        let file_id = self.file_ids.remove(source)?;
+        let entry = self
+            .entries
+            .remove(&file_id)
+            .expect("every source name's file id is an entry");
+
+        Some(entry.path)
+    }
+}
+
+impl TryFrom<HashMap<PathBuf, PathBuf>> for TestSourcePaths {
+    type Error = SolidityTestRunnerConfigError;
+
+    /// Groups the entries by the file id of their path, the identity the
+    /// parser gives a file, so `a/../b.sol` and `b.sol` count as one file.
+    ///
+    /// Reports the first clash in file-id order, like the sibling
+    /// configuration problems, which also reject at the first one.
+    fn try_from(test_source_paths: HashMap<PathBuf, PathBuf>) -> Result<Self, Self::Error> {
+        let mut entries = HashMap::with_capacity(test_source_paths.len());
+        let mut sources_by_file_id: BTreeMap<String, Vec<PathBuf>> = BTreeMap::new();
+        for (source, path) in test_source_paths {
+            let file_id = file_id_of(&path);
+            sources_by_file_id
+                .entry(file_id.clone())
+                .or_default()
+                .push(source.clone());
+            entries.insert(file_id, TestSourceEntry { source, path });
+        }
+
+        if let Some((file_id, mut sources)) = sources_by_file_id
+            .into_iter()
+            .find(|(_, sources)| sources.len() > 1)
+        {
+            sources.sort();
+
+            return Err(SolidityTestRunnerConfigError::TestSourcePathShared { file_id, sources });
+        }
+
+        let file_ids = entries
+            .iter()
+            .map(|(file_id, entry)| (entry.source.clone(), file_id.clone()))
+            .collect();
+
+        Ok(Self { entries, file_ids })
+    }
 }
 
 /// Solidity tests configuration
@@ -67,12 +241,42 @@ pub struct SolidityTestRunnerConfig<HardforkT: HardforkTr> {
     /// Whether to generate a gas report after running tests
     pub generate_gas_report: bool,
     /// Maps each test source's solc source name to its absolute path on disk,
-    /// used to read and parse the source for inline configuration. A source
-    /// without an entry has no inline configuration collected.
-    pub test_source_paths: HashMap<PathBuf, PathBuf>,
-    /// Resolves the imports of test sources when parsing their inline
-    /// configuration (`forge-config:`/`hardhat-config:` NatSpec directives).
+    /// used to read and parse the source for inline configuration
+    /// (`forge-config:`/`hardhat-config:` NatSpec directives) and for the
+    /// EIP-712 struct definitions served to the `eip712HashType` and
+    /// `eip712HashStruct` cheatcodes.
+    ///
+    /// No entries disables collection: no source is read or parsed. A
+    /// non-empty map must name the source of every test suite a run selects,
+    /// and every source backing a selected suite is parsed. An entry no
+    /// selected suite uses is never opened. One source name per file, which
+    /// [`TestSourcePaths`] enforces.
+    ///
+    /// Each problem is accumulated and reported together when the run starts,
+    /// rather than silently leaving a suite without inline configuration or
+    /// EIP-712 types. A suite with no entry, an unreadable file, a solc
+    /// version older than 0.8 and a source that does not parse all count.
+    ///
+    /// Only the sources of the suites a run selects are read and parsed, so a
+    /// filtered run does not pay for the rest of the project.
+    pub test_source_paths: TestSourcePaths,
+    /// Resolves the imports of test sources while parsing them (see
+    /// [`Self::test_source_paths`]).
     pub import_resolver: ImportResolver,
+    /// Globs matched against each parsed source's path relative to
+    /// [`Self::project_root`], spelled with forward slashes. A file outside
+    /// the root is matched by its absolute path.
+    ///
+    /// A struct declared in a matching file is not collected, including when
+    /// the matching file is the test's own source. Excluding is how a project
+    /// settles a same-name clash between two reachable structs. Nothing is
+    /// excluded by default, and there is no opposite setting, because every
+    /// reachable struct is collected.
+    ///
+    /// Only EIP-712 collection is affected. An excluded source still
+    /// contributes its inline configuration and is still parsed, so a syntax
+    /// error in it still rejects the run.
+    pub eip712_exclude_globs: Vec<String>,
     /// The profile the run was started with and every profile the project
     /// declares, used to scope inline-config directives. Defaults to the single
     /// `default` profile.
@@ -396,5 +600,236 @@ mod tests {
         let before = config.clone();
         config.fill_unset_from(&TestFunctionConfigOverride::default());
         assert_eq!(config, before);
+    }
+
+    /// The entries of a map naming one file per source name.
+    fn source_paths(entries: &[(&str, &str)]) -> HashMap<PathBuf, PathBuf> {
+        entries
+            .iter()
+            .map(|(source, path)| (PathBuf::from(source), PathBuf::from(path)))
+            .collect()
+    }
+
+    #[test]
+    fn distinct_files_are_accepted() {
+        let paths = TestSourcePaths::try_from(source_paths(&[
+            ("test/A.t.sol", "/project/test/A.t.sol"),
+            ("test/B.t.sol", "/project/test/B.t.sol"),
+        ]))
+        .expect("each source name has its own file");
+
+        assert!(!paths.is_empty());
+        let file = paths
+            .get(Path::new("test/A.t.sol"))
+            .expect("`test/A.t.sol` has an entry");
+        assert_eq!(file.path, Path::new("/project/test/A.t.sol"));
+        assert_eq!(file.file_id, file_id_of(Path::new("/project/test/A.t.sol")));
+        assert!(paths.get(Path::new("test/Missing.t.sol")).is_none());
+
+        let mut source_names: Vec<&Path> = paths.source_names().collect();
+        source_names.sort_unstable();
+        assert_eq!(
+            source_names,
+            vec![Path::new("test/A.t.sol"), Path::new("test/B.t.sol")]
+        );
+    }
+
+    #[test]
+    fn no_entries_disable_collection() {
+        let paths = TestSourcePaths::try_from(HashMap::new()).expect("an empty map is valid");
+
+        assert!(paths.is_empty());
+        assert!(TestSourcePaths::default().is_empty());
+    }
+
+    #[test]
+    fn two_source_names_for_one_file_are_rejected() {
+        let shared = "/project/test/Shared.t.sol";
+
+        let error = TestSourcePaths::try_from(source_paths(&[
+            ("test/B.t.sol", shared),
+            ("test/A.t.sol", shared),
+        ]))
+        .expect_err("one file backs two source names");
+
+        assert!(
+            matches!(
+                &error,
+                SolidityTestRunnerConfigError::TestSourcePathShared { file_id, sources }
+                    if *file_id == file_id_of(Path::new(shared))
+                        && *sources == vec![
+                            PathBuf::from("test/A.t.sol"),
+                            PathBuf::from("test/B.t.sol"),
+                        ]
+            ),
+            "{error:?}"
+        );
+        assert_eq!(
+            error.to_string(),
+            format!(
+                "`testSourcePaths` entries `test/A.t.sol` and `test/B.t.sol` name the same file: {}; one source name per file",
+                file_id_of(Path::new(shared))
+            )
+        );
+    }
+
+    /// A third name joins the list with a comma, while two keep the bare
+    /// `a` and `b` form.
+    #[test]
+    fn three_source_names_for_one_file_are_listed_with_a_comma() {
+        let shared = "/project/test/Shared.t.sol";
+
+        let error = TestSourcePaths::try_from(source_paths(&[
+            ("test/C.t.sol", shared),
+            ("test/A.t.sol", shared),
+            ("test/B.t.sol", shared),
+        ]))
+        .expect_err("one file backs three source names");
+
+        assert!(
+            error
+                .to_string()
+                .starts_with("`testSourcePaths` entries `test/A.t.sol`, `test/B.t.sol` and `test/C.t.sol` name the same file"),
+            "{error}"
+        );
+    }
+
+    /// Paths are compared by file id, so two spellings of one file are a
+    /// clash rather than two files.
+    #[test]
+    fn two_spellings_of_one_file_are_rejected() {
+        let error = TestSourcePaths::try_from(source_paths(&[
+            ("test/A.t.sol", "/project/test/A.t.sol"),
+            ("test/B.t.sol", "/project/test/../test/A.t.sol"),
+        ]))
+        .expect_err("both spellings name one file");
+
+        assert!(
+            error
+                .to_string()
+                .contains("`test/A.t.sol` and `test/B.t.sol` name the same file"),
+            "{error}"
+        );
+    }
+
+    #[test]
+    fn insert_of_a_new_source_and_file_succeeds() {
+        let source = "test/A.t.sol";
+        let path = "/project/test/A.t.sol";
+        let mut paths = TestSourcePaths::default();
+
+        paths
+            .insert(PathBuf::from(source), PathBuf::from(path))
+            .expect("a new source name and file has no entry to clash with");
+
+        let file = paths
+            .get(Path::new(source))
+            .expect("`test/A.t.sol` has an entry");
+        assert_eq!(file.path, Path::new(path));
+    }
+
+    #[test]
+    fn insert_of_a_second_source_for_an_existing_file_is_rejected() {
+        let shared = "/project/test/Shared.t.sol";
+        let mut paths = TestSourcePaths::try_from(source_paths(&[("test/A.t.sol", shared)]))
+            .expect("a single source name has no entry to clash with");
+        let before = paths.clone();
+
+        let error = paths
+            .insert(PathBuf::from("test/B.t.sol"), PathBuf::from(shared))
+            .expect_err("the file already has a source name");
+
+        assert!(
+            matches!(
+                &error,
+                SolidityTestRunnerConfigError::TestSourcePathShared { file_id, sources }
+                    if *file_id == file_id_of(Path::new(shared))
+                        && *sources == vec![
+                            PathBuf::from("test/A.t.sol"),
+                            PathBuf::from("test/B.t.sol"),
+                        ]
+            ),
+            "{error:?}"
+        );
+        assert_eq!(
+            paths.source_names().collect::<Vec<_>>(),
+            before.source_names().collect::<Vec<_>>(),
+            "a rejected insert leaves the type unchanged"
+        );
+    }
+
+    #[test]
+    fn insert_re_pointing_an_existing_source_replaces_its_entry() {
+        let old_path = "/project/test/Old.t.sol";
+        let new_path = "/project/test/New.t.sol";
+        let mut paths = TestSourcePaths::try_from(source_paths(&[("test/A.t.sol", old_path)]))
+            .expect("a single source name has no entry to clash with");
+
+        paths
+            .insert(PathBuf::from("test/A.t.sol"), PathBuf::from(new_path))
+            .expect("re-pointing a source name at a new file has no entry to clash with");
+
+        let file = paths
+            .get(Path::new("test/A.t.sol"))
+            .expect("`test/A.t.sol` still has an entry");
+        assert_eq!(file.path, Path::new(new_path));
+
+        // The old file id is freed, so another source name may now claim it.
+        paths
+            .insert(PathBuf::from("test/B.t.sol"), PathBuf::from(old_path))
+            .expect("the old file's id was freed by the re-point");
+        let file = paths
+            .get(Path::new("test/B.t.sol"))
+            .expect("`test/B.t.sol` has an entry");
+        assert_eq!(file.path, Path::new(old_path));
+    }
+
+    /// Re-pointing a source at a different spelling of the same file still
+    /// updates the stored path, even though the file id does not change.
+    #[test]
+    fn insert_re_pointing_a_source_at_a_respelled_same_file_updates_the_path() {
+        let path = "/project/test/A.t.sol";
+        let respelled_path = "/project/test/../test/A.t.sol";
+        let source = "test/A.t.sol";
+        let mut paths = TestSourcePaths::try_from(source_paths(&[(source, path)]))
+            .expect("a single source name has no entry to clash with");
+        let file_id_before = paths
+            .get(Path::new(source))
+            .expect("`test/A.t.sol` has an entry")
+            .file_id
+            .to_owned();
+
+        paths
+            .insert(PathBuf::from(source), PathBuf::from(respelled_path))
+            .expect("the respelled path names the same file, not a clash");
+
+        let file = paths
+            .get(Path::new(source))
+            .expect("`test/A.t.sol` still has an entry");
+        assert_eq!(file.path, Path::new(respelled_path));
+        assert_eq!(file.file_id, file_id_before);
+    }
+
+    #[test]
+    fn remove_returns_the_path_and_frees_the_file_id() {
+        let path = "/project/test/A.t.sol";
+        let mut paths = TestSourcePaths::try_from(source_paths(&[("test/A.t.sol", path)]))
+            .expect("a single source name has no entry to clash with");
+
+        let removed = paths.remove(Path::new("test/A.t.sol"));
+        assert_eq!(removed, Some(PathBuf::from(path)));
+        assert!(paths.get(Path::new("test/A.t.sol")).is_none());
+        assert!(paths.is_empty());
+
+        // The file id is freed, so another source name may now claim it.
+        paths
+            .insert(PathBuf::from("test/B.t.sol"), PathBuf::from(path))
+            .expect("the file's id was freed by the remove");
+    }
+
+    #[test]
+    fn remove_of_an_unknown_source_returns_none() {
+        let mut paths = TestSourcePaths::default();
+        assert_eq!(paths.remove(Path::new("test/Missing.t.sol")), None);
     }
 }

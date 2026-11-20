@@ -26,6 +26,8 @@ import {
 import {
   buildSolidityTestsInput,
   runAllSolidityTests,
+  selectTestSourcePaths,
+  type TestSourceSelection,
 } from "@nomicfoundation/edr-helpers";
 import hre from "hardhat";
 import assert from "node:assert/strict";
@@ -47,18 +49,23 @@ export class TestContext {
   readonly artifacts: Artifact[];
   readonly testSuiteIds: ArtifactId[];
   readonly tracingConfig: TracingConfigWithBuffers;
-  readonly testSourcePaths: Record<string, string>;
+  /** The project-wide selection input, one entry per suite in
+   * `testSuiteIds`. A single test() call runs only some of those suites, so
+   * `defaultConfig` re-decides `testSourcePaths` over just that subset
+   * instead of inheriting a project-wide decision: a suite excluded from the
+   * call cannot disable collection for the suites included in it. */
+  readonly testSourceSelections: TestSourceSelection[];
 
   private constructor(
     artifacts: Artifact[],
     testSuiteIds: ArtifactId[],
     tracingConfig: TracingConfigWithBuffers,
-    testSourcePaths: Record<string, string>
+    testSourceSelections: TestSourceSelection[]
   ) {
     this.artifacts = artifacts;
     this.testSuiteIds = testSuiteIds;
     this.tracingConfig = tracingConfig;
-    this.testSourcePaths = testSourcePaths;
+    this.testSourceSelections = testSourceSelections;
   }
 
   static async setup(): Promise<TestContext> {
@@ -67,7 +74,7 @@ export class TestContext {
       results.artifacts,
       results.testSuiteIds,
       results.tracingConfig,
-      results.testSourcePaths
+      results.testSourceSelections
     );
 
     await context.edrContext.registerSolidityTestRunnerFactory(
@@ -82,7 +89,11 @@ export class TestContext {
     return context;
   }
 
+  /** `testContracts` must be exactly the suites this config's run passes to
+   * EDR: `testSourcePaths` is decided over their sources alone, so a suite
+   * left out of the run cannot disable collection for the ones in it. */
   defaultConfig(
+    testContracts: ArtifactId[],
     chainType: string = L1_CHAIN_TYPE
   ): SolidityTestRunnerConfigArgs {
     let localPredeploys = undefined;
@@ -92,10 +103,19 @@ export class TestContext {
       localPredeploys = opGenesisState(opLatestHardfork());
     }
 
+    const sourcesInRun = new Set(
+      testContracts.map((artifactId) => artifactId.source)
+    );
+    const { testSourcePaths } = selectTestSourcePaths(
+      this.testSourceSelections.filter((selection) =>
+        sourcesInRun.has(selection.source)
+      )
+    );
+
     return {
       disableTransactionGasCap: true,
       projectRoot: hre.config.paths.root,
-      testSourcePaths: this.testSourcePaths,
+      testSourcePaths,
       rpcCachePath: this.rpcCachePath,
       localPredeploys: localPredeploys,
       hardfork:
@@ -128,7 +148,7 @@ export class TestContext {
       testContracts,
       this.tracingConfig,
       {
-        ...this.defaultConfig(chainType),
+        ...this.defaultConfig(testContracts, chainType),
         ...config,
       }
     );

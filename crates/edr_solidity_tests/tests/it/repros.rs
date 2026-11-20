@@ -611,7 +611,11 @@ async fn issue_1482() {
         .runner_with_contract_decoder(config, contract_decoder)
         .await;
     let filter = repro_filter(1482);
-    let suite_results = runner.test_collect(filter).await.suite_results;
+    let suite_results = runner
+        .test_collect(filter)
+        .await
+        .expect("the run produces results")
+        .suite_results;
 
     let suite = suite_results
         .get("via-ir/repros/Issue1482.t.sol:Issue1482Test")
@@ -706,7 +710,11 @@ async fn always_mode_produces_stack_trace_for_failing_test() {
         .runner_with_contract_decoder(config, contract_decoder)
         .await;
     let filter = SolidityTestFilter::path(".*repros/StackTraceAlwaysMode.t.sol");
-    let suite_results = runner.test_collect(filter).await.suite_results;
+    let suite_results = runner
+        .test_collect(filter)
+        .await
+        .expect("the run produces results")
+        .suite_results;
 
     let suite = suite_results
         .get("via-ir/repros/StackTraceAlwaysMode.t.sol:AlwaysStackTraceTest")
@@ -918,7 +926,11 @@ async fn always_mode_reports_no_stack_trace_without_a_failing_arena() {
         .runner_with_contract_decoder(config, contract_decoder)
         .await;
     let filter = SolidityTestFilter::contract("AlwaysStackTraceInvariantNoCallTest");
-    let suite_results = runner.test_collect(filter).await.suite_results;
+    let suite_results = runner
+        .test_collect(filter)
+        .await
+        .expect("the run produces results")
+        .suite_results;
 
     let suite = suite_results
         .get("via-ir/repros/StackTraceAlwaysMode.t.sol:AlwaysStackTraceInvariantNoCallTest")
@@ -964,7 +976,11 @@ async fn on_failure_mode_produces_stack_trace_for_failing_setup() {
         .runner_with_contract_decoder(config, contract_decoder)
         .await;
     let filter = SolidityTestFilter::contract("AlwaysStackTraceFailingSetupTest");
-    let suite_results = runner.test_collect(filter).await.suite_results;
+    let suite_results = runner
+        .test_collect(filter)
+        .await
+        .expect("the run produces results")
+        .suite_results;
 
     let suite = suite_results
         .get("via-ir/repros/StackTraceAlwaysMode.t.sol:AlwaysStackTraceFailingSetupTest")
@@ -996,7 +1012,11 @@ async fn always_mode_frees_arenas_nothing_consumes() {
             "AlwaysStackTraceTest",
             ".*repros/StackTraceAlwaysMode.t.sol",
         );
-        let suite_results = runner.test_collect(filter).await.suite_results;
+        let suite_results = runner
+            .test_collect(filter)
+            .await
+            .expect("the run produces results")
+            .suite_results;
         let suite = suite_results
             .get("via-ir/repros/StackTraceAlwaysMode.t.sol:AlwaysStackTraceTest")
             .expect("the AlwaysStackTrace suite should have run");
@@ -1040,7 +1060,11 @@ async fn always_mode_frees_passing_tests_arenas_unless_all_are_included() {
         config.include_traces = include_traces;
 
         let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;
-        let suite_results = runner.test_collect(repro_filter(3347)).await.suite_results;
+        let suite_results = runner
+            .test_collect(repro_filter(3347))
+            .await
+            .expect("the run produces results")
+            .suite_results;
         let suite = suite_results
             .get("default/repros/Issue3347.t.sol:Issue3347Test")
             .expect("the Issue3347 suite should have run");
@@ -1152,7 +1176,11 @@ async fn run_fuzz_executor_error_test(
 
     let runner = TEST_DATA_DEFAULT.runner_with_config(config).await;
     let filter = SolidityTestFilter::contract("FuzzExecutorErrorTest");
-    let mut suite_results = runner.test_collect(filter).await.suite_results;
+    let mut suite_results = runner
+        .test_collect(filter)
+        .await
+        .expect("the run produces results")
+        .suite_results;
 
     let mut suite = suite_results
         .remove("default/repros/FuzzExecutorError.t.sol:FuzzExecutorErrorTest")
@@ -1256,7 +1284,11 @@ async fn test_trace_marks_precompile_calls() {
     let config = runner_config(None, &TEST_DATA_VIA_IR, false).await;
     let runner = TEST_DATA_VIA_IR.runner_with_config(config).await;
     let filter = SolidityTestFilter::path(".*repros/PrecompileCall.t.sol");
-    let suite_results = runner.test_collect(filter).await.suite_results;
+    let suite_results = runner
+        .test_collect(filter)
+        .await
+        .expect("the run produces results")
+        .suite_results;
 
     let suite = suite_results
         .get("via-ir/repros/PrecompileCall.t.sol:PrecompileCallTest")

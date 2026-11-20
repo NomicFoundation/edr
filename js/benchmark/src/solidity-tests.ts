@@ -27,6 +27,7 @@ import {
   buildSolidityTestsInput,
   dirName,
   runAllSolidityTests,
+  warnUnparsableTestSources,
 } from "@nomicfoundation/edr-helpers";
 import {
   FsAccessPermission,
@@ -156,7 +157,7 @@ export async function runSolidityTestsBenchmark(resultsPath: string) {
     /* cleanFirst */ true
   );
   const { artifacts, testSuiteIds, tracingConfig, solidityTestsConfig } =
-    await createSolidityTestsInput(repoPath);
+    await createSolidityTestsInput(repoPath, { collectSources: false });
 
   const allResults = [];
   const runs = new Map<string, bigint[]>();
@@ -667,7 +668,20 @@ export async function setupRepo(
   return repoPath;
 }
 
-async function createSolidityTestsInput(repoPath: string, verbosity = 0) {
+interface SolidityTestsInputOptions {
+  verbosity?: number;
+  /**
+   * Whether the runner parses the test sources for inline configuration and
+   * EIP-712 types. Only a benchmark that measures test execution alone turns
+   * it off.
+   */
+  collectSources?: boolean;
+}
+
+async function createSolidityTestsInput(
+  repoPath: string,
+  { verbosity = 0, collectSources = true }: SolidityTestsInputOptions = {}
+) {
   if (!path.isAbsolute(repoPath)) {
     // If repo path is not absolute, assume it's relative to the current working directory
     repoPath = path.join(process.cwd(), repoPath);
@@ -684,8 +698,13 @@ async function createSolidityTestsInput(repoPath: string, verbosity = 0) {
     repoPath
   );
 
-  const { artifacts, testSuiteIds, tracingConfig, testSourcePaths } =
-    await buildSolidityTestsInput(hre);
+  const {
+    artifacts,
+    testSuiteIds,
+    tracingConfig,
+    testSourcePaths,
+    unparsableSources,
+  } = await buildSolidityTestsInput(hre);
   // The resolved profile, not `userConfig.test.solidity`: only Hardhat's
   // config resolution turns `forking.rpcEndpoints` into the
   // `ResolvedConfigurationVariable`s the helper calls `.get()` on.
@@ -708,8 +727,16 @@ async function createSolidityTestsInput(repoPath: string, verbosity = 0) {
 
   solidityTestsConfig.projectRoot = repoPath;
   solidityTestsConfig.rpcCachePath = RPC_CACHE_PATH;
-  // Absolute paths of the test sources, for inline-config parsing.
-  solidityTestsConfig.testSourcePaths = testSourcePaths;
+  // An unset `testSourcePaths` collects nothing. A benchmark that measures
+  // test execution opts out that way, because parsing every selected suite
+  // before the first test would be counted into its measurement; the
+  // end-to-end scenarios cover collection instead.
+  if (collectSources) {
+    solidityTestsConfig.testSourcePaths = testSourcePaths;
+    if (unparsableSources.length > 0) {
+      warnUnparsableTestSources(unparsableSources);
+    }
+  }
   const rootPermission = {
     path: repoPath,
     access: FsAccessPermission.DangerouslyReadWriteDirectory,
@@ -846,7 +873,10 @@ export async function runSolidityTestsMemoryChild(
   verbosity: number
 ): Promise<MemoryMeasurementPayload> {
   const { artifacts, testSuiteIds, tracingConfig, solidityTestsConfig } =
-    await createSolidityTestsInput(repoPath, verbosity);
+    await createSolidityTestsInput(repoPath, {
+      verbosity,
+      collectSources: false,
+    });
   // `maxRSS` is in kilobytes on Linux.
   const baselineRssBytes = process.resourceUsage().maxRSS * 1024;
 

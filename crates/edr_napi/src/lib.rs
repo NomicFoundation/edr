@@ -49,6 +49,7 @@ pub mod secp256k1;
 mod serde;
 /// Solidity test runner.
 pub mod solidity_tests;
+mod structured_error;
 /// Types for subscribing to events.
 pub mod subscription;
 /// Types for EVM traces.

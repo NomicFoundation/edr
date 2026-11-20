@@ -37,7 +37,7 @@ use edr_solidity_tests::{
     multi_runner::{TestContract, TestContracts},
     revm::context::{BlockEnv, TxEnv},
     CollectStackTraces, MultiContractRunner, SolidityTestRunnerConfig,
-    SolidityTestRunnerConfigError, MAX_TEST_TRANSACTION_GAS_LIMIT,
+    SolidityTestRunnerConfigError, TestSourcePaths, MAX_TEST_TRANSACTION_GAS_LIMIT,
 };
 use edr_test_utils::{env::json_rpc_url_provider, new_fd_lock};
 use foundry_cheatcodes::{ExecutionContextConfig, FsPermissions, RpcEndpointUrl, RpcEndpoints};
@@ -198,8 +198,9 @@ impl ForgeTestProfile {
             // The test data's source paths are injected by `config_with_*_rpc`,
             // which have access to `ForgeTestData`; testdata needs no import
             // mappings (relative imports resolve, others degrade gracefully).
-            test_source_paths: HashMap::new(),
+            test_source_paths: TestSourcePaths::default(),
             import_resolver: ImportResolver::default(),
+            eip712_exclude_globs: Vec::new(),
             // Collection covers every test source, not just the ones a run
             // filters to, so testdata must declare every profile its sources
             // mention: `ci`, in `fuzz/FuzzProfileOverride.t.sol`.
@@ -442,6 +443,13 @@ pub type L1ForgeTestData = ForgeTestData<
     TxEnv,
 >;
 
+/// Points `source` at `path` on disk, keeping every other entry.
+pub fn point_source_at(test_source_paths: &mut TestSourcePaths, source: PathBuf, path: PathBuf) {
+    test_source_paths
+        .insert(source, path)
+        .expect("one source name per file");
+}
+
 /// Container for test data for a specific test profile.
 pub struct ForgeTestData<
     BlockT: BlockEnvTr,
@@ -457,7 +465,7 @@ pub struct ForgeTestData<
     known_contracts: ContractsByArtifact,
     libs_to_deploy: Vec<Bytes>,
     revert_decoder: RevertDecoder,
-    test_source_paths: HashMap<PathBuf, PathBuf>,
+    test_source_paths: TestSourcePaths,
     fuzz_failure_dirs: Mutex<Vec<tempfile::TempDir>>,
     invariant_failure_dirs: Mutex<Vec<tempfile::TempDir>>,
     hardfork: HardforkT,
@@ -585,16 +593,21 @@ impl<
 
         let known_contracts = ContractsByArtifact::new(linked_contracts);
 
-        // The runner parses inline configuration from the test sources on
-        // disk; the testdata source names are real paths relative to the
-        // project root, so joining them onto the root yields the absolute path
-        // (production callers provide these paths explicitly instead). Imports
-        // to e.g. forge-std have no import mapping and simply stay unresolved,
-        // which still recovers the root file's functions.
-        let test_source_paths: HashMap<PathBuf, PathBuf> = test_contracts
+        // The runner parses inline configuration and EIP-712 struct
+        // definitions from the test sources on disk. The testdata source
+        // names are real paths relative to the project root, so joining them
+        // onto the root yields the absolute path. Production callers provide
+        // these paths explicitly instead. Imports to e.g. forge-std have no
+        // import mapping and simply stay unresolved, which still recovers the
+        // root file's functions. Every testdata source is listed here; a run
+        // whose filter selects a pre-0.8 one needs
+        // `config_without_source_collection` instead.
+        let test_source_paths: TestSourcePaths = test_contracts
             .keys()
             .map(|id| (id.source.clone(), root.join(&id.source)))
-            .collect();
+            .collect::<HashMap<PathBuf, PathBuf>>()
+            .try_into()
+            .expect("each testdata source name has its own file");
 
         Ok(Self {
             project,
@@ -621,6 +634,21 @@ impl<
         );
         config.cheats_config_options.rpc_endpoints = mock_rpc_endpoints();
         config.test_source_paths = self.test_source_paths.clone();
+
+        config
+    }
+
+    /// Builds a [`SolidityTestRunnerConfig`] with source collection disabled.
+    ///
+    /// An empty `test_source_paths` reads and parses nothing, so no inline
+    /// configuration and no EIP-712 types are collected. That is how a run
+    /// whose filter selects a source predating solc 0.8 keeps working:
+    /// collection needs a grammar Slang ships, and a non-empty map must name
+    /// every selected suite, so such a run is rejected unless collection is
+    /// off entirely.
+    pub fn config_without_source_collection(&self) -> SolidityTestRunnerConfig<HardforkT> {
+        let mut config = self.config_with_mock_rpc();
+        config.test_source_paths = TestSourcePaths::default();
 
         config
     }
@@ -816,6 +844,28 @@ impl<
         self.build_runner(config).await
     }
 
+    /// Like [`Self::forked_runner`], with source collection disabled for a
+    /// filter that selects a suite Slang has no grammar for.
+    pub async fn forked_runner_without_source_collection(
+        &self,
+        rpc: &str,
+    ) -> MultiContractRunner<
+        BlockT,
+        ChainContextT,
+        EvmBuilderT,
+        HaltReasonT,
+        HardforkT,
+        NoOpContractDecoder<HaltReasonT>,
+        TransactionErrorT,
+        TransactionT,
+    > {
+        let mut config = self.config_without_source_collection();
+
+        config.evm_opts.fork_url = Some(rpc.to_string());
+
+        self.build_runner(config).await
+    }
+
     async fn build_runner(
         &self,
         config: SolidityTestRunnerConfig<HardforkT>,
@@ -836,7 +886,7 @@ impl<
 
     /// Builds a non-tracing runner with the given config, returning the
     /// creation error instead of panicking. Used to exercise configs that fail
-    /// runner creation, e.g. malformed inline configuration.
+    /// runner creation, e.g. an unreachable fork URL.
     pub async fn try_build_runner(
         &self,
         config: SolidityTestRunnerConfig<HardforkT>,
