@@ -444,26 +444,10 @@ pub type L1ForgeTestData = ForgeTestData<
 >;
 
 /// Points `source` at `path` on disk, keeping every other entry.
-///
-/// The map is rebuilt rather than mutated, because [`TestSourcePaths`] holds
-/// one source name per file and checks that when it is built.
-pub fn point_source_at(
-    test_source_paths: &TestSourcePaths,
-    source: PathBuf,
-    path: PathBuf,
-) -> TestSourcePaths {
-    let mut paths = test_source_paths.to_map();
-    paths.insert(source, path);
-
-    paths.try_into().expect("one source name per file")
-}
-
-/// Drops `source`'s entry, so collection never locates it.
-pub fn without_source(test_source_paths: &TestSourcePaths, source: &Path) -> TestSourcePaths {
-    let mut paths = test_source_paths.to_map();
-    paths.remove(source);
-
-    paths.try_into().expect("one source name per file")
+pub fn point_source_at(test_source_paths: &mut TestSourcePaths, source: PathBuf, path: PathBuf) {
+    test_source_paths
+        .insert(source, path)
+        .expect("one source name per file");
 }
 
 /// Container for test data for a specific test profile.

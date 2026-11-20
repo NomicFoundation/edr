@@ -66,9 +66,10 @@ fn quoted_sources(sources: &[PathBuf]) -> String {
 /// The test sources to collect from: which file each solc source name is read
 /// from, holding one source name per file.
 ///
-/// [`TestSourcePaths::try_from`] is the only way to build a non-empty one, so
-/// a file two source names point at is rejected there rather than reaching
-/// collection, which parses a file once and serves it under one name.
+/// Built through [`Self::try_from`] or grown through [`Self::insert`], which
+/// both reject a file two source names point at. Collection parses a file
+/// once and serves it under one name, so the clash is rejected before it
+/// gets there.
 #[derive(Clone, Debug, Default)]
 pub struct TestSourcePaths {
     /// Keyed by file id, so a second source name for a file is
@@ -122,13 +123,50 @@ impl TestSourcePaths {
         self.entries.values().map(|entry| entry.source.as_path())
     }
 
-    /// Rebuilds the map these entries were built from, for a caller amending
-    /// it. The amended map is validated again on its way back in.
-    pub fn to_map(&self) -> HashMap<PathBuf, PathBuf> {
+    /// Adds or replaces `source`'s entry, keeping one source name per file.
+    ///
+    /// A `source` that already names another file is re-pointed at `path`,
+    /// freeing its old file id, like [`HashMap::insert`] replacing a key's
+    /// value. A `path` another source name already claims is rejected with
+    /// [`SolidityTestRunnerConfigError::TestSourcePathShared`] instead,
+    /// leaving `self` unchanged.
+    pub fn insert(
+        &mut self,
+        source: PathBuf,
+        path: PathBuf,
+    ) -> Result<(), SolidityTestRunnerConfigError> {
+        let file_id = file_id_of(&path);
+
+        if let Some(existing) = self.entries.get(&file_id)
+            && existing.source != source
+        {
+            let mut sources = vec![existing.source.clone(), source];
+            sources.sort();
+
+            return Err(SolidityTestRunnerConfigError::TestSourcePathShared { file_id, sources });
+        }
+
+        if let Some(old_file_id) = self.file_ids.insert(source.clone(), file_id.clone())
+            && old_file_id != file_id
+        {
+            self.entries.remove(&old_file_id);
+        }
         self.entries
-            .values()
-            .map(|entry| (entry.source.clone(), entry.path.clone()))
-            .collect()
+            .insert(file_id, TestSourceEntry { source, path });
+
+        Ok(())
+    }
+
+    /// Drops `source`'s entry, freeing its file id, and returns the path it
+    /// named. Returns `None` when `source` has no entry.
+    pub fn remove(&mut self, source: &Path) -> Option<PathBuf> {
+        let file_id = self.file_ids.remove(source)?;
+        let entry = self
+            .entries
+            .remove(&file_id)
+            .expect("every source name's file id is an entry");
+
+        Some(entry.path)
     }
 }
 
@@ -212,7 +250,7 @@ pub struct SolidityTestRunnerConfig<HardforkT: HardforkTr> {
     /// non-empty map must name the source of every test suite a run selects,
     /// and every source backing a selected suite is parsed. An entry no
     /// selected suite uses is never opened. One source name per file, which
-    /// [`TestSourcePaths`] enforces when it is built.
+    /// [`TestSourcePaths`] enforces.
     ///
     /// Each problem is accumulated and reported together when the run starts,
     /// rather than silently leaving a suite without inline configuration or
@@ -672,5 +710,126 @@ mod tests {
                 .contains("`test/A.t.sol` and `test/B.t.sol` name the same file"),
             "{error}"
         );
+    }
+
+    #[test]
+    fn insert_of_a_new_source_and_file_succeeds() {
+        let source = "test/A.t.sol";
+        let path = "/project/test/A.t.sol";
+        let mut paths = TestSourcePaths::default();
+
+        paths
+            .insert(PathBuf::from(source), PathBuf::from(path))
+            .expect("a new source name and file has no entry to clash with");
+
+        let file = paths
+            .get(Path::new(source))
+            .expect("`test/A.t.sol` has an entry");
+        assert_eq!(file.path, Path::new(path));
+    }
+
+    #[test]
+    fn insert_of_a_second_source_for_an_existing_file_is_rejected() {
+        let shared = "/project/test/Shared.t.sol";
+        let mut paths = TestSourcePaths::try_from(source_paths(&[("test/A.t.sol", shared)]))
+            .expect("a single source name has no entry to clash with");
+        let before = paths.clone();
+
+        let error = paths
+            .insert(PathBuf::from("test/B.t.sol"), PathBuf::from(shared))
+            .expect_err("the file already has a source name");
+
+        assert!(
+            matches!(
+                &error,
+                SolidityTestRunnerConfigError::TestSourcePathShared { file_id, sources }
+                    if *file_id == file_id_of(Path::new(shared))
+                        && *sources == vec![
+                            PathBuf::from("test/A.t.sol"),
+                            PathBuf::from("test/B.t.sol"),
+                        ]
+            ),
+            "{error:?}"
+        );
+        assert_eq!(
+            paths.source_names().collect::<Vec<_>>(),
+            before.source_names().collect::<Vec<_>>(),
+            "a rejected insert leaves the type unchanged"
+        );
+    }
+
+    #[test]
+    fn insert_re_pointing_an_existing_source_replaces_its_entry() {
+        let old_path = "/project/test/Old.t.sol";
+        let new_path = "/project/test/New.t.sol";
+        let mut paths = TestSourcePaths::try_from(source_paths(&[("test/A.t.sol", old_path)]))
+            .expect("a single source name has no entry to clash with");
+
+        paths
+            .insert(PathBuf::from("test/A.t.sol"), PathBuf::from(new_path))
+            .expect("re-pointing a source name at a new file has no entry to clash with");
+
+        let file = paths
+            .get(Path::new("test/A.t.sol"))
+            .expect("`test/A.t.sol` still has an entry");
+        assert_eq!(file.path, Path::new(new_path));
+
+        // The old file id is freed, so another source name may now claim it.
+        paths
+            .insert(PathBuf::from("test/B.t.sol"), PathBuf::from(old_path))
+            .expect("the old file's id was freed by the re-point");
+        let file = paths
+            .get(Path::new("test/B.t.sol"))
+            .expect("`test/B.t.sol` has an entry");
+        assert_eq!(file.path, Path::new(old_path));
+    }
+
+    /// Re-pointing a source at a different spelling of the same file still
+    /// updates the stored path, even though the file id does not change.
+    #[test]
+    fn insert_re_pointing_a_source_at_a_respelled_same_file_updates_the_path() {
+        let path = "/project/test/A.t.sol";
+        let respelled_path = "/project/test/../test/A.t.sol";
+        let source = "test/A.t.sol";
+        let mut paths = TestSourcePaths::try_from(source_paths(&[(source, path)]))
+            .expect("a single source name has no entry to clash with");
+        let file_id_before = paths
+            .get(Path::new(source))
+            .expect("`test/A.t.sol` has an entry")
+            .file_id
+            .to_owned();
+
+        paths
+            .insert(PathBuf::from(source), PathBuf::from(respelled_path))
+            .expect("the respelled path names the same file, not a clash");
+
+        let file = paths
+            .get(Path::new(source))
+            .expect("`test/A.t.sol` still has an entry");
+        assert_eq!(file.path, Path::new(respelled_path));
+        assert_eq!(file.file_id, file_id_before);
+    }
+
+    #[test]
+    fn remove_returns_the_path_and_frees_the_file_id() {
+        let path = "/project/test/A.t.sol";
+        let mut paths = TestSourcePaths::try_from(source_paths(&[("test/A.t.sol", path)]))
+            .expect("a single source name has no entry to clash with");
+
+        let removed = paths.remove(Path::new("test/A.t.sol"));
+        assert_eq!(removed, Some(PathBuf::from(path)));
+        assert!(paths.get(Path::new("test/A.t.sol")).is_none());
+        assert!(paths.is_empty());
+
+        // The file id is freed, so another source name may now claim it.
+        paths
+            .insert(PathBuf::from("test/B.t.sol"), PathBuf::from(path))
+            .expect("the file's id was freed by the remove");
+    }
+
+    #[test]
+    fn remove_of_an_unknown_source_returns_none() {
+        let mut paths = TestSourcePaths::default();
+        assert_eq!(paths.remove(Path::new("test/Missing.t.sol")), None);
     }
 }

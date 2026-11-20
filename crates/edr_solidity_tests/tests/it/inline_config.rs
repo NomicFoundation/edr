@@ -13,7 +13,7 @@ use edr_solidity_tests::{
     TestSourcePaths,
 };
 
-use crate::helpers::{point_source_at, without_source, SolidityTestFilter, TEST_DATA_DEFAULT};
+use crate::helpers::{point_source_at, SolidityTestFilter, TEST_DATA_DEFAULT};
 
 /// Runs every suite matching `filter` and returns the inline-config problems
 /// the run was rejected with.
@@ -118,8 +118,8 @@ async fn malformed_inline_config_aborts_whole_run() {
     // collection parses it under that source's name.
     let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
     let source = stand_in_source_name(&config);
-    config.test_source_paths = point_source_at(
-        &config.test_source_paths,
+    point_source_at(
+        &mut config.test_source_paths,
         source.clone(),
         file.path().to_path_buf(),
     );
@@ -394,7 +394,7 @@ async fn source_without_a_path_aborts_whole_run() {
     // hitting both must report both.
     let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
     let unlisted = stand_in_source_name(&config);
-    config.test_source_paths = without_source(&config.test_source_paths, &unlisted);
+    config.test_source_paths.remove(&unlisted);
 
     let malformed = config
         .test_source_paths
@@ -402,8 +402,8 @@ async fn source_without_a_path_aborts_whole_run() {
         .find(|source| source.ends_with("inline/ContractLevelConfig.t.sol"))
         .map(Path::to_path_buf)
         .expect("test data contains the contract-level config source");
-    config.test_source_paths = point_source_at(
-        &config.test_source_paths,
+    point_source_at(
+        &mut config.test_source_paths,
         malformed.clone(),
         file.path().to_path_buf(),
     );
@@ -529,8 +529,11 @@ async fn filtered_out_sources_are_not_parsed() {
     // different one.
     let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
     let source = stand_in_source_name(&config);
-    config.test_source_paths =
-        point_source_at(&config.test_source_paths, source, file.path().to_path_buf());
+    point_source_at(
+        &mut config.test_source_paths,
+        source,
+        file.path().to_path_buf(),
+    );
 
     let filter = SolidityTestFilter::new(".*", ".*", ".*inline/ContractLevelConfig.t.sol");
     let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;
