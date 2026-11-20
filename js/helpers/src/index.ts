@@ -3,6 +3,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import { MultiProcessMutex } from "@nomicfoundation/hardhat-utils/synchronization";
+import { lt } from "semver";
 import {
   Artifact,
   ArtifactId,
@@ -30,6 +31,75 @@ import {
 import { ArtifactManagerImplementation } from "hardhat/internal/builtin-plugins/artifacts/artifact-manager";
 
 let BUILD_MUTEX: MultiProcessMutex | undefined;
+
+/** The oldest solc version whose sources EDR can parse. Collecting the
+ * inline test configuration and the EIP-712 struct definitions requires
+ * parsing, and EDR exempts no source from it. */
+const OLDEST_PARSABLE_SOLC_VERSION = "0.8.0";
+
+/** One test suite's solc source name, its user-facing source name (for a
+ * warning), its path on disk, and the solc version its artifact was
+ * compiled with. */
+export interface TestSourceSelection {
+  source: string;
+  userSourceName: string;
+  path: string;
+  solcVersion: string;
+}
+
+/**
+ * Decides which test source paths to hand EDR.
+ *
+ * EDR requires a non-empty map to name every selected source, and rejects
+ * the whole run when one of them is older than
+ * `OLDEST_PARSABLE_SOLC_VERSION`. Collection is therefore all or nothing: a
+ * single unparsable source empties the map for the whole run, and its
+ * user-facing name is returned so the caller can warn about it with
+ * `warnUnparsableTestSources`.
+ */
+export function selectTestSourcePaths(sources: TestSourceSelection[]): {
+  testSourcePaths: Record<string, string>;
+  unparsableSources: string[];
+} {
+  const unparsableSources = Array.from(
+    new Set(
+      sources
+        .filter(({ solcVersion }) =>
+          lt(solcVersion, OLDEST_PARSABLE_SOLC_VERSION)
+        )
+        .map(({ userSourceName }) => userSourceName)
+    )
+  ).sort();
+
+  if (unparsableSources.length > 0) {
+    return { testSourcePaths: {}, unparsableSources };
+  }
+
+  return {
+    testSourcePaths: Object.fromEntries(
+      sources.map(({ source, path: sourcePath }) => [source, sourcePath])
+    ),
+    unparsableSources,
+  };
+}
+
+/**
+ * Warns that the named test sources disable collection for the whole run.
+ *
+ * Call this only at the site that actually submits a run to EDR: a caller
+ * that calls `buildSolidityTestsInput` once and reuses its selection across
+ * several smaller EDR calls (as the integration-test harness does) would
+ * otherwise print one warning per reuse, naming sources that may not even be
+ * part of that particular call.
+ */
+export function warnUnparsableTestSources(userSourceNames: string[]): void {
+  console.warn(
+    `Warning: these test sources were compiled with a Solidity version ` +
+      `older than ${OLDEST_PARSABLE_SOLC_VERSION}, which cannot be parsed: ` +
+      `${userSourceNames.join(", ")}. Inline test configuration and the ` +
+      `EIP-712 cheatcodes are disabled for this whole run.`
+  );
+}
 
 /**
  * Run all the given solidity tests and returns the whole results after finishing.
@@ -95,10 +165,23 @@ export async function buildSolidityTestsInput(
    * Used by EDR to parse inline test configuration and EIP-712 struct
    * definitions from the sources.
    *
-   * EDR requires an entry for every suite it is asked to run, and rejects the
-   * whole run otherwise. Collection needs solc 0.8, so a project with an
-   * older test source must pass an empty map to disable it. */
+   * Empty when a selected suite was compiled with a solc version older than
+   * `OLDEST_PARSABLE_SOLC_VERSION`, which disables collection for the whole
+   * run, or when no suite is selected at all. */
   testSourcePaths: Record<string, string>;
+  /** The selection input behind `testSourcePaths`, one entry per selected
+   * suite, before the all-or-nothing decision collapses it. A caller that
+   * submits only part of `testSuiteIds` to EDR in a given run can pass the
+   * matching subset of these through `selectTestSourcePaths` to get that
+   * run's own map, instead of inheriting a decision made for suites it did
+   * not include. */
+  testSourceSelections: TestSourceSelection[];
+  /** The user-facing names of the suites that emptied `testSourcePaths`,
+   * sorted and deduplicated; empty when `testSourcePaths` maps every suite.
+   * Not warned about here: only the site that actually submits `testSuiteIds`
+   * to EDR knows whether this decision applies to its run, so it calls
+   * `warnUnparsableTestSources` itself when this is non-empty. */
+  unparsableSources: string[];
 }> {
   let testRootPaths: string[];
 
@@ -187,12 +270,17 @@ export async function buildSolidityTestsInput(
 
   const testSuiteIds = testSuites.map(({ edrArtifact }) => edrArtifact.id);
 
-  const testSourcePaths = Object.fromEntries(
-    testSuites.map(({ userSourceName, edrArtifact }) => [
-      edrArtifact.id.source,
-      resolveFromRoot(hre.config.paths.root, userSourceName),
-    ])
+  const testSourceSelections: TestSourceSelection[] = testSuites.map(
+    ({ userSourceName, edrArtifact }) => ({
+      source: edrArtifact.id.source,
+      userSourceName,
+      path: resolveFromRoot(hre.config.paths.root, userSourceName),
+      solcVersion: edrArtifact.id.solcVersion,
+    })
   );
+
+  const { testSourcePaths, unparsableSources } =
+    selectTestSourcePaths(testSourceSelections);
 
   const artifacts = edrArtifacts.map(({ edrArtifact }) => edrArtifact);
 
@@ -209,7 +297,14 @@ export async function buildSolidityTestsInput(
   // The cost is that structs behind a package import are unreachable, so
   // `vm.eip712HashType` reports them as unknown types. Closing that gap needs
   // Hardhat's resolver to supply entries keyed by the import path as written.
-  return { artifacts, testSuiteIds, tracingConfig, testSourcePaths };
+  return {
+    artifacts,
+    testSuiteIds,
+    tracingConfig,
+    testSourcePaths,
+    testSourceSelections,
+    unparsableSources,
+  };
 }
 
 /* Get the directory name of the current file based on the `import.meta.url`*/

@@ -27,6 +27,7 @@ import {
   buildSolidityTestsInput,
   dirName,
   runAllSolidityTests,
+  warnUnparsableTestSources,
 } from "@nomicfoundation/edr-helpers";
 import {
   FsAccessPermission,
@@ -697,8 +698,13 @@ async function createSolidityTestsInput(
     repoPath
   );
 
-  const { artifacts, testSuiteIds, tracingConfig, testSourcePaths } =
-    await buildSolidityTestsInput(hre);
+  const {
+    artifacts,
+    testSuiteIds,
+    tracingConfig,
+    testSourcePaths,
+    unparsableSources,
+  } = await buildSolidityTestsInput(hre);
   // The resolved profile, not `userConfig.test.solidity`: only Hardhat's
   // config resolution turns `forking.rpcEndpoints` into the
   // `ResolvedConfigurationVariable`s the helper calls `.get()` on.
@@ -727,6 +733,9 @@ async function createSolidityTestsInput(
   // end-to-end scenarios cover collection instead.
   if (collectSources) {
     solidityTestsConfig.testSourcePaths = testSourcePaths;
+    if (unparsableSources.length > 0) {
+      warnUnparsableTestSources(unparsableSources);
+    }
   }
   const rootPermission = {
     path: repoPath,

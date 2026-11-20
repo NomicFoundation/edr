@@ -68,8 +68,9 @@ describe("Fuzz and invariant testing", function () {
       path.join(os.tmpdir(), "edr-fuzz-failures-")
     );
     try {
+      const testContracts = testContext.matchingTest("OverflowTest");
       const config = {
-        ...testContext.defaultConfig(),
+        ...testContext.defaultConfig(testContracts),
         fuzz: { failurePersistDir: failureDir, workers: 1 },
       };
       const run = async () => {
@@ -77,7 +78,7 @@ describe("Fuzz and invariant testing", function () {
           testContext.edrContext,
           L1_CHAIN_TYPE,
           testContext.artifacts,
-          testContext.matchingTest("OverflowTest"),
+          testContracts,
           testContext.tracingConfig,
           config
         );
@@ -199,14 +200,17 @@ describe("Fuzz and invariant testing", function () {
     // The invariant failure directory should not be created if we don't set the directory
     assert.ok(!existsSync(failureDir));
 
+    const failingInvariantTestContracts = testContext.matchingTest(
+      "FailingInvariantTest"
+    );
     const [, results2] = await runAllSolidityTests(
       testContext.edrContext,
       L1_CHAIN_TYPE,
       testContext.artifacts,
-      testContext.matchingTest("FailingInvariantTest"),
+      failingInvariantTestContracts,
       testContext.tracingConfig,
       {
-        ...testContext.defaultConfig(),
+        ...testContext.defaultConfig(failingInvariantTestContracts),
         invariant: {
           ...invariantConfig,
           failurePersistDir: failureDir,
@@ -240,10 +244,10 @@ describe("Fuzz and invariant testing", function () {
       testContext.edrContext,
       L1_CHAIN_TYPE,
       testContext.artifacts,
-      testContext.matchingTest("FailingInvariantTest"),
+      failingInvariantTestContracts,
       testContext.tracingConfig,
       {
-        ...testContext.defaultConfig(),
+        ...testContext.defaultConfig(failingInvariantTestContracts),
         invariant: {
           ...invariantConfig,
           failurePersistDir: failureDir,
@@ -353,7 +357,7 @@ describe("Fuzz and invariant testing", function () {
       [originalTestArtifact!.id],
       testContext.tracingConfig,
       {
-        ...testContext.defaultConfig(),
+        ...testContext.defaultConfig([originalTestArtifact!.id]),
         invariant: {
           ...invariantConfig,
           failurePersistDir: failureDir,
@@ -391,7 +395,7 @@ describe("Fuzz and invariant testing", function () {
       [originalTestArtifact!.id],
       testContext.tracingConfig,
       {
-        ...testContext.defaultConfig(),
+        ...testContext.defaultConfig([originalTestArtifact!.id]),
         invariant: {
           ...invariantConfig,
           failurePersistDir: failureDir,

@@ -352,10 +352,10 @@ describe("Unit tests", () => {
 
   it("CounterDifferentSolc", async function () {
     // This suite is compiled with solc 0.7.6, which has no Solidity grammar.
-    // Collection requires 0.8, so it is disabled for this run.
+    // Collection requires 0.8, so `defaultConfig` disables it for this run
+    // without an explicit override.
     const { totalTests, failedTests } = await testContext.runTestsWithStats(
-      "CounterDifferentSolcTest",
-      { testSourcePaths: {} }
+      "CounterDifferentSolcTest"
     );
 
     assert.equal(failedTests, 0);
@@ -588,7 +588,7 @@ describe("Unit tests", () => {
       "ThirdReturnTest",
     ];
     const testSuiteIds = testContext.matchingTests(new Set(testSuites));
-    const config = testContext.defaultConfig(chainType);
+    const config = testContext.defaultConfig(testSuiteIds, chainType);
 
     const results: {
       testResults: { testSuiteResult: SuiteResult; time: bigint }[];
