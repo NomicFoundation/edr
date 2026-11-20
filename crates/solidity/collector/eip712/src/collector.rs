@@ -280,7 +280,7 @@ fn into_collection(
     mut already_rejected: HashMap<String, RejectReason>,
     excluded_file_ids: &HashSet<&str>,
 ) -> Eip712TypeCollection {
-    // Deduplication keeps a single declaration per name, so the dependency
+    // Declarations of a name that agree collapse to one, so the dependency
     // check below must see them all: otherwise which one a member resolves to
     // would decide the outcome by file-id order alone.
     let mut dependencies_by_name: HashMap<String, Vec<StructDependency>> = HashMap::new();
@@ -800,11 +800,10 @@ struct EncodableCollection {
 /// inlined under the dependency's bare name.
 ///
 /// A canonical type names its dependencies by bare name alone, so a member must
-/// resolve to the declaration that collection selected for that name.
-/// `dependencies` spans every collected declaration of the name, so the verdict
-/// does not turn on which one deduplication kept. A name no collected file
-/// declares is left to the fixed point in [`reject_non_encodable`], which
-/// reports it through the rejection the name itself already carries.
+/// resolve to the declaration that collection selected for that name. A name no
+/// collected file declares is left to the fixed point in
+/// [`reject_non_encodable`], which reports it through the rejection the name
+/// itself already carries.
 fn unencodable_dependencies(
     dependencies: &[StructDependency],
     ambiguous: &HashSet<String>,
@@ -882,16 +881,27 @@ fn reject_non_encodable(
     for (name, struct_def) in collected {
         match EncodableStruct::new(struct_def) {
             Ok(encodable) => {
-                let dependencies = dependencies_by_name
-                    .get(&name)
-                    .expect("every collected name was scanned for its dependencies");
+                // An ambiguous name kept one declaration because the root
+                // declared it, and the discarded ones reference types this
+                // body does not. Declarations that agree collapse instead, so
+                // their union decides the verdict without file-id order.
+                let dependencies = if ambiguous.contains(&name) {
+                    encodable.direct_struct_deps.as_slice()
+                } else {
+                    dependencies_by_name
+                        .get(&name)
+                        .expect("every collected name was scanned for its dependencies")
+                        .as_slice()
+                };
 
-                match unencodable_dependencies(
+                let unencodable = unencodable_dependencies(
                     dependencies,
                     ambiguous,
                     selected_declarations,
                     excluded_file_ids,
-                ) {
+                );
+
+                match unencodable {
                     Some(reason) => {
                         newly_rejected.insert(name, reason);
                     }
@@ -1704,6 +1714,56 @@ mod tests {
 
         assert_eq!(get_canonical_type(&collection, "S"), "S(uint256 a)");
         assert_eq!(get_canonical_type(&collection, "W"), "W(S s)S(uint256 a)");
+    }
+
+    /// Root-wins deduplication discards the other declarations of an
+    /// ambiguous name, so their dependencies are not the root declaration's.
+    /// Judging the root body by them rejects a struct that references nothing.
+    #[test]
+    fn a_discarded_declarations_ambiguous_dependency_does_not_reject_the_root() {
+        let collection = collect(&[
+            (
+                "root.sol",
+                "import \"a.sol\";
+                 import \"t2.sol\";
+                 struct S { uint256 a; }",
+            ),
+            (
+                "a.sol",
+                "import \"t1.sol\";
+                 struct S { T t; }",
+            ),
+            ("t1.sol", "struct T { uint256 x; }"),
+            ("t2.sol", "struct T { address y; }"),
+        ]);
+
+        assert_eq!(get_canonical_type(&collection, "S"), "S(uint256 a)");
+    }
+
+    /// The same for a discarded declaration whose dependency resolves to an
+    /// excluded file: the root body does not reference it.
+    #[test]
+    fn a_discarded_declarations_excluded_dependency_does_not_reject_the_root() {
+        let collection = collect_without(
+            &[
+                (
+                    "root.sol",
+                    "import \"a.sol\";
+                     import \"c.sol\";
+                     struct W { uint256 w; }",
+                ),
+                ("a.sol", "struct S { uint256 a; }"),
+                ("b.sol", "struct S { address b; }"),
+                (
+                    "c.sol",
+                    "import {S} from \"b.sol\";
+                     struct W { S s; }",
+                ),
+            ],
+            &["b.sol"],
+        );
+
+        assert_eq!(get_canonical_type(&collection, "W"), "W(uint256 w)");
     }
 
     #[test]
