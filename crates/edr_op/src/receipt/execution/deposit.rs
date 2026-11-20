@@ -28,7 +28,7 @@ pub struct Deposit<LogT> {
 }
 
 #[derive(RlpDecodable)]
-#[rlp(trailing)]
+#[rlp(trailing(no_gaps))]
 pub(super) struct Eip658OrDeposit<LogT> {
     status: bool,
     cumulative_gas_used: u64,
