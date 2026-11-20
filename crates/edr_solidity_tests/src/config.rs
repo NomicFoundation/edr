@@ -1,9 +1,13 @@
-use std::{collections::HashMap, path::PathBuf};
+use std::{
+    collections::{BTreeMap, HashMap},
+    path::{Path, PathBuf},
+};
 
 pub use edr_coverage::reporter::SyncOnCollectedCoverageCallback;
 use edr_eip8037::TransactionGasBounds;
 use edr_primitives::{Address, B256, U256};
 use edr_solidity::config::IncludeTraces;
+use edr_solidity_parser_slang::compilation::file_id_of;
 pub use edr_solidity_parser_slang::exclusions::InvalidExclusionGlob;
 use foundry_evm::{
     backend::Predeploy,
@@ -32,6 +36,138 @@ pub enum SolidityTestRunnerConfigError {
     /// An EIP-712 source exclusion glob could not be compiled.
     #[error(transparent)]
     InvalidEip712ExcludeGlob(#[from] InvalidExclusionGlob),
+    /// Several `testSourcePaths` entries name one file.
+    #[error(
+        "`testSourcePaths` entries {} name the same file: {file_id}; one source name per file",
+        quoted_sources(.sources)
+    )]
+    TestSourcePathShared {
+        /// The shared file, spelled the way the parser identifies it.
+        file_id: String,
+        /// The source names pointing at it, sorted.
+        sources: Vec<PathBuf>,
+    },
+}
+
+/// Renders source names as a backtick-quoted list: ``a`, `b` and `c``.
+fn quoted_sources(sources: &[PathBuf]) -> String {
+    let quoted: Vec<String> = sources
+        .iter()
+        .map(|source| format!("`{}`", source.display()))
+        .collect();
+
+    match quoted.split_last() {
+        None => String::new(),
+        Some((last, [])) => last.clone(),
+        Some((last, leading)) => format!("{} and {last}", leading.join(", ")),
+    }
+}
+
+/// The test sources to collect from: which file each solc source name is read
+/// from, holding one source name per file.
+///
+/// [`TestSourcePaths::try_from`] is the only way to build a non-empty one, so
+/// a file two source names point at is rejected there rather than reaching
+/// collection, which parses a file once and serves it under one name.
+#[derive(Clone, Debug, Default)]
+pub struct TestSourcePaths {
+    /// Keyed by file id, so a second source name for a file is
+    /// unrepresentable rather than caught downstream.
+    entries: HashMap<String, TestSourceEntry>,
+    /// The file id of each source name, the inverse of [`Self::entries`],
+    /// because a lookup has a source name in hand.
+    file_ids: HashMap<PathBuf, String>,
+}
+
+/// What one [`TestSourcePaths`] entry holds beyond the file id it is keyed by.
+#[derive(Clone, Debug)]
+struct TestSourceEntry {
+    /// The solc source name the file is collected under.
+    source: PathBuf,
+    /// The path the file is read from.
+    path: PathBuf,
+}
+
+/// The file one test source name is read from.
+#[derive(Clone, Copy, Debug)]
+pub struct TestSourceFile<'a> {
+    /// The identity the parser gives the file. Collection keys one root by it.
+    pub file_id: &'a str,
+    /// The path the file is read from.
+    pub path: &'a Path,
+}
+
+impl TestSourcePaths {
+    /// Whether collection is disabled, which no entries does.
+    pub fn is_empty(&self) -> bool {
+        self.entries.is_empty()
+    }
+
+    /// The file `source` is read from, or `None` when it has no entry.
+    pub fn get(&self, source: &Path) -> Option<TestSourceFile<'_>> {
+        let file_id = self.file_ids.get(source)?;
+        let entry = self
+            .entries
+            .get(file_id)
+            .expect("every source name's file id is an entry");
+
+        Some(TestSourceFile {
+            file_id,
+            path: &entry.path,
+        })
+    }
+
+    /// Every source name with an entry.
+    pub fn source_names(&self) -> impl Iterator<Item = &Path> {
+        self.entries.values().map(|entry| entry.source.as_path())
+    }
+
+    /// Rebuilds the map these entries were built from, for a caller amending
+    /// it. The amended map is validated again on its way back in.
+    pub fn to_map(&self) -> HashMap<PathBuf, PathBuf> {
+        self.entries
+            .values()
+            .map(|entry| (entry.source.clone(), entry.path.clone()))
+            .collect()
+    }
+}
+
+impl TryFrom<HashMap<PathBuf, PathBuf>> for TestSourcePaths {
+    type Error = SolidityTestRunnerConfigError;
+
+    /// Groups the entries by the file id of their path, the identity the
+    /// parser gives a file, so `a/../b.sol` and `b.sol` count as one file.
+    ///
+    /// Reports the first clash in file-id order, like the sibling
+    /// configuration problems, which also reject at the first one.
+    fn try_from(test_source_paths: HashMap<PathBuf, PathBuf>) -> Result<Self, Self::Error> {
+        let mut entries = HashMap::with_capacity(test_source_paths.len());
+        let mut sources_by_file_id: BTreeMap<String, Vec<PathBuf>> = BTreeMap::new();
+        for (source, path) in test_source_paths {
+            let file_id = file_id_of(&path);
+            sources_by_file_id
+                .entry(file_id.clone())
+                .or_default()
+                .push(source.clone());
+            entries.insert(file_id, TestSourceEntry { source, path });
+        }
+
+        if let Some((file_id, mut sources)) = sources_by_file_id
+            .into_iter()
+            .find(|(_, sources)| sources.len() > 1)
+        {
+            sources.sort();
+
+            return Err(SolidityTestRunnerConfigError::TestSourcePathShared { file_id, sources });
+        }
+
+        let file_ids = entries
+            .iter()
+            .map(|(file_id, entry)| (entry.source.clone(), file_id.clone()))
+            .collect();
+
+        Ok(Self { entries, file_ids })
+    }
 }
 
 /// Solidity tests configuration
@@ -72,10 +208,11 @@ pub struct SolidityTestRunnerConfig<HardforkT: HardforkTr> {
     /// EIP-712 struct definitions served to the `eip712HashType` and
     /// `eip712HashStruct` cheatcodes.
     ///
-    /// An empty map disables collection: no source is read or parsed. A
+    /// No entries disables collection: no source is read or parsed. A
     /// non-empty map must name the source of every test suite a run selects,
     /// and every source backing a selected suite is parsed. An entry no
-    /// selected suite uses is never opened.
+    /// selected suite uses is never opened. One source name per file, which
+    /// [`TestSourcePaths`] enforces when it is built.
     ///
     /// Each problem is accumulated and reported together when the run starts,
     /// rather than silently leaving a suite without inline configuration or
@@ -84,7 +221,7 @@ pub struct SolidityTestRunnerConfig<HardforkT: HardforkTr> {
     ///
     /// Only the sources of the suites a run selects are read and parsed, so a
     /// filtered run does not pay for the rest of the project.
-    pub test_source_paths: HashMap<PathBuf, PathBuf>,
+    pub test_source_paths: TestSourcePaths,
     /// Resolves the imports of test sources while parsing them (see
     /// [`Self::test_source_paths`]).
     pub import_resolver: ImportResolver,
@@ -425,5 +562,115 @@ mod tests {
         let before = config.clone();
         config.fill_unset_from(&TestFunctionConfigOverride::default());
         assert_eq!(config, before);
+    }
+
+    /// The entries of a map naming one file per source name.
+    fn source_paths(entries: &[(&str, &str)]) -> HashMap<PathBuf, PathBuf> {
+        entries
+            .iter()
+            .map(|(source, path)| (PathBuf::from(source), PathBuf::from(path)))
+            .collect()
+    }
+
+    #[test]
+    fn distinct_files_are_accepted() {
+        let paths = TestSourcePaths::try_from(source_paths(&[
+            ("test/A.t.sol", "/project/test/A.t.sol"),
+            ("test/B.t.sol", "/project/test/B.t.sol"),
+        ]))
+        .expect("each source name has its own file");
+
+        assert!(!paths.is_empty());
+        let file = paths
+            .get(Path::new("test/A.t.sol"))
+            .expect("`test/A.t.sol` has an entry");
+        assert_eq!(file.path, Path::new("/project/test/A.t.sol"));
+        assert_eq!(file.file_id, file_id_of(Path::new("/project/test/A.t.sol")));
+        assert!(paths.get(Path::new("test/Missing.t.sol")).is_none());
+
+        let mut source_names: Vec<&Path> = paths.source_names().collect();
+        source_names.sort_unstable();
+        assert_eq!(
+            source_names,
+            vec![Path::new("test/A.t.sol"), Path::new("test/B.t.sol")]
+        );
+    }
+
+    #[test]
+    fn no_entries_disable_collection() {
+        let paths = TestSourcePaths::try_from(HashMap::new()).expect("an empty map is valid");
+
+        assert!(paths.is_empty());
+        assert!(TestSourcePaths::default().is_empty());
+    }
+
+    #[test]
+    fn two_source_names_for_one_file_are_rejected() {
+        let shared = "/project/test/Shared.t.sol";
+
+        let error = TestSourcePaths::try_from(source_paths(&[
+            ("test/B.t.sol", shared),
+            ("test/A.t.sol", shared),
+        ]))
+        .expect_err("one file backs two source names");
+
+        assert!(
+            matches!(
+                &error,
+                SolidityTestRunnerConfigError::TestSourcePathShared { file_id, sources }
+                    if *file_id == file_id_of(Path::new(shared))
+                        && *sources == vec![
+                            PathBuf::from("test/A.t.sol"),
+                            PathBuf::from("test/B.t.sol"),
+                        ]
+            ),
+            "{error:?}"
+        );
+        assert_eq!(
+            error.to_string(),
+            format!(
+                "`testSourcePaths` entries `test/A.t.sol` and `test/B.t.sol` name the same file: {}; one source name per file",
+                file_id_of(Path::new(shared))
+            )
+        );
+    }
+
+    /// A third name joins the list with a comma, while two keep the bare
+    /// `a` and `b` form.
+    #[test]
+    fn three_source_names_for_one_file_are_listed_with_a_comma() {
+        let shared = "/project/test/Shared.t.sol";
+
+        let error = TestSourcePaths::try_from(source_paths(&[
+            ("test/C.t.sol", shared),
+            ("test/A.t.sol", shared),
+            ("test/B.t.sol", shared),
+        ]))
+        .expect_err("one file backs three source names");
+
+        assert!(
+            error
+                .to_string()
+                .starts_with("`testSourcePaths` entries `test/A.t.sol`, `test/B.t.sol` and `test/C.t.sol` name the same file"),
+            "{error}"
+        );
+    }
+
+    /// Paths are compared by file id, so two spellings of one file are a
+    /// clash rather than two files.
+    #[test]
+    fn two_spellings_of_one_file_are_rejected() {
+        let error = TestSourcePaths::try_from(source_paths(&[
+            ("test/A.t.sol", "/project/test/A.t.sol"),
+            ("test/B.t.sol", "/project/test/../test/A.t.sol"),
+        ]))
+        .expect_err("both spellings name one file");
+
+        assert!(
+            error
+                .to_string()
+                .contains("`test/A.t.sol` and `test/B.t.sol` name the same file"),
+            "{error}"
+        );
     }
 }

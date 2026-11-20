@@ -269,11 +269,9 @@ describe("Solidity Tests", () => {
   // `Eip712ExcludeTest.t.sol` reaches two different `Permit` structs, its own
   // and a vendored one. The name is ambiguous until `eip712ExcludeGlobs` drops
   // one of the two files, and the globs are matched relative to `projectRoot`.
+  const eip712ExcludeTestSource = "data/contracts/Eip712ExcludeTest.t.sol";
   const eip712ExcludeTestSourcePaths = {
-    "data/contracts/Eip712ExcludeTest.t.sol": path.join(
-      __dirname,
-      "data/contracts/Eip712ExcludeTest.t.sol"
-    ),
+    [eip712ExcludeTestSource]: path.join(__dirname, eip712ExcludeTestSource),
   };
   const vendorExcludeGlob = "data/contracts/vendor/**";
 
@@ -328,6 +326,33 @@ describe("Solidity Tests", () => {
     await assert.isRejected(
       runEip712ExcludeSuite(["data/contracts/["]),
       /invalid source exclusion glob `data\/contracts\/\[`/
+    );
+  });
+
+  // A parsed source is identified by its file, so a file two source names
+  // point at is rejected when the runner is built, before any test executes.
+  it("rejects two source names pointing at one file", async function () {
+    const artifacts = [
+      loadContract("./data/artifacts/default/Eip712ExcludeTest.json"),
+    ];
+    const testSuites = artifacts.map((artifact) => artifact.id);
+    const aliasSource = "data/contracts/Eip712ExcludeAlias.t.sol";
+
+    await assert.isRejected(
+      runAllSolidityTests(context, L1_CHAIN_TYPE, artifacts, testSuites, {
+        disableTransactionGasCap: true,
+        projectRoot: __dirname,
+        hardfork: l1HardforkToString(l1HardforkLatest()),
+        testSourcePaths: {
+          ...eip712ExcludeTestSourcePaths,
+          [aliasSource]: eip712ExcludeTestSourcePaths[eip712ExcludeTestSource],
+        },
+      }),
+      new RegExp(
+        `\`testSourcePaths\` entries \`${aliasSource}\` and \`${eip712ExcludeTestSource}\` name the same file: .*${path.basename(
+          eip712ExcludeTestSource
+        )}; one source name per file`
+      )
     );
   });
 

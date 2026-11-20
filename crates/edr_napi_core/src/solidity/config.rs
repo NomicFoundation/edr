@@ -11,7 +11,7 @@ use edr_solidity_tests::{
     inline_config::{ImportResolver, InlineConfigProfiles},
     inspectors::cheatcodes::CheatsConfigOptions,
     CollectStackTraces, SolidityTestRunnerConfig, SyncOnCollectedCoverageCallback,
-    TestFilterConfig, MAX_TEST_TRANSACTION_GAS_LIMIT,
+    TestFilterConfig, TestSourcePaths, MAX_TEST_TRANSACTION_GAS_LIMIT,
 };
 use napi::{bindgen_prelude::Uint8Array, Either};
 /// Hardhat V3 build info where the compiler output is not part of the build
@@ -382,6 +382,11 @@ impl TestRunnerConfig {
         if let Some(memory_limit) = memory_limit {
             evm_opts.memory_limit = memory_limit;
         }
+
+        // A file two source names point at cannot be collected under either,
+        // so the map is converted into its one-name-per-file form here.
+        let test_source_paths = TestSourcePaths::try_from(test_source_paths)
+            .map_err(|error| napi::Error::new(napi::Status::InvalidArg, error.to_string()))?;
 
         let import_resolver = ImportResolver::new(import_mappings);
         let local_predeploys = local_predeploys.unwrap_or_default();

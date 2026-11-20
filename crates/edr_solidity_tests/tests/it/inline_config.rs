@@ -1,15 +1,19 @@
 //! Inline-config (`forge-config:`/`hardhat-config:`) end-to-end behavior.
 
-use std::{io::Write as _, path::PathBuf};
+use std::{
+    io::Write as _,
+    path::{Path, PathBuf},
+};
 
 use edr_solidity_tests::{
     error::TestRunnerError,
     inline_config::InlineConfigProfiles,
     result::TestKind,
     test_source_error::{InlineConfigDirectiveError, TestSourceCollectError, TestSourceProblem},
+    TestSourcePaths,
 };
 
-use crate::helpers::{SolidityTestFilter, TEST_DATA_DEFAULT};
+use crate::helpers::{point_source_at, without_source, SolidityTestFilter, TEST_DATA_DEFAULT};
 
 /// Runs every suite matching `filter` and returns the inline-config problems
 /// the run was rejected with.
@@ -80,9 +84,9 @@ fn stand_in_source_name(
 ) -> PathBuf {
     config
         .test_source_paths
-        .keys()
+        .source_names()
         .find(|source| source.ends_with(STAND_IN_SOURCE))
-        .cloned()
+        .map(Path::to_path_buf)
         .expect("test data contains the stand-in source")
 }
 
@@ -114,9 +118,11 @@ async fn malformed_inline_config_aborts_whole_run() {
     // collection parses it under that source's name.
     let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
     let source = stand_in_source_name(&config);
-    config
-        .test_source_paths
-        .insert(source.clone(), file.path().to_path_buf());
+    config.test_source_paths = point_source_at(
+        &config.test_source_paths,
+        source.clone(),
+        file.path().to_path_buf(),
+    );
 
     let errors = expect_inline_config_errors(config, stand_in_filter()).await;
 
@@ -388,17 +394,19 @@ async fn source_without_a_path_aborts_whole_run() {
     // hitting both must report both.
     let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
     let unlisted = stand_in_source_name(&config);
-    config.test_source_paths.remove(&unlisted);
+    config.test_source_paths = without_source(&config.test_source_paths, &unlisted);
 
     let malformed = config
         .test_source_paths
-        .keys()
+        .source_names()
         .find(|source| source.ends_with("inline/ContractLevelConfig.t.sol"))
-        .cloned()
+        .map(Path::to_path_buf)
         .expect("test data contains the contract-level config source");
-    config
-        .test_source_paths
-        .insert(malformed.clone(), file.path().to_path_buf());
+    config.test_source_paths = point_source_at(
+        &config.test_source_paths,
+        malformed.clone(),
+        file.path().to_path_buf(),
+    );
 
     let errors = expect_inline_config_errors(
         config,
@@ -432,7 +440,7 @@ async fn source_without_a_path_aborts_whole_run() {
 #[tokio::test(flavor = "multi_thread")]
 async fn collection_disabled_ignores_inline_config() {
     let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
-    config.test_source_paths.clear();
+    config.test_source_paths = TestSourcePaths::default();
 
     let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;
     let results = runner
@@ -492,7 +500,7 @@ async fn pre_0_8_source_aborts_whole_run() {
 #[tokio::test(flavor = "multi_thread")]
 async fn pre_0_8_source_runs_when_collection_is_disabled() {
     let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
-    config.test_source_paths.clear();
+    config.test_source_paths = TestSourcePaths::default();
 
     let runner = TEST_DATA_DEFAULT.runner_with_config(config).await;
     let results = runner
@@ -521,9 +529,8 @@ async fn filtered_out_sources_are_not_parsed() {
     // different one.
     let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
     let source = stand_in_source_name(&config);
-    config
-        .test_source_paths
-        .insert(source, file.path().to_path_buf());
+    config.test_source_paths =
+        point_source_at(&config.test_source_paths, source, file.path().to_path_buf());
 
     let filter = SolidityTestFilter::new(".*", ".*", ".*inline/ContractLevelConfig.t.sol");
     let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;

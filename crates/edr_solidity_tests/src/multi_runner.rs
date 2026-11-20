@@ -52,9 +52,9 @@ use crate::{
     test_source_error::{
         TestSourceCollectError, TestSourceErrorItem, TestSourceErrors, TestSourceProblem,
     },
-    test_sources::{collect_test_sources, SourceCollections, TestSourceRoot},
+    test_sources::{collect_test_sources, SourceCollections, TestSourceRoot, TestSourceRoots},
     ContractRunner, SolidityTestRunnerConfig, SolidityTestRunnerConfigError, TestFilter,
-    TestFunctionConfigOverride,
+    TestFunctionConfigOverride, TestSourcePaths,
 };
 
 pub struct SuiteResultAndArtifactId<HaltReasonT> {
@@ -110,10 +110,10 @@ pub struct MultiContractRunner<
     project_root: PathBuf,
     /// Test contracts to deploy.
     test_contracts: TestContracts,
-    /// Maps each test source's solc source name to its absolute path on disk.
-    /// The sources of the suites a run selects are parsed for their inline
+    /// Which file each test source's solc source name is read from. The
+    /// sources of the suites a run selects are parsed for their inline
     /// configuration and EIP-712 struct definitions.
-    test_source_paths: HashMap<PathBuf, PathBuf>,
+    test_source_paths: TestSourcePaths,
     /// Resolves the imports of those sources.
     import_resolver: ImportResolver,
     /// Keeps the sources it matches out of the EIP-712 collection.
@@ -778,9 +778,9 @@ fn matches_contract(id: &ArtifactId, filter: &dyn TestFilter) -> bool {
 /// Splits the selected test contracts' sources into the roots to parse and
 /// the problems found while locating them.
 ///
-/// Roots are deduplicated by source (a source declaring several selected
-/// contracts is parsed once) and both results are sorted by source, so
-/// problems are reported in a deterministic order.
+/// Roots are keyed by file id, a source declaring several selected contracts
+/// being parsed once, and problems are sorted by source, so they are reported
+/// in a deterministic order.
 ///
 /// Yields `None` when `test_source_paths` is empty, which disables collection
 /// entirely (for callers using neither inline configuration nor the EIP-712
@@ -790,9 +790,9 @@ fn matches_contract(id: &ArtifactId, filter: &dyn TestFilter) -> bool {
 /// version has no grammar, is reported as a problem rather than silently going
 /// uncollected.
 fn test_source_roots<'a>(
-    test_source_paths: &HashMap<PathBuf, PathBuf>,
+    test_source_paths: &TestSourcePaths,
     test_contracts: impl IntoIterator<Item = &'a ArtifactId>,
-) -> Option<(Vec<TestSourceRoot>, Vec<TestSourceErrorItem>)> {
+) -> Option<(TestSourceRoots, Vec<TestSourceErrorItem>)> {
     if test_source_paths.is_empty() {
         return None;
     }
@@ -810,19 +810,24 @@ fn test_source_roots<'a>(
             .or_insert(&artifact_id.version);
     }
 
-    let mut roots = Vec::new();
+    let mut roots = TestSourceRoots::new();
     let mut errors = Vec::new();
     for (source, version) in versions_by_source {
         let problem = match (
             test_source_paths.get(source),
             language_version_for_solc(version),
         ) {
-            (Some(path), Some(language_version)) => {
-                roots.push(TestSourceRoot {
-                    source: source.clone(),
-                    path: path.clone(),
-                    version: language_version,
-                });
+            (Some(file), Some(language_version)) => {
+                // Keyed by the file id the entry carries. One source name per
+                // file, so no root can displace another.
+                roots.insert(
+                    file.file_id.to_owned(),
+                    TestSourceRoot {
+                        source: source.clone(),
+                        path: file.path.to_path_buf(),
+                        version: language_version,
+                    },
+                );
                 continue;
             }
             (None, _) => TestSourceCollectError::SourcePathNotProvided,
@@ -958,10 +963,27 @@ mod tests {
 
     /// [`test_source_roots`] of a non-empty map, which enables collection.
     fn enabled_test_source_roots<'a>(
-        test_source_paths: &HashMap<PathBuf, PathBuf>,
+        test_source_paths: &TestSourcePaths,
         test_contracts: impl IntoIterator<Item = &'a ArtifactId>,
-    ) -> (Vec<TestSourceRoot>, Vec<TestSourceErrorItem>) {
+    ) -> (TestSourceRoots, Vec<TestSourceErrorItem>) {
         test_source_roots(test_source_paths, test_contracts).expect("collection is enabled")
+    }
+
+    /// The entries of a map naming one file per source name.
+    fn source_paths(entries: &[(&str, &str)]) -> TestSourcePaths {
+        entries
+            .iter()
+            .map(|(source, path)| (PathBuf::from(source), PathBuf::from(path)))
+            .collect::<HashMap<_, _>>()
+            .try_into()
+            .expect("one source name per file")
+    }
+
+    /// The sole root collection yielded.
+    fn only_root(roots: &TestSourceRoots) -> &TestSourceRoot {
+        assert_eq!(roots.len(), 1, "{roots:?}");
+
+        roots.values().next().expect("one root")
     }
 
     fn test_contracts(entries: &[(&str, Version)]) -> TestContracts {
@@ -987,7 +1009,7 @@ mod tests {
     fn empty_source_paths_disable_collection() {
         let contracts = test_contracts(&[("test/A.t.sol", Version::new(0, 8, 24))]);
 
-        assert!(test_source_roots(&HashMap::new(), contracts.keys()).is_none());
+        assert!(test_source_roots(&TestSourcePaths::default(), contracts.keys()).is_none());
     }
 
     #[test]
@@ -996,16 +1018,11 @@ mod tests {
             ("test/A.t.sol", Version::new(0, 8, 24)),
             ("test/B.t.sol", Version::new(0, 8, 24)),
         ]);
-        let paths = [(
-            PathBuf::from("test/A.t.sol"),
-            PathBuf::from("/project/test/A.t.sol"),
-        )]
-        .into();
+        let paths = source_paths(&[("test/A.t.sol", "/project/test/A.t.sol")]);
 
         let (roots, errors) = enabled_test_source_roots(&paths, contracts.keys());
 
-        assert_eq!(roots.len(), 1);
-        assert_eq!(roots[0].source, PathBuf::from("test/A.t.sol"));
+        assert_eq!(only_root(&roots).source, PathBuf::from("test/A.t.sol"));
         assert_eq!(errors.len(), 1);
         assert_eq!(errors[0].source_name, PathBuf::from("test/B.t.sol"));
         assert!(matches!(
@@ -1023,22 +1040,14 @@ mod tests {
             ("test/A.t.sol", Version::new(0, 8, 24)),
             ("test/Legacy.t.sol", Version::new(0, 6, 12)),
         ]);
-        let paths = [
-            (
-                PathBuf::from("test/A.t.sol"),
-                PathBuf::from("/project/test/A.t.sol"),
-            ),
-            (
-                PathBuf::from("test/Legacy.t.sol"),
-                PathBuf::from("/project/test/Legacy.t.sol"),
-            ),
-        ]
-        .into();
+        let paths = source_paths(&[
+            ("test/A.t.sol", "/project/test/A.t.sol"),
+            ("test/Legacy.t.sol", "/project/test/Legacy.t.sol"),
+        ]);
 
         let (roots, errors) = enabled_test_source_roots(&paths, contracts.keys());
 
-        assert_eq!(roots.len(), 1);
-        assert_eq!(roots[0].source, PathBuf::from("test/A.t.sol"));
+        assert_eq!(only_root(&roots).source, PathBuf::from("test/A.t.sol"));
         assert_eq!(errors.len(), 1);
         assert_eq!(errors[0].source_name, PathBuf::from("test/Legacy.t.sol"));
         assert!(
@@ -1059,7 +1068,7 @@ mod tests {
     fn pre_0_8_source_is_fine_when_collection_is_disabled() {
         let contracts = test_contracts(&[("test/Legacy.t.sol", Version::new(0, 6, 12))]);
 
-        assert!(test_source_roots(&HashMap::new(), contracts.keys()).is_none());
+        assert!(test_source_roots(&TestSourcePaths::default(), contracts.keys()).is_none());
     }
 
     /// A source backing artifacts compiled at several versions is parsed with
@@ -1071,16 +1080,11 @@ mod tests {
             ("test/A.t.sol", Version::new(0, 6, 12)),
             ("test/A.t.sol", Version::new(0, 8, 24)),
         ]);
-        let paths = [(
-            PathBuf::from("test/A.t.sol"),
-            PathBuf::from("/project/test/A.t.sol"),
-        )]
-        .into();
+        let paths = source_paths(&[("test/A.t.sol", "/project/test/A.t.sol")]);
 
         let (roots, errors) = enabled_test_source_roots(&paths, contracts.keys());
 
-        assert_eq!(roots.len(), 1);
-        assert_eq!(roots[0].version, LanguageVersion::V0_8_24);
+        assert_eq!(only_root(&roots).version, LanguageVersion::V0_8_24);
         assert!(errors.is_empty(), "{errors:?}");
     }
 }

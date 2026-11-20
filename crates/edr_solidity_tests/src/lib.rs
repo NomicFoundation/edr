@@ -13,7 +13,8 @@ mod config;
 pub use config::{
     CollectStackTraces, FuzzConfigOverride, InvalidExclusionGlob, InvariantConfigOverride,
     SolidityTestRunnerConfig, SolidityTestRunnerConfigError, SyncOnCollectedCoverageCallback,
-    TestFunctionConfigOverride, TimeoutConfig, MAX_TEST_TRANSACTION_GAS_LIMIT,
+    TestFunctionConfigOverride, TestSourceFile, TestSourcePaths, TimeoutConfig,
+    MAX_TEST_TRANSACTION_GAS_LIMIT,
 };
 
 pub mod inline_config;

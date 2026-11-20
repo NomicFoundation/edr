@@ -37,7 +37,7 @@ use edr_solidity_tests::{
     multi_runner::{TestContract, TestContracts},
     revm::context::{BlockEnv, TxEnv},
     CollectStackTraces, MultiContractRunner, SolidityTestRunnerConfig,
-    SolidityTestRunnerConfigError, MAX_TEST_TRANSACTION_GAS_LIMIT,
+    SolidityTestRunnerConfigError, TestSourcePaths, MAX_TEST_TRANSACTION_GAS_LIMIT,
 };
 use edr_test_utils::{env::json_rpc_url_provider, new_fd_lock};
 use foundry_cheatcodes::{ExecutionContextConfig, FsPermissions, RpcEndpointUrl, RpcEndpoints};
@@ -198,7 +198,7 @@ impl ForgeTestProfile {
             // The test data's source paths are injected by `config_with_*_rpc`,
             // which have access to `ForgeTestData`; testdata needs no import
             // mappings (relative imports resolve, others degrade gracefully).
-            test_source_paths: HashMap::new(),
+            test_source_paths: TestSourcePaths::default(),
             import_resolver: ImportResolver::default(),
             eip712_exclude_globs: Vec::new(),
             // Collection covers every test source, not just the ones a run
@@ -443,6 +443,29 @@ pub type L1ForgeTestData = ForgeTestData<
     TxEnv,
 >;
 
+/// Points `source` at `path` on disk, keeping every other entry.
+///
+/// The map is rebuilt rather than mutated, because [`TestSourcePaths`] holds
+/// one source name per file and checks that when it is built.
+pub fn point_source_at(
+    test_source_paths: &TestSourcePaths,
+    source: PathBuf,
+    path: PathBuf,
+) -> TestSourcePaths {
+    let mut paths = test_source_paths.to_map();
+    paths.insert(source, path);
+
+    paths.try_into().expect("one source name per file")
+}
+
+/// Drops `source`'s entry, so collection never locates it.
+pub fn without_source(test_source_paths: &TestSourcePaths, source: &Path) -> TestSourcePaths {
+    let mut paths = test_source_paths.to_map();
+    paths.remove(source);
+
+    paths.try_into().expect("one source name per file")
+}
+
 /// Container for test data for a specific test profile.
 pub struct ForgeTestData<
     BlockT: BlockEnvTr,
@@ -458,7 +481,7 @@ pub struct ForgeTestData<
     known_contracts: ContractsByArtifact,
     libs_to_deploy: Vec<Bytes>,
     revert_decoder: RevertDecoder,
-    test_source_paths: HashMap<PathBuf, PathBuf>,
+    test_source_paths: TestSourcePaths,
     fuzz_failure_dirs: Mutex<Vec<tempfile::TempDir>>,
     invariant_failure_dirs: Mutex<Vec<tempfile::TempDir>>,
     hardfork: HardforkT,
@@ -595,10 +618,12 @@ impl<
         // root file's functions. Every testdata source is listed here; a run
         // whose filter selects a pre-0.8 one needs
         // `config_without_source_collection` instead.
-        let test_source_paths: HashMap<PathBuf, PathBuf> = test_contracts
+        let test_source_paths: TestSourcePaths = test_contracts
             .keys()
             .map(|id| (id.source.clone(), root.join(&id.source)))
-            .collect();
+            .collect::<HashMap<PathBuf, PathBuf>>()
+            .try_into()
+            .expect("each testdata source name has its own file");
 
         Ok(Self {
             project,
@@ -639,7 +664,7 @@ impl<
     /// off entirely.
     pub fn config_without_source_collection(&self) -> SolidityTestRunnerConfig<HardforkT> {
         let mut config = self.config_with_mock_rpc();
-        config.test_source_paths.clear();
+        config.test_source_paths = TestSourcePaths::default();
 
         config
     }

@@ -27,7 +27,7 @@ use std::{
 
 use edr_solidity_collector_eip712::collector::{Eip712TypeCollection, UnitStructs};
 use edr_solidity_parser_slang::{
-    compilation::{build_multi_root_compilation_unit, file_id_of, MultiRootCompilation},
+    compilation::{build_multi_root_compilation_unit, MultiRootCompilation},
     exclusions::SourceExclusions,
     resolver::{ImportResolver, ProvidedSources},
     LanguageVersion,
@@ -49,6 +49,14 @@ use crate::{
 /// per token. The first few say what is wrong just as well as all of them, so
 /// the rest are summarised as a count.
 const MAX_REPORTED_PARSE_ERRORS: usize = 5;
+
+/// The test sources to collect from, keyed by the file id the parser gives
+/// each one's file.
+///
+/// Keying by file id is what makes two roots for one file unrepresentable.
+/// The configuration they are built from holds one source name per file (see
+/// `TestSourcePaths`), so keying cannot drop a root either.
+pub(crate) type TestSourceRoots = BTreeMap<String, TestSourceRoot>;
 
 /// A Solidity test source to collect from.
 #[derive(Debug)]
@@ -88,7 +96,7 @@ pub(crate) struct SourceCollections {
 /// Every problem across every source is accumulated rather than
 /// short-circuited, so one run reports them all.
 pub(crate) fn collect_test_sources(
-    roots: &[TestSourceRoot],
+    roots: &TestSourceRoots,
     import_resolver: &ImportResolver,
     profiles: &InlineConfigProfiles,
     exclusions: &SourceExclusions,
@@ -96,7 +104,7 @@ pub(crate) fn collect_test_sources(
     // Roots of different versions cannot share a unit because a unit parses
     // every file it holds with one grammar.
     let mut roots_by_version: BTreeMap<LanguageVersion, Vec<&TestSourceRoot>> = BTreeMap::new();
-    for root in roots {
+    for root in roots.values() {
         roots_by_version.entry(root.version).or_default().push(root);
     }
 
@@ -110,31 +118,16 @@ pub(crate) fn collect_test_sources(
             import_resolver,
         );
 
-        // Several source names can point at one file.
-        let mut roots_by_file_id: HashMap<String, Vec<&TestSourceRoot>> = HashMap::new();
-        for root in &version_roots {
-            roots_by_file_id
-                .entry(file_id_of(&root.path))
-                .or_default()
-                .push(root);
-        }
-        let roots_for = |file_id: &str| -> &[&TestSourceRoot] {
-            roots_by_file_id
-                .get(file_id)
-                .expect("every root of this version is keyed by its file id")
-        };
-
         for (file_id, error) in sources.unreadable_roots() {
-            for root in roots_for(file_id) {
-                errors.push(TestSourceErrorItem {
-                    source_name: root.source.clone(),
-                    problem: TestSourceCollectError::RootFileNotFound {
-                        path: root.path.display().to_string(),
-                        reason: error.to_string(),
-                    }
-                    .into(),
-                });
-            }
+            let root = root_of(roots, file_id);
+            errors.push(TestSourceErrorItem {
+                source_name: root.source.clone(),
+                problem: TestSourceCollectError::RootFileNotFound {
+                    path: root.path.display().to_string(),
+                    reason: error.to_string(),
+                }
+                .into(),
+            });
         }
 
         // Slang is error-tolerant and yields a partial AST, so a file that
@@ -158,19 +151,18 @@ pub(crate) fn collect_test_sources(
         let results: Vec<_> = sources
             .root_contents()
             .par_iter()
-            .flat_map_iter(|(file_id, root_content)| {
-                roots_for(file_id).iter().map(move |root| {
-                    let collections = collect_root(
-                        root,
-                        file_id,
-                        root_content,
-                        version_unit,
-                        profiles,
-                        exclusions,
-                    );
+            .map(|(file_id, root_content)| {
+                let root = root_of(roots, file_id);
+                let collections = collect_root(
+                    root,
+                    file_id,
+                    root_content,
+                    version_unit,
+                    profiles,
+                    exclusions,
+                );
 
-                    (root.source.clone(), collections)
-                })
+                (root.source.clone(), collections)
             })
             .collect();
 
@@ -193,6 +185,14 @@ pub(crate) fn collect_test_sources(
         errors.sort_by(|left, right| left.source_name.cmp(&right.source_name));
         Err(errors)
     }
+}
+
+/// The root `file_id` identifies. A unit is built from its roots' files, so
+/// every file it reports back is one of them.
+fn root_of<'a>(roots: &'a TestSourceRoots, file_id: &str) -> &'a TestSourceRoot {
+    roots
+        .get(file_id)
+        .expect("the unit was built from these roots' files")
 }
 
 /// The shared unit of one language version and what every root extracts
@@ -350,7 +350,7 @@ fn describe_syntax_diagnostic(
 mod tests {
     use std::{io::Write as _, path::Path};
 
-    use edr_solidity_parser_slang::compilation::language_version_for_solc;
+    use edr_solidity_parser_slang::compilation::{file_id_of, language_version_for_solc};
     use semver::Version;
 
     use super::*;
@@ -388,10 +388,23 @@ mod tests {
         }
     }
 
+    /// Keys `roots` by file id the way the runner's configuration does, so a
+    /// test builds collection's input the same way production does.
+    fn roots_by_file_id(roots: impl IntoIterator<Item = TestSourceRoot>) -> TestSourceRoots {
+        let mut by_file_id = TestSourceRoots::new();
+        for root in roots {
+            let file_id = file_id_of(&root.path);
+            let shared = by_file_id.insert(file_id, root);
+            assert!(shared.is_none(), "a test cannot give one file two roots");
+        }
+
+        by_file_id
+    }
+
     /// Collects `roots` with no import mappings, the default profile and the
     /// EIP-712 exclusions `globs` describes, relative to `project_root`.
     fn collect_excluding(
-        roots: &[TestSourceRoot],
+        roots: impl IntoIterator<Item = TestSourceRoot>,
         project_root: &Path,
         globs: &[&str],
     ) -> Result<HashMap<PathBuf, SourceCollections>, Vec<TestSourceErrorItem>> {
@@ -399,7 +412,7 @@ mod tests {
             SourceExclusions::new(project_root, globs.iter().copied()).expect("valid globs");
 
         collect_test_sources(
-            roots,
+            &roots_by_file_id(roots),
             &ImportResolver::default(),
             &InlineConfigProfiles::default(),
             &exclusions,
@@ -409,7 +422,7 @@ mod tests {
     /// Collects `roots` with no import mappings, the default profile and
     /// nothing excluded.
     fn collect_with_defaults(
-        roots: &[TestSourceRoot],
+        roots: impl IntoIterator<Item = TestSourceRoot>,
     ) -> Result<HashMap<PathBuf, SourceCollections>, Vec<TestSourceErrorItem>> {
         collect_excluding(roots, &std::env::temp_dir(), &[])
     }
@@ -422,7 +435,7 @@ mod tests {
     fn collect_one(root: TestSourceRoot) -> Result<SourceCollections, Vec<TestSourceErrorItem>> {
         let source = root.source.clone();
 
-        collect_with_defaults(&[root])
+        collect_with_defaults([root])
             .map(|mut collected| collected.remove(&source).expect("the root was collected"))
     }
 
@@ -444,7 +457,9 @@ mod tests {
         path
     }
 
-    fn collect_all(roots: &[TestSourceRoot]) -> HashMap<PathBuf, SourceCollections> {
+    fn collect_all(
+        roots: impl IntoIterator<Item = TestSourceRoot>,
+    ) -> HashMap<PathBuf, SourceCollections> {
         unwrap_collected(collect_with_defaults(roots))
     }
 
@@ -534,7 +549,7 @@ contract C {
         );
         let root = root_for(&file, FIXTURE_SOURCE);
 
-        let errors = collect_with_defaults(&[root])
+        let errors = collect_with_defaults([root])
             .expect_err("a source that does not parse cannot be collected");
 
         assert_eq!(errors.len(), 1, "{errors:#?}");
@@ -575,7 +590,7 @@ contract C {
             version: fixture_grammar(),
         };
 
-        let errors = collect_with_defaults(&[root])
+        let errors = collect_with_defaults([root])
             .expect_err("an import that does not parse cannot be collected");
 
         assert_eq!(errors.len(), 1, "{errors:#?}");
@@ -674,7 +689,7 @@ contract Bad {
             root_for(&second, "project/Second.t.sol"),
         ];
 
-        let errors = collect_with_defaults(&roots).expect_err("expected errors");
+        let errors = collect_with_defaults(roots).expect_err("expected errors");
 
         assert_eq!(errors.len(), 2, "{errors:#?}");
         let sources: HashSet<_> = errors.iter().map(|item| item.source_name.clone()).collect();
@@ -733,7 +748,7 @@ contract BadContractLevel {
             version: fixture_grammar(),
         };
 
-        let errors = collect_with_defaults(&[root]).expect_err("expected errors");
+        let errors = collect_with_defaults([root]).expect_err("expected errors");
 
         assert_eq!(errors.len(), 1);
 
@@ -770,7 +785,7 @@ contract BadContractLevel {
         let wallet_source = "project/Wallet.t.sol";
         let name_source = "project/Name.t.sol";
 
-        let collected = collect_all(&[
+        let collected = collect_all([
             root_at(wallet_root, wallet_source),
             root_at(name_root, name_source),
         ]);
@@ -806,7 +821,7 @@ contract BadContractLevel {
 
         let other_source = "project/Other.t.sol";
 
-        let collected = collect_all(&[
+        let collected = collect_all([
             root_at(importer, "project/Importer.t.sol"),
             root_at(other, other_source),
         ]);
@@ -843,7 +858,7 @@ contract BadContractLevel {
         let first_source = "project/First.t.sol";
         let second_source = "project/Second.t.sol";
 
-        let errors = collect_with_defaults(&[
+        let errors = collect_with_defaults([
             root_at(first, first_source),
             root_at(second, second_source),
             root_at(unaffected, "project/Unaffected.t.sol"),
@@ -866,30 +881,49 @@ contract BadContractLevel {
         );
     }
 
-    #[test]
-    fn a_root_imported_by_another_root_is_collected_from_its_retained_text() {
+    /// The solc source name a fixture file is collected under.
+    fn source_name(file_name: &str) -> String {
+        format!("project/{file_name}")
+    }
+
+    /// Writes `imported_name`, which declares a struct and a directive, and
+    /// `importer_name`, which imports it, then collects both as roots.
+    ///
+    /// Slang is handed the roots in file-id order, so the file names decide
+    /// whether the imported root is read as an import first or added as a root
+    /// first.
+    fn collect_importer_and_imported(
+        importer_name: &str,
+        imported_name: &str,
+    ) -> HashMap<PathBuf, SourceCollections> {
         let dir = tempfile::tempdir().expect("temp dir");
         let imported = write_source(
             &dir,
-            "Base.t.sol",
+            imported_name,
             "pragma solidity ^0.8.0;\n\nstruct Person { address wallet; }\n\ncontract BaseTest {\n    /// forge-config: default.fuzz.runs = 7\n    function testBase(uint256 x) public {}\n}\n",
         );
         let importer = write_source(
             &dir,
-            "Derived.t.sol",
-            "pragma solidity ^0.8.0;\n\nimport {BaseTest} from \"./Base.t.sol\";\n\ncontract DerivedTest is BaseTest {\n    /// forge-config: default.fuzz.runs = 3\n    function testDerived(uint256 x) public {}\n}\n",
+            importer_name,
+            &format!(
+                "pragma solidity ^0.8.0;\n\nimport {{BaseTest}} from \"./{imported_name}\";\n\ncontract DerivedTest is BaseTest {{\n    /// forge-config: default.fuzz.runs = 3\n    function testDerived(uint256 x) public {{}}\n}}\n"
+            ),
         );
 
-        let derived_source = "project/Derived.t.sol";
-        let base_source = "project/Base.t.sol";
-        // Derived.t.sol is listed first, so Slang reads Base.t.sol as an import
-        // before adding it as a root.
-        let collected = collect_all(&[
-            root_at(importer, derived_source),
-            root_at(imported, base_source),
-        ]);
+        collect_all([
+            root_at(importer, &source_name(importer_name)),
+            root_at(imported, &source_name(imported_name)),
+        ])
+    }
 
-        let base = collected_for(&collected, base_source);
+    /// Asserts the imported root kept its own struct and directive, read back
+    /// from its retained text, and that the importer kept only its own.
+    fn assert_both_roots_collected(
+        collected: &HashMap<PathBuf, SourceCollections>,
+        importer_name: &str,
+        imported_name: &str,
+    ) {
+        let base = collected_for(collected, &source_name(imported_name));
         let overrides = base.overrides.get("BaseTest").expect("BaseTest overrides");
         assert_eq!(overrides.functions.len(), 1, "{:#?}", overrides.functions);
         assert_eq!(overrides.functions[0].function_name, "testBase");
@@ -899,7 +933,7 @@ contract BadContractLevel {
         );
         assert_eq!(canonical_type(base, "Person"), "Person(address wallet)");
 
-        let derived = collected_for(&collected, derived_source);
+        let derived = collected_for(collected, &source_name(importer_name));
         assert!(!derived.overrides.contains_key("BaseTest"));
         assert_eq!(
             derived
@@ -910,6 +944,24 @@ contract BadContractLevel {
                 .function_name,
             "testDerived"
         );
+    }
+
+    #[test]
+    fn a_root_read_as_an_import_first_is_collected_from_its_retained_text() {
+        // `ADerived.t.sol`'s file id sorts first, so Slang reads
+        // `ZBase.t.sol` as an import before adding it as a root.
+        let collected = collect_importer_and_imported("ADerived.t.sol", "ZBase.t.sol");
+
+        assert_both_roots_collected(&collected, "ADerived.t.sol", "ZBase.t.sol");
+    }
+
+    #[test]
+    fn a_root_added_before_its_importer_is_collected_from_its_retained_text() {
+        // `ABase.t.sol`'s file id sorts first, so it is already a root when
+        // `ZDerived.t.sol` imports it.
+        let collected = collect_importer_and_imported("ZDerived.t.sol", "ABase.t.sol");
+
+        assert_both_roots_collected(&collected, "ZDerived.t.sol", "ABase.t.sol");
     }
 
     #[test]
@@ -925,7 +977,7 @@ contract BadContractLevel {
 
         let missing_path = dir.path().join("Missing.t.sol");
 
-        let errors = collect_with_defaults(&[
+        let errors = collect_with_defaults([
             root_at(missing_path.clone(), missing_source),
             root_at(present, "project/Present.t.sol"),
         ])
@@ -972,7 +1024,7 @@ contract BadContractLevel {
             root_at(newer, newer_source),
         ];
 
-        let collected = collect_all(&roots);
+        let collected = collect_all(roots);
 
         assert_eq!(
             canonical_type(collected_for(&collected, older_source), "Shared"),
@@ -1001,7 +1053,7 @@ contract BadContractLevel {
         let derived_source = "project/Derived.t.sol";
 
         let errors =
-            collect_with_defaults(&[root_at(base, base_source), root_at(derived, derived_source)])
+            collect_with_defaults([root_at(base, base_source), root_at(derived, derived_source)])
                 .expect_err("a root that does not parse cannot be collected");
 
         assert_eq!(errors.len(), 2, "{errors:#?}");
@@ -1054,7 +1106,7 @@ contract BadContractLevel {
         );
         let derived_source = "project/Derived.t.sol";
 
-        let errors = collect_with_defaults(&[
+        let errors = collect_with_defaults([
             root_at(base, "project/Base.t.sol"),
             root_at(derived, derived_source),
         ])
@@ -1104,57 +1156,6 @@ contract BadContractLevel {
     }
 
     #[test]
-    fn two_source_names_for_one_file_are_both_collected() {
-        let dir = tempfile::tempdir().expect("temp dir");
-        let shared = write_source(
-            &dir,
-            "Shared.t.sol",
-            "pragma solidity ^0.8.0;\n\nstruct Person { address wallet; }\n\ncontract SharedTest {}\n",
-        );
-        let first_source = "project/First.t.sol";
-        let second_source = "project/Second.t.sol";
-
-        let collected = collect_all(&[
-            root_at(shared.clone(), first_source),
-            root_at(shared, second_source),
-        ]);
-
-        assert_eq!(
-            canonical_type(collected_for(&collected, first_source), "Person"),
-            "Person(address wallet)"
-        );
-        assert_eq!(
-            canonical_type(collected_for(&collected, second_source), "Person"),
-            "Person(address wallet)"
-        );
-    }
-
-    #[test]
-    fn two_source_names_for_one_missing_file_are_both_reported() {
-        let dir = tempfile::tempdir().expect("temp dir");
-        let missing = dir.path().join("Missing.t.sol");
-
-        let errors = collect_with_defaults(&[
-            root_at(missing.clone(), "project/First.t.sol"),
-            root_at(missing, "project/Second.t.sol"),
-        ])
-        .expect_err("expected errors");
-
-        let sources: Vec<_> = errors.iter().map(|item| item.source_name.clone()).collect();
-        assert_eq!(
-            sources,
-            vec![
-                PathBuf::from("project/First.t.sol"),
-                PathBuf::from("project/Second.t.sol"),
-            ]
-        );
-        assert!(errors.iter().all(|item| matches!(
-            &item.problem,
-            TestSourceProblem::Source(TestSourceCollectError::RootFileNotFound { .. })
-        )));
-    }
-
-    #[test]
     fn an_unresolvable_import_narrows_the_closure_without_rejecting_the_root() {
         let dir = tempfile::tempdir().expect("temp dir");
         let root = write_source(
@@ -1181,7 +1182,7 @@ contract BadContractLevel {
             })
             .collect();
 
-        let errors = collect_with_defaults(&roots).expect_err("every root is missing");
+        let errors = collect_with_defaults(roots).expect_err("every root is missing");
 
         let sources: Vec<_> = errors.iter().map(|item| item.source_name.clone()).collect();
         assert_eq!(
@@ -1236,7 +1237,7 @@ contract BadContractLevel {
     fn two_reachable_definitions_of_a_name_are_rejected_without_exclusions() {
         let (dir, root) = clashing_permit_project();
 
-        let collected = unwrap_collected(collect_excluding(&[root], dir.path(), &[]));
+        let collected = unwrap_collected(collect_excluding([root], dir.path(), &[]));
         let collected = collected_for(&collected, FIXTURE_SOURCE);
 
         let permit = collected
@@ -1260,7 +1261,7 @@ contract BadContractLevel {
     fn excluding_the_vendored_copy_resolves_the_name_and_the_structs_using_it() {
         let (dir, root) = clashing_permit_project();
 
-        let collected = unwrap_collected(collect_excluding(&[root], dir.path(), &[VENDOR_GLOB]));
+        let collected = unwrap_collected(collect_excluding([root], dir.path(), &[VENDOR_GLOB]));
         let collected = collected_for(&collected, FIXTURE_SOURCE);
 
         assert_eq!(
@@ -1294,7 +1295,7 @@ contract BadContractLevel {
     fn an_excluded_test_source_loses_its_own_structs() {
         let (dir, root) = excluded_root_project();
 
-        let collected = unwrap_collected(collect_excluding(&[root], dir.path(), &[VENDOR_GLOB]));
+        let collected = unwrap_collected(collect_excluding([root], dir.path(), &[VENDOR_GLOB]));
 
         let error = collected_for(&collected, FIXTURE_SOURCE)
             .eip712_types
@@ -1312,7 +1313,7 @@ contract BadContractLevel {
     fn an_excluded_test_source_keeps_its_inline_configuration() {
         let (dir, root) = excluded_root_project();
 
-        let collected = unwrap_collected(collect_excluding(&[root], dir.path(), &[VENDOR_GLOB]));
+        let collected = unwrap_collected(collect_excluding([root], dir.path(), &[VENDOR_GLOB]));
 
         let overrides = collected_for(&collected, FIXTURE_SOURCE)
             .overrides
@@ -1342,7 +1343,7 @@ contract BadContractLevel {
         );
 
         let collected = unwrap_collected(collect_excluding(
-            &[root_at(root, FIXTURE_SOURCE)],
+            [root_at(root, FIXTURE_SOURCE)],
             dir.path(),
             &[VENDOR_GLOB],
         ));
