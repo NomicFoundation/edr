@@ -23,16 +23,16 @@ fn call(
 ) -> (InstructionResult, Gas, Bytes) { ... }
 ```
 
-## [Foundry inspectors](../../crates/evm/evm/src/inspectors/)
+## [Foundry inspectors](../../../crates/foundry/evm/evm/src/inspectors/)
 
-The [`evm`](../../crates/evm/evm/) crate has a variety of inspectors for different use cases, such as
+The [`evm`](../../../crates/foundry/evm/evm/) crate has a variety of inspectors for different use cases, such as
 
 - coverage
 - tracing
 - debugger
 - logging
 
-## [Cheatcode inspector](../../crates/cheatcodes/src/inspector.rs)
+## [Cheatcode inspector](../../../crates/foundry/cheatcodes/src/inspector.rs)
 
 The concept of cheatcodes and cheatcode inspector is very simple.
 
@@ -106,7 +106,7 @@ The way bindings are generated and extra information can be found in the [`sol!`
 
 We leverage this macro to apply the [`Cheatcode` derive macro](#cheatcode-derive-macro) on the `Vm` interface.
 
-### [`Cheatcode`](../../crates/macros/src/cheatcodes.rs) derive macro
+### [`Cheatcode`](../../../crates/edr_macros/src/cheatcodes.rs) derive macro
 
 This is derived once on the `Vm` interface declaration, which recursively applies it to all of the interface's items, as well as the `sol!`-generated items, such as the `VmCalls` enum.
 
