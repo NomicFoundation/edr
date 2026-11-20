@@ -58,6 +58,8 @@ mod inspector;
 
 mod json;
 
+mod script;
+
 mod string;
 
 mod test;
