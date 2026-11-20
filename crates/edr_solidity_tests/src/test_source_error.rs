@@ -180,14 +180,32 @@ pub struct InlineConfigDirectiveError {
 /// A single test-source problem together with enough location to point the
 /// user at it, modeled on the stack-trace `SourceReference` surfaced to
 /// consumers.
-#[derive(Clone, Debug, thiserror::Error, PartialEq)]
-#[error("{}: {problem}", source_name.display())]
+#[derive(Clone, Debug, PartialEq)]
 pub struct TestSourceErrorItem {
     /// The solc source name the problem was found in (e.g.
     /// `project/test/Foo.t.sol`).
     pub source_name: PathBuf,
     /// The problem, together with whatever location detail applies to it.
     pub problem: TestSourceProblem,
+}
+
+impl std::error::Error for TestSourceErrorItem {}
+
+impl std::fmt::Display for TestSourceErrorItem {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let Self {
+            source_name,
+            problem,
+        } = self;
+        let source_name = source_name.display();
+
+        match problem {
+            // A directive problem renders its own `:line` after the source
+            // name, so a separator here would split the location in two.
+            TestSourceProblem::Directive(_) => write!(f, "{source_name}{problem}"),
+            TestSourceProblem::Source(_) => write!(f, "{source_name}: {problem}"),
+        }
+    }
 }
 
 /// A test-source problem, split by whether it can be pinned to a single
@@ -272,3 +290,46 @@ impl TryFrom<Vec<TestSourceErrorItem>> for TestSourceErrors {
 #[derive(Clone, Copy, Debug, thiserror::Error)]
 #[error("no test-source problems to report")]
 pub struct NoTestSourceProblems;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn directive_item() -> TestSourceErrorItem {
+        TestSourceErrorItem {
+            source_name: PathBuf::from("project/Foo.t.sol"),
+            problem: InlineConfigDirectiveError {
+                contract: "Foo".to_owned(),
+                function: Some("testBad".to_owned()),
+                line: 5,
+                error: InlineConfigError::InvalidKey {
+                    key: "runs".to_owned(),
+                },
+            }
+            .into(),
+        }
+    }
+
+    #[test]
+    fn directive_item_renders_file_and_line_location() {
+        let rendered = directive_item().to_string();
+
+        assert_eq!(
+            rendered,
+            "project/Foo.t.sol:5: Foo.testBad: invalid key `runs`"
+        );
+    }
+
+    #[test]
+    fn source_item_renders_file_location() {
+        let item = TestSourceErrorItem {
+            source_name: PathBuf::from("project/Foo.t.sol"),
+            problem: TestSourceCollectError::SourcePathNotProvided.into(),
+        };
+
+        assert_eq!(
+            item.to_string(),
+            "project/Foo.t.sol: no `testSourcePaths` entry for this source"
+        );
+    }
+}
