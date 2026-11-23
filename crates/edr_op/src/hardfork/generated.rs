@@ -10,8 +10,6 @@ use edr_primitives::HashMap;
 
 use crate::Hardfork;
 
-/// Chain configuration module for `automata`
-pub mod automata;
 /// Chain configuration module for `bob`
 pub mod bob;
 /// Chain configuration module for `boba`
@@ -36,14 +34,10 @@ pub mod giwa;
 pub mod hashkeychain;
 /// Chain configuration module for `ink`
 pub mod ink;
-/// Chain configuration module for `lisk`
-pub mod lisk;
 /// Chain configuration module for `lyra`
 pub mod lyra;
 /// Chain configuration module for `metal`
 pub mod metal;
-/// Chain configuration module for `mint`
-pub mod mint;
 /// Chain configuration module for `mode`
 pub mod mode;
 /// Chain configuration module for `op`
@@ -54,14 +48,10 @@ pub mod orderly;
 pub mod ozean;
 /// Chain configuration module for `pivotal`
 pub mod pivotal;
-/// Chain configuration module for `polynomial`
-pub mod polynomial;
 /// Chain configuration module for `race`
 pub mod race;
 /// Chain configuration module for `radius_testnet`
 pub mod radius_testnet;
-/// Chain configuration module for `redstone`
-pub mod redstone;
 /// Chain configuration module for `settlus_mainnet`
 pub mod settlus_mainnet;
 /// Chain configuration module for `settlus_sepolia`
@@ -74,8 +64,6 @@ pub mod silent_data_mainnet;
 pub mod soneium;
 /// Chain configuration module for `soneium_minato`
 pub mod soneium_minato;
-/// Chain configuration module for `sseed`
-pub mod sseed;
 /// Chain configuration module for `swan`
 pub mod swan;
 /// Chain configuration module for `tbn`
@@ -84,14 +72,11 @@ pub mod tbn;
 pub mod unichain;
 /// Chain configuration module for `worldchain`
 pub mod worldchain;
-/// Chain configuration module for `xterio_eth`
-pub mod xterio_eth;
 /// Chain configuration module for `zora`
 pub mod zora;
 
 pub(super) fn chain_configs() -> HashMap<u64, ChainConfig<Hardfork>> {
     [
-        (automata::MAINNET_CHAIN_ID, automata::mainnet_config()),
         (bob::MAINNET_CHAIN_ID, bob::mainnet_config()),
         (boba::MAINNET_CHAIN_ID, boba::mainnet_config()),
         (boba::SEPOLIA_CHAIN_ID, boba::sepolia_config()),
@@ -111,12 +96,9 @@ pub(super) fn chain_configs() -> HashMap<u64, ChainConfig<Hardfork>> {
         ),
         (ink::MAINNET_CHAIN_ID, ink::mainnet_config()),
         (ink::SEPOLIA_CHAIN_ID, ink::sepolia_config()),
-        (lisk::MAINNET_CHAIN_ID, lisk::mainnet_config()),
-        (lisk::SEPOLIA_CHAIN_ID, lisk::sepolia_config()),
         (lyra::MAINNET_CHAIN_ID, lyra::mainnet_config()),
         (metal::MAINNET_CHAIN_ID, metal::mainnet_config()),
         (metal::SEPOLIA_CHAIN_ID, metal::sepolia_config()),
-        (mint::MAINNET_CHAIN_ID, mint::mainnet_config()),
         (mode::MAINNET_CHAIN_ID, mode::mainnet_config()),
         (mode::SEPOLIA_CHAIN_ID, mode::sepolia_config()),
         (op::MAINNET_CHAIN_ID, op::mainnet_config()),
@@ -124,14 +106,12 @@ pub(super) fn chain_configs() -> HashMap<u64, ChainConfig<Hardfork>> {
         (orderly::MAINNET_CHAIN_ID, orderly::mainnet_config()),
         (ozean::SEPOLIA_CHAIN_ID, ozean::sepolia_config()),
         (pivotal::SEPOLIA_CHAIN_ID, pivotal::sepolia_config()),
-        (polynomial::MAINNET_CHAIN_ID, polynomial::mainnet_config()),
         (race::MAINNET_CHAIN_ID, race::mainnet_config()),
         (race::SEPOLIA_CHAIN_ID, race::sepolia_config()),
         (
             radius_testnet::SEPOLIA_CHAIN_ID,
             radius_testnet::sepolia_config(),
         ),
-        (redstone::MAINNET_CHAIN_ID, redstone::mainnet_config()),
         (
             settlus_mainnet::MAINNET_CHAIN_ID,
             settlus_mainnet::mainnet_config(),
@@ -151,7 +131,6 @@ pub(super) fn chain_configs() -> HashMap<u64, ChainConfig<Hardfork>> {
             soneium_minato::SEPOLIA_CHAIN_ID,
             soneium_minato::sepolia_config(),
         ),
-        (sseed::MAINNET_CHAIN_ID, sseed::mainnet_config()),
         (swan::MAINNET_CHAIN_ID, swan::mainnet_config()),
         (tbn::MAINNET_CHAIN_ID, tbn::mainnet_config()),
         (tbn::SEPOLIA_CHAIN_ID, tbn::sepolia_config()),
@@ -159,7 +138,6 @@ pub(super) fn chain_configs() -> HashMap<u64, ChainConfig<Hardfork>> {
         (unichain::SEPOLIA_CHAIN_ID, unichain::sepolia_config()),
         (worldchain::MAINNET_CHAIN_ID, worldchain::mainnet_config()),
         (worldchain::SEPOLIA_CHAIN_ID, worldchain::sepolia_config()),
-        (xterio_eth::MAINNET_CHAIN_ID, xterio_eth::mainnet_config()),
         (zora::MAINNET_CHAIN_ID, zora::mainnet_config()),
         (zora::SEPOLIA_CHAIN_ID, zora::sepolia_config()),
     ]
