@@ -42,7 +42,6 @@ edr_signer.workspace = true
 edr_solidity.workspace = true
 edr_utils_sync.workspace = true
 k256.workspace = true
-mimalloc-safe = { workspace = true, features = ["local_dynamic_tls"] }
 # The `async` feature ensures that a tokio runtime is available.
 napi = { version = "3", default-features = false, features = [
     "async",
@@ -73,6 +72,13 @@ tracing-subscriber = { version = "0.3.18", default-features = false, features = 
 # Solidity tests
 foundry-cheatcodes.workspace = true
 foundry-compilers.workspace = true
+
+[target.'cfg(not(target_env = "msvc"))'.dependencies]
+# `disable_initial_exec_tls` is required because the addon is loaded with dlopen.
+tikv-jemallocator = { version = "0.6", features = ["disable_initial_exec_tls"] }
+
+[target.'cfg(target_env = "msvc")'.dependencies]
+mimalloc-safe = { workspace = true, features = ["local_dynamic_tls"] }
 
 [target.x86_64-unknown-linux-gnu.dependencies]
 openssl-sys = { version = "0.9.93", features = ["vendored"] }
