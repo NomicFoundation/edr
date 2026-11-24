@@ -3314,7 +3314,6 @@ dependencies = [
  "foundry-cheatcodes",
  "foundry-compilers",
  "k256",
- "mimalloc-safe",
  "napi",
  "napi-build",
  "napi-derive",

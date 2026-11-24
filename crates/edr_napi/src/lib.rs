@@ -2,9 +2,6 @@
 
 //! NAPI bindings for EDR's core types.
 
-#[global_allocator]
-static ALLOC: mimalloc_safe::MiMalloc = mimalloc_safe::MiMalloc;
-
 mod account;
 mod async_deallocator;
 mod block;

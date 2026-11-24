@@ -42,7 +42,6 @@ edr_signer.workspace = true
 edr_solidity.workspace = true
 edr_utils_sync.workspace = true
 k256.workspace = true
-mimalloc-safe = { workspace = true, features = ["local_dynamic_tls"] }
 # The `async` feature ensures that a tokio runtime is available.
 napi = { version = "3", default-features = false, features = [
     "async",
