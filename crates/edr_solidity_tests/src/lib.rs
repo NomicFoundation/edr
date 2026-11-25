@@ -11,18 +11,22 @@ pub use runner::ContractRunner;
 
 mod config;
 pub use config::{
-    CollectStackTraces, FuzzConfigOverride, InvariantConfigOverride, SolidityTestRunnerConfig,
-    SolidityTestRunnerConfigError, SyncOnCollectedCoverageCallback, TestFunctionConfigOverride,
-    TimeoutConfig, MAX_TEST_TRANSACTION_GAS_LIMIT,
+    CollectStackTraces, FuzzConfigOverride, InvalidExclusionGlob, InvariantConfigOverride,
+    SolidityTestRunnerConfig, SolidityTestRunnerConfigError, SyncOnCollectedCoverageCallback,
+    TestFunctionConfigOverride, TestSourceFile, TestSourcePaths, TimeoutConfig,
+    MAX_TEST_TRANSACTION_GAS_LIMIT,
 };
 
 pub mod inline_config;
+pub mod test_source_error;
+
+mod test_sources;
 
 pub mod result;
 
 pub use foundry_evm::executors::stack_trace::SolidityTestStackTraceError;
 
-mod error;
+pub mod error;
 mod test_filter;
 mod trace_retention;
 

@@ -12,14 +12,15 @@ describe("Fs permissions tests", () => {
   });
 
   it("file + directory permissions", async function () {
+    const testContracts = testContext.matchingTest("FsPermissionsTest");
     const [, results] = await runAllSolidityTests(
       testContext.edrContext,
       L1_CHAIN_TYPE,
       testContext.artifacts,
-      testContext.matchingTest("FsPermissionsTest"),
+      testContracts,
       testContext.tracingConfig,
       {
-        ...testContext.defaultConfig(),
+        ...testContext.defaultConfig(testContracts),
         allowInternalExpectRevert: true,
         fsPermissions: [
           {
@@ -46,14 +47,17 @@ describe("Fs permissions tests", () => {
   });
 
   it("not allowed cli.js permission", async function () {
+    const testContracts = testContext.matchingTest(
+      "FsNotAllowedPermissionsTest"
+    );
     const [, results] = await runAllSolidityTests(
       testContext.edrContext,
       L1_CHAIN_TYPE,
       testContext.artifacts,
-      testContext.matchingTest("FsNotAllowedPermissionsTest"),
+      testContracts,
       testContext.tracingConfig,
       {
-        ...testContext.defaultConfig(),
+        ...testContext.defaultConfig(testContracts),
         allowInternalExpectRevert: true,
         fsPermissions: [
           {

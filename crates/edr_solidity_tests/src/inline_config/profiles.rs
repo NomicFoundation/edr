@@ -9,7 +9,8 @@
 
 use std::collections::BTreeSet;
 
-use super::{directives::is_reserved_profile_name, error::InlineConfigProfilesError};
+use super::directives::is_reserved_profile_name;
+use crate::test_source_error::InlineConfigProfilesError;
 
 /// The profile that is always declared, and the one selected when the caller
 /// names none.
