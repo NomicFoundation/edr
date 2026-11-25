@@ -4,6 +4,7 @@ use std::collections::BTreeMap;
 
 use alloy_primitives::U256;
 use edr_gas_report::GasReportExecutionStatus;
+use edr_solidity::config::IncludeTraces;
 use edr_solidity_tests::{fuzz::CounterExample, result::TestKind};
 
 use crate::helpers::{
@@ -959,6 +960,56 @@ async fn test_invariant_after_invariant() {
                     ("invariant_success()", true, None, None, None),
                 ],
             )]));
+}
+
+/// Gating the replay's arena pushes must not lose the call traces that
+/// `IncludeTraces::All` surfaces for a passing invariant test; at the other
+/// settings the policy frees them either way.
+#[tokio::test(flavor = "multi_thread")]
+async fn test_passing_invariant_replay_traces_follow_include_traces() {
+    const DEPTH: u32 = 5;
+
+    for (include_traces, expect_traces) in [
+        (IncludeTraces::All, true),
+        (IncludeTraces::Failing, false),
+        (IncludeTraces::None, false),
+    ] {
+        let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
+        config.include_traces = include_traces;
+        config.invariant = TestInvariantConfig {
+            runs: 1,
+            depth: DEPTH,
+            ..TestInvariantConfig::default()
+        }
+        .into();
+        let runner = TEST_DATA_DEFAULT.runner_with_config(config).await;
+
+        let filter = SolidityTestFilter::new(
+            "success",
+            ".*",
+            ".*fuzz/invariant/common/InvariantAfterInvariant.t.sol",
+        );
+        let results = runner.test_collect(filter).await.suite_results;
+        let result = results
+            .values()
+            .flat_map(|suite| suite.test_results.values())
+            .next()
+            .expect("`invariant_success()` should have run");
+        assert!(result.status.is_success(), "{include_traces:?}");
+
+        let expected_len = if expect_traces {
+            // One arena per replayed call, plus `invariant()` and
+            // `afterInvariant()`.
+            DEPTH as usize + 2
+        } else {
+            0
+        };
+        assert_eq!(
+            result.execution_traces.len(),
+            expected_len,
+            "{include_traces:?}"
+        );
+    }
 }
 
 #[tokio::test(flavor = "multi_thread")]
