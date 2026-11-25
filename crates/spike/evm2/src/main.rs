@@ -36,6 +36,9 @@ use evm2::{
 };
 use revm_interpreter::interpreter_types::Jumps as _;
 
+mod adapter;
+mod round_trip;
+
 const CALLER: Address = address!("0x00000000000000000000000000000000000000aa");
 const RECIPIENT: Address = address!("0x00000000000000000000000000000000000000bb");
 const LOOP: Address = address!("0x00000000000000000000000000000000000000cc");
@@ -1178,6 +1181,9 @@ fn main() -> anyhow::Result<()> {
     let state = edr_state()?;
     let cases = cases();
     let timing = std::env::args().any(|arg| arg == "--timing");
+    if std::env::args().any(|arg| arg == "--round-trip") {
+        return round_trip::run(&state, &cases);
+    }
 
     println!("== Parity (revm 43 through EDR vs evm2 35aa328)");
     println!("case | fork | stop | outcome | steps | stacks | call traces");
@@ -1293,6 +1299,8 @@ fn main() -> anyhow::Result<()> {
         cases.len(),
         revm_state.state_root()?
     );
+
+    round_trip::run(&state, &cases)?;
 
     if !timing {
         return Ok(());
