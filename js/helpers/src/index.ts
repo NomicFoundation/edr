@@ -3,7 +3,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import { MultiProcessMutex } from "@nomicfoundation/hardhat-utils/synchronization";
-import { lt } from "semver";
+import { coerce, lt } from "semver";
 import {
   Artifact,
   ArtifactId,
@@ -65,7 +65,7 @@ export function selectTestSourcePaths(sources: TestSourceSelection[]): {
     new Set(
       sources
         .filter(({ solcVersion }) =>
-          lt(solcVersion, OLDEST_PARSABLE_SOLC_VERSION)
+          lt(coerce(solcVersion) ?? solcVersion, OLDEST_PARSABLE_SOLC_VERSION)
         )
         .map(({ userSourceName }) => userSourceName)
     )

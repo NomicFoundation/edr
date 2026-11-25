@@ -46,6 +46,20 @@ describe("selectTestSourcePaths", () => {
     assert.deepEqual(unparsableSources, ["test-contracts/Old.sol"]);
   });
 
+  it("treats a 0.8.0 prerelease as parsable, as EDR does", () => {
+    const { testSourcePaths, unparsableSources } = selectTestSourcePaths([
+      {
+        source: "project/A.sol",
+        userSourceName: "A.sol",
+        path: "/project/A.sol",
+        solcVersion: "0.8.0-nightly.2021.1.1",
+      },
+    ]);
+
+    assert.deepEqual(testSourcePaths, { "project/A.sol": "/project/A.sol" });
+    assert.deepEqual(unparsableSources, []);
+  });
+
   it("deduplicates and sorts the unparsable source names", () => {
     const { testSourcePaths, unparsableSources } = selectTestSourcePaths([
       {
