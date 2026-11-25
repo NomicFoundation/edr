@@ -801,9 +801,10 @@ struct EncodableCollection {
 ///
 /// A canonical type names its dependencies by bare name alone, so a member must
 /// resolve to the declaration that collection selected for that name. A name no
-/// collected file declares is left to the fixed point in
-/// [`reject_non_encodable`], which reports it through the rejection the name
-/// itself already carries.
+/// collected file declares is rejected here when the member resolves to an
+/// excluded file, so the report names that file. Otherwise it is left to the
+/// fixed point in [`reject_non_encodable`], which reports it through the
+/// rejection the name itself already carries.
 fn unencodable_dependencies(
     dependencies: &[StructDependency],
     ambiguous: &HashSet<String>,
@@ -827,6 +828,9 @@ fn unencodable_dependencies(
         }
 
         let Some(selected_files) = selected_declarations.get(&dependency.name) else {
+            if excluded_file_ids.contains(dependency.file_id.as_str()) {
+                excluded_dependencies.push(describe(dependency));
+            }
             continue;
         };
 
@@ -1418,7 +1422,7 @@ mod tests {
     }
 
     #[test]
-    fn a_dependency_only_a_left_out_file_declares_makes_its_dependents_unusable() {
+    fn a_dependency_only_a_left_out_file_declares_rejects_its_dependents_naming_the_file() {
         let collection = collect_without(
             &[
                 (
@@ -1444,9 +1448,9 @@ mod tests {
         assert!(matches!(
             collection.get("Wrapper"),
             Err(Eip712CollectionLookupError::Rejected(Eip712TypeRejected {
-                reason: RejectReason::UnusableDependencies { dependencies },
+                reason: RejectReason::DependenciesInExcludedFiles { dependencies },
                 ..
-            })) if dependencies == vec!["PermitSingle".to_owned()]
+            })) if dependencies == vec!["`PermitSingle` in dep.sol".to_owned()]
         ));
     }
 
