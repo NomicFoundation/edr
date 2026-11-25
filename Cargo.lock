@@ -392,7 +392,7 @@ dependencies = [
  "futures-utils-wasm",
  "http",
  "lru",
- "parking_lot",
+ "parking_lot 0.12.5",
  "pin-project",
  "serde",
  "serde_json",
@@ -414,7 +414,7 @@ dependencies = [
  "auto_impl",
  "bimap",
  "futures",
- "parking_lot",
+ "parking_lot 0.12.5",
  "serde",
  "serde_json",
  "tokio",
@@ -679,7 +679,7 @@ dependencies = [
  "derive_more 2.1.1",
  "futures",
  "futures-utils-wasm",
- "parking_lot",
+ "parking_lot 0.12.5",
  "serde",
  "serde_json",
  "thiserror 2.0.21",
@@ -1812,7 +1812,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f8c3d2abadaa28e0d277f9f6d07a2052544f045d929cd4d6f7bcfb43567c9767"
 dependencies = [
  "hasher",
- "parking_lot",
+ "parking_lot 0.12.5",
  "rlp",
 ]
 
@@ -2306,9 +2306,9 @@ dependencies = [
  "cfg-if",
  "crossbeam-utils",
  "hashbrown 0.14.5",
- "lock_api",
+ "lock_api 0.4.14",
  "once_cell",
- "parking_lot_core",
+ "parking_lot_core 0.9.12",
 ]
 
 [[package]]
@@ -2514,7 +2514,7 @@ dependencies = [
  "libc",
  "option-ext",
  "redox_users",
- "windows-sys 0.59.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -2692,7 +2692,7 @@ dependencies = [
  "edr_primitives",
  "edr_receipt",
  "edr_state_api",
- "parking_lot",
+ "parking_lot 0.13.0",
  "thiserror 2.0.21",
  "tracing",
 ]
@@ -2746,7 +2746,7 @@ dependencies = [
  "edr_transaction",
  "edr_utils",
  "log",
- "parking_lot",
+ "parking_lot 0.13.0",
  "serde",
  "serial_test",
  "thiserror 2.0.21",
@@ -3216,7 +3216,7 @@ dependencies = [
  "edr_transaction",
  "edr_utils",
  "log",
- "parking_lot",
+ "parking_lot 0.13.0",
  "pastey",
  "serde",
  "serde_json",
@@ -3319,7 +3319,7 @@ dependencies = [
  "napi-build",
  "napi-derive",
  "openssl-sys",
- "parking_lot",
+ "parking_lot 0.13.0",
  "pastey",
  "rand 0.9.5",
  "serde",
@@ -3360,7 +3360,7 @@ dependencies = [
  "foundry-cheatcodes",
  "itertools 0.15.0",
  "napi",
- "parking_lot",
+ "parking_lot 0.13.0",
  "serde",
  "serde_json",
  "thiserror 2.0.21",
@@ -3413,7 +3413,7 @@ dependencies = [
  "log",
  "op-alloy-rpc-types",
  "op-revm",
- "parking_lot",
+ "parking_lot 0.13.0",
  "pastey",
  "revm-context",
  "revm-context-interface",
@@ -3513,7 +3513,7 @@ dependencies = [
  "lazy_static",
  "log",
  "lru",
- "parking_lot",
+ "parking_lot 0.13.0",
  "pastey",
  "rand 0.9.5",
  "revm-inspector",
@@ -3655,7 +3655,7 @@ dependencies = [
  "edr_transaction",
  "edr_utils",
  "lazy_static",
- "parking_lot",
+ "parking_lot 0.13.0",
  "pastey",
  "revm-handler",
  "revm-inspector",
@@ -3729,7 +3729,7 @@ dependencies = [
  "itertools 0.15.0",
  "log",
  "object",
- "parking_lot",
+ "parking_lot 0.13.0",
  "revm",
  "revm-bytecode",
  "revm-inspector",
@@ -3799,7 +3799,7 @@ dependencies = [
  "mockito",
  "num-traits",
  "once_cell",
- "parking_lot",
+ "parking_lot 0.13.0",
  "pastey",
  "proptest",
  "rayon",
@@ -3849,7 +3849,7 @@ dependencies = [
  "edr_state_remote",
  "edr_test_utils",
  "edr_utils",
- "parking_lot",
+ "parking_lot 0.13.0",
  "serde",
  "tempfile",
  "tokio",
@@ -3869,7 +3869,7 @@ dependencies = [
  "edr_primitives",
  "edr_state_api",
  "hasher",
- "parking_lot",
+ "parking_lot 0.13.0",
  "revm-state",
  "rpds",
  "serde",
@@ -3922,7 +3922,7 @@ dependencies = [
  "edr_state_api",
  "edr_utils",
  "futures",
- "parking_lot",
+ "parking_lot 0.13.0",
  "pastey",
  "serde",
  "tokio",
@@ -4451,7 +4451,7 @@ dependencies = [
  "lru",
  "memchr",
  "p256",
- "parking_lot",
+ "parking_lot 0.13.0",
  "proptest",
  "rand 0.9.5",
  "regex",
@@ -4608,7 +4608,7 @@ dependencies = [
  "foundry-evm-coverage",
  "foundry-evm-fuzz",
  "foundry-evm-traces",
- "parking_lot",
+ "parking_lot 0.13.0",
  "proptest",
  "rayon",
  "revm",
@@ -4660,7 +4660,7 @@ dependencies = [
  "futures",
  "itertools 0.15.0",
  "op-revm",
- "parking_lot",
+ "parking_lot 0.13.0",
  "reqwest 0.13.5",
  "revm",
  "revm-primitives",
@@ -4704,7 +4704,7 @@ dependencies = [
  "foundry-evm-coverage",
  "foundry-evm-traces",
  "itertools 0.15.0",
- "parking_lot",
+ "parking_lot 0.13.0",
  "proptest",
  "rand 0.9.5",
  "revm",
@@ -4752,7 +4752,7 @@ dependencies = [
  "alloy-rpc-types",
  "eyre",
  "futures",
- "parking_lot",
+ "parking_lot 0.12.5",
  "revm",
  "serde",
  "serde_json",
@@ -5000,7 +5000,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c041375e48b8ef7cd2d0e70715598154af627c1a551e41c35fdb4a2b3910831a"
 dependencies = [
  "bincode-next",
- "derive_more 1.0.0",
+ "derive_more 2.1.1",
  "gungraun-common",
  "gungraun-macros",
  "gungraun-runner",
@@ -5018,7 +5018,7 @@ version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "08472a9e996a98a5b4274dd342fb32ebe1a5cfeb2662b6578d0c7bf1dd203129"
 dependencies = [
- "derive_more 1.0.0",
+ "derive_more 2.1.1",
  "proc-macro-error3",
  "proc-macro2",
  "quote",
@@ -5873,9 +5873,9 @@ checksum = "09edd9e8b54e49e587e4f6295a7d29c3ea94d469cb40ab8ca70b288248a81db2"
 
 [[package]]
 name = "libc"
-version = "0.2.186"
+version = "0.2.191"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "68ab91017fe16c622486840e4c83c9a37afeff978bd239b5293d61ece587de66"
+checksum = "65cd87c9a6d60536580b316ad985726104730a5151c99845f2490428ef91240a"
 
 [[package]]
 name = "libgit2-sys"
@@ -5956,6 +5956,15 @@ name = "lock_api"
 version = "0.4.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "224399e74b87b5f3557511d98dff8b14089b3dadafcab6bb93eab67d3aace965"
+dependencies = [
+ "scopeguard",
+]
+
+[[package]]
+name = "lock_api"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "65d91b22da179613dcf4d6ec8349563f52a363f6849e03b00dd0a185ec4a59af"
 dependencies = [
  "scopeguard",
 ]
@@ -6293,7 +6302,7 @@ version = "0.50.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7957b9740744892f114936ab4a57b3f487491bbeafaf8083688b16841a4240e5"
 dependencies = [
- "windows-sys 0.59.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -6442,7 +6451,7 @@ checksum = "7bd2cae3bec3936bbed1ccc5a3343b3738858182419f9c0522c7260c80c430b0"
 dependencies = [
  "ahash",
  "hashbrown 0.15.2",
- "parking_lot",
+ "parking_lot 0.12.5",
  "stable_deref_trait",
 ]
 
@@ -6595,8 +6604,18 @@ version = "0.12.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "93857453250e3077bd71ff98b6a65ea6621a19bb0f559a85248955ac12c45a1a"
 dependencies = [
- "lock_api",
- "parking_lot_core",
+ "lock_api 0.4.14",
+ "parking_lot_core 0.9.12",
+]
+
+[[package]]
+name = "parking_lot"
+version = "0.13.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a9cf937ca4e1d0b7578784559063422fc39ae7c5a00f02471f2614d5486fd226"
+dependencies = [
+ "lock_api 0.5.0",
+ "parking_lot_core 0.10.0",
 ]
 
 [[package]]
@@ -6607,7 +6626,19 @@ checksum = "2621685985a2ebf1c516881c026032ac7deafcda1a2c9b7850dc81e3dfcb64c1"
 dependencies = [
  "cfg-if",
  "libc",
- "redox_syscall",
+ "redox_syscall 0.5.11",
+ "smallvec",
+ "windows-link 0.2.1",
+]
+
+[[package]]
+name = "parking_lot_core"
+version = "0.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9cfff060068cc18aa7815010fcaf80c68c7fb9e85fc7f5c0f9bf142c21d19826"
+dependencies = [
+ "libc",
+ "redox_syscall 0.9.5",
  "smallvec",
  "windows-link 0.2.1",
 ]
@@ -7203,6 +7234,15 @@ name = "redox_syscall"
 version = "0.5.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d2f103c6d277498fbceb16e84d317e2a400f160f46904d5f5410848c829511a3"
+dependencies = [
+ "bitflags 2.10.0",
+]
+
+[[package]]
+name = "redox_syscall"
+version = "0.9.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "580c875845b41ecb1564ad1ae4703044cef774145e3d7a94dc2b3fa7c97868fd"
 dependencies = [
  "bitflags 2.10.0",
 ]
@@ -7806,7 +7846,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -7872,7 +7912,7 @@ dependencies = [
  "security-framework",
  "security-framework-sys",
  "webpki-root-certs",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -8269,7 +8309,7 @@ dependencies = [
  "futures-util",
  "log",
  "once_cell",
- "parking_lot",
+ "parking_lot 0.12.5",
  "serial_test_derive",
 ]
 
@@ -8564,9 +8604,9 @@ dependencies = [
 
 [[package]]
 name = "smallvec"
-version = "1.15.1"
+version = "1.16.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "67b1b7a3b5fe4f1376887184045fcf45c69e92af734b7aaddc05fb777b6fbd03"
+checksum = "3244542535d5de959d90ec55d1b5ff0fd2bb7b1310223907d5f11932847f7b59"
 dependencies = [
  "serde",
 ]
@@ -8628,7 +8668,7 @@ dependencies = [
  "bumpalo",
  "index_vec",
  "indexmap 2.14.2",
- "parking_lot",
+ "parking_lot 0.12.5",
  "rayon",
  "rustc-hash",
  "smallvec",
@@ -8656,7 +8696,7 @@ dependencies = [
  "solar-config",
  "solar-data-structures",
  "solar-macros",
- "thiserror 1.0.69",
+ "thiserror 2.0.21",
  "tracing",
  "unicode-width",
 ]
@@ -8756,7 +8796,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a18596f8c785a729f2819c0f6a7eae6ebeebdfffbfe4214ae6b087f690e31901"
 dependencies = [
  "new_debug_unreachable",
- "parking_lot",
+ "parking_lot 0.12.5",
  "phf_shared 0.13.1",
  "precomputed-hash",
 ]
@@ -8830,7 +8870,7 @@ dependencies = [
  "serde_json",
  "sha2 0.10.9",
  "tempfile",
- "thiserror 1.0.69",
+ "thiserror 2.0.21",
  "url",
  "zip",
 ]
@@ -8949,7 +8989,7 @@ dependencies = [
  "getrandom 0.4.1",
  "once_cell",
  "rustix",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -8958,7 +8998,7 @@ version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d8c27177b12a6399ffc08b98f76f7c9a1f4fe9fc967c784c5a071fa8d93cf7e1"
 dependencies = [
- "windows-sys 0.59.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -9349,7 +9389,7 @@ dependencies = [
  "matchers",
  "nu-ansi-term",
  "once_cell",
- "parking_lot",
+ "parking_lot 0.12.5",
  "regex-automata",
  "sharded-slab",
  "smallvec",
@@ -9714,7 +9754,7 @@ checksum = "1c598d6b99ea013e35844697fc4670d08339d5cda15588f193c6beedd12f644b"
 dependencies = [
  "futures",
  "js-sys",
- "parking_lot",
+ "parking_lot 0.12.5",
  "pin-utils",
  "slab",
  "wasm-bindgen",
