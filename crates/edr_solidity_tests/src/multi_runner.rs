@@ -499,6 +499,7 @@ impl<
                     test_function_overrides: &test_function_overrides,
                     generate_gas_report: self.generate_gas_report,
                     include_traces: self.include_traces,
+                    evm_opts: &self.evm_opts,
                 },
                 span,
             );

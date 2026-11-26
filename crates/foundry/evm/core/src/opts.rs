@@ -70,11 +70,40 @@ pub struct EvmOpts<HardforkT> {
     /// Whether to disable block gas limit checks.
     pub disable_block_gas_limit: bool,
 
-    /// Bound on the gas a transaction may spend on execution, introduced in
-    /// [EIP-7825]. `None` disables it.
-    ///
-    /// [EIP-7825]: https://eips.ethereum.org/EIPS/eip-7825
-    pub transaction_execution_gas_bound: Option<u64>,
+    /// The configured transaction gas cap. The transaction gas bounds derive
+    /// from it and the hardfork, see [`EvmOpts::transaction_gas_bounds`].
+    pub transaction_gas_cap: TransactionGasCap,
+}
+
+/// The gas limit Solidity tests run with when the hardfork imposes no bound on
+/// `tx.gas`. Tests intentionally use a very large limit so they never run out
+/// of gas.
+pub const MAX_TEST_TRANSACTION_GAS_LIMIT: u64 = i64::MAX as u64;
+
+/// The configured [EIP-7825] transaction gas cap.
+///
+/// [EIP-7825]: https://eips.ethereum.org/EIPS/eip-7825
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub enum TransactionGasCap {
+    /// The protocol's cap for the hardfork.
+    #[default]
+    Protocol,
+    /// A custom cap, regardless of the hardfork.
+    Custom(u64),
+    /// No cap.
+    Disabled,
+}
+
+impl TransactionGasCap {
+    /// Returns the transaction gas bounds for the given hardfork, with this
+    /// cap applied.
+    pub fn bounds<HardforkT: Into<SpecId>>(self, hardfork: HardforkT) -> TransactionGasBounds {
+        match self {
+            Self::Protocol => TransactionGasBounds::for_hardfork(hardfork),
+            Self::Custom(cap) => TransactionGasBounds::custom(hardfork, cap),
+            Self::Disabled => TransactionGasBounds::disabled(hardfork),
+        }
+    }
 }
 
 impl<HardforkT> Default for EvmOpts<HardforkT>
@@ -82,13 +111,9 @@ where
     HardforkT: Clone + Default + Into<SpecId>,
 {
     fn default() -> Self {
-        let spec = HardforkT::default();
-        let transaction_execution_gas_bound =
-            TransactionGasBounds::for_hardfork(spec.clone()).execution_gas;
-
         Self {
             env: Env::default(),
-            spec,
+            spec: HardforkT::default(),
             fork_url: None,
             fork_block_number: None,
             fork_retries: None,
@@ -102,7 +127,7 @@ where
             memory_limit: 0,
             isolate: false,
             disable_block_gas_limit: false,
-            transaction_execution_gas_bound,
+            transaction_gas_cap: TransactionGasCap::default(),
         }
     }
 }
@@ -150,7 +175,7 @@ where
             self.fork_block_number,
             self.sender,
             self.disable_block_gas_limit,
-            self.transaction_execution_gas_bound,
+            self.transaction_execution_gas_bound(self.spec.clone()),
         )
         .await
         .wrap_err_with(|| {
@@ -174,7 +199,7 @@ where
             self.env.chain_id.unwrap_or(edr_defaults::DEV_CHAIN_ID),
             self.memory_limit,
             self.disable_block_gas_limit,
-            self.transaction_execution_gas_bound,
+            self.transaction_execution_gas_bound(self.spec.clone()),
         );
 
         crate::Env {
@@ -202,7 +227,37 @@ where
 
     /// Returns the gas limit to use
     pub fn gas_limit(&self) -> u64 {
-        self.env.block_gas_limit.unwrap_or(self.env.gas_limit)
+        self.gas_limit_for_hardfork(self.spec.clone())
+    }
+
+    /// Returns the gas limit to use with the given hardfork.
+    ///
+    /// A configured block gas limit or gas limit is used as is. Otherwise, the
+    /// gas limit is the most gas a transaction may carry on the hardfork, or
+    /// [`MAX_TEST_TRANSACTION_GAS_LIMIT`] when it imposes no bound.
+    pub fn gas_limit_for_hardfork(&self, hardfork: HardforkT) -> u64 {
+        self.env
+            .block_gas_limit
+            .or(self.env.gas_limit)
+            .unwrap_or_else(|| {
+                self.transaction_gas_bounds(hardfork)
+                    .total_transaction_gas
+                    .unwrap_or(MAX_TEST_TRANSACTION_GAS_LIMIT)
+            })
+    }
+
+    /// Returns the transaction gas bounds for the given hardfork, with the
+    /// configured transaction gas cap applied.
+    pub fn transaction_gas_bounds(&self, hardfork: HardforkT) -> TransactionGasBounds {
+        self.transaction_gas_cap.bounds(hardfork)
+    }
+
+    /// Returns the bound on the gas a transaction may spend on execution with
+    /// the given hardfork, introduced in [EIP-7825]. `None` disables it.
+    ///
+    /// [EIP-7825]: https://eips.ethereum.org/EIPS/eip-7825
+    pub fn transaction_execution_gas_bound(&self, hardfork: HardforkT) -> Option<u64> {
+        self.transaction_gas_bounds(hardfork).execution_gas
     }
 
     /// Returns the configured chain id, which will be
@@ -265,9 +320,14 @@ where
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct Env {
-    /// The block gas limit.
-    #[serde(deserialize_with = "string_or_number")]
-    pub gas_limit: u64,
+    /// The transaction gas limit. If unset, it derives from the hardfork's
+    /// transaction gas bounds, see [`EvmOpts::gas_limit_for_hardfork`].
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "string_or_number_opt"
+    )]
+    pub gas_limit: Option<u64>,
 
     /// The `CHAINID` opcode value.
     pub chain_id: Option<u64>,
@@ -409,17 +469,6 @@ impl From<TxEnvOpts> for OpTransaction<TxEnv> {
 enum Gas {
     Number(u64),
     Text(String),
-}
-
-fn string_or_number<'de, D>(deserializer: D) -> Result<u64, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    use serde::de::Error;
-    match Gas::deserialize(deserializer)? {
-        Gas::Number(num) => Ok(num),
-        Gas::Text(s) => s.parse().map_err(D::Error::custom),
-    }
 }
 
 fn string_or_number_opt<'de, D>(deserializer: D) -> Result<Option<u64>, D::Error>

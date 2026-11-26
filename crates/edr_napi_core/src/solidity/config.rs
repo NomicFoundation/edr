@@ -1,7 +1,6 @@
 use std::{collections::HashMap, path::PathBuf, str::FromStr};
 
 use edr_chain_spec::{EvmHardforkChainSpec, ProtocolHardforkChainSpec};
-use edr_eip8037::TransactionGasBounds;
 use edr_primitives::{Address, UnknownHardfork, U256};
 use edr_solidity::config::IncludeTraces;
 use edr_solidity_tests::{
@@ -10,8 +9,9 @@ use edr_solidity_tests::{
     fuzz::{invariant::InvariantConfig, FuzzConfig},
     inline_config::{ImportResolver, InlineConfigProfiles},
     inspectors::cheatcodes::CheatsConfigOptions,
+    opts::TransactionGasCap,
     CollectStackTraces, SolidityTestRunnerConfig, SyncOnCollectedCoverageCallback,
-    TestFilterConfig, TestSourcePaths, MAX_TEST_TRANSACTION_GAS_LIMIT,
+    TestFilterConfig, TestSourcePaths,
 };
 use napi::{bindgen_prelude::Uint8Array, Either};
 /// Hardhat V3 build info where the compiler output is not part of the build
@@ -309,25 +309,19 @@ impl TestRunnerConfig {
             evm_opts.disable_block_gas_limit = disable_block_gas_limit;
         }
 
-        let transaction_gas_bounds = if disable_transaction_gas_cap.unwrap_or(false) {
-            TransactionGasBounds::disabled(evm_opts.spec)
+        evm_opts.transaction_gas_cap = if disable_transaction_gas_cap.unwrap_or(false) {
+            TransactionGasCap::Disabled
         } else if let Some(transaction_gas_cap) = transaction_gas_cap {
-            TransactionGasBounds::custom(evm_opts.spec, transaction_gas_cap)
+            TransactionGasCap::Custom(transaction_gas_cap)
         } else {
-            TransactionGasBounds::for_hardfork(evm_opts.spec)
+            TransactionGasCap::Protocol
         };
-        evm_opts.transaction_execution_gas_bound = transaction_gas_bounds.execution_gas;
 
-        // The default gas limit is the most gas a transaction may carry on the
-        // hardfork, or the maximum when it imposes no bound. A configured block
-        // gas limit takes precedence through `EvmOpts::gas_limit()`.
-        evm_opts.env.gas_limit = transaction_gas_bounds
-            .total_transaction_gas
-            .unwrap_or(MAX_TEST_TRANSACTION_GAS_LIMIT);
-
-        if let Some(gas_limit) = gas_limit {
-            evm_opts.env.gas_limit = gas_limit;
-        }
+        // Without a configured gas limit, the gas limit is the most gas a
+        // transaction may carry on the hardfork, or the maximum when it imposes
+        // no bound. A configured block gas limit takes precedence. See
+        // `EvmOpts::gas_limit()`.
+        evm_opts.env.gas_limit = gas_limit;
 
         evm_opts.env.chain_id = chain_id;
 
@@ -423,7 +417,7 @@ impl TestRunnerConfig {
 
 #[cfg(test)]
 mod tests {
-    use edr_solidity_tests::inline_config::DEFAULT_PROFILE;
+    use edr_solidity_tests::{inline_config::DEFAULT_PROFILE, MAX_TEST_TRANSACTION_GAS_LIMIT};
 
     use super::*;
 
@@ -485,7 +479,7 @@ mod tests {
             .expect("Failed to convert TestRunnerConfig to SolidityTestRunnerConfig");
 
         assert_eq!(
-            solidity_config.evm_opts.env.gas_limit,
+            solidity_config.evm_opts.gas_limit(),
             MAX_TEST_TRANSACTION_GAS_LIMIT,
             "EVM gas limit should not be set to the transaction gas cap when the transaction gas cap is disabled"
         );
@@ -505,7 +499,7 @@ mod tests {
             .expect("Failed to convert TestRunnerConfig to SolidityTestRunnerConfig");
 
         assert_eq!(
-            solidity_config.evm_opts.env.gas_limit,
+            solidity_config.evm_opts.gas_limit(),
             TRANSACTION_GAS_CAP,
             "EVM gas limit should be set to the transaction gas cap when it is provided and not disabled"
         );
@@ -524,7 +518,7 @@ mod tests {
             .expect("Failed to convert TestRunnerConfig to SolidityTestRunnerConfig");
 
         assert_eq!(
-            solidity_config.evm_opts.env.gas_limit,
+            solidity_config.evm_opts.gas_limit(),
             MAX_TEST_TRANSACTION_GAS_LIMIT,
             "EVM gas limit should use the default gas limit when the default transaction gas cap is requested"
         );
@@ -548,7 +542,8 @@ mod tests {
                 .expect("Osaka activates the EIP-7825 transaction gas cap");
 
         assert_eq!(
-            solidity_config.evm_opts.env.gas_limit, expected_cap,
+            solidity_config.evm_opts.gas_limit(),
+            expected_cap,
             "On Osaka the default EIP-7825 transaction gas cap should lower the default gas limit"
         );
     }
@@ -568,7 +563,7 @@ mod tests {
             .expect("Failed to convert TestRunnerConfig to SolidityTestRunnerConfig");
 
         assert_eq!(
-            solidity_config.evm_opts.env.gas_limit, TRANSACTION_GAS_CAP,
+            solidity_config.evm_opts.gas_limit(), TRANSACTION_GAS_CAP,
             "On Osaka a custom transaction gas cap bounds `tx.gas`, so it should lower the default gas limit"
         );
     }
@@ -587,7 +582,8 @@ mod tests {
             .expect("Failed to convert TestRunnerConfig to SolidityTestRunnerConfig");
 
         assert_eq!(
-            solidity_config.evm_opts.env.gas_limit, MAX_TEST_TRANSACTION_GAS_LIMIT,
+            solidity_config.evm_opts.gas_limit(),
+            MAX_TEST_TRANSACTION_GAS_LIMIT,
             "On Osaka a disabled transaction gas cap leaves the default gas limit at the maximum"
         );
     }
@@ -609,7 +605,7 @@ mod tests {
             .expect("Failed to convert TestRunnerConfig to SolidityTestRunnerConfig");
 
         assert_eq!(
-            solidity_config.evm_opts.env.gas_limit,
+            solidity_config.evm_opts.gas_limit(),
             edr_eip8037::TX_MAX_TOTAL_GAS_LIMIT,
             "On Amsterdam the default EIP-7825 cap bounds execution gas only; the default gas limit should be the total limit"
         );
@@ -630,7 +626,7 @@ mod tests {
             .expect("Failed to convert TestRunnerConfig to SolidityTestRunnerConfig");
 
         assert_eq!(
-            solidity_config.evm_opts.env.gas_limit,
+            solidity_config.evm_opts.gas_limit(),
             edr_eip8037::TX_MAX_TOTAL_GAS_LIMIT,
             "On Amsterdam a custom transaction gas cap bounds execution gas only; the default gas limit should be the total limit"
         );
@@ -650,7 +646,7 @@ mod tests {
             .expect("Failed to convert TestRunnerConfig to SolidityTestRunnerConfig");
 
         assert_eq!(
-            solidity_config.evm_opts.env.gas_limit,
+            solidity_config.evm_opts.gas_limit(),
             edr_eip8037::TX_MAX_TOTAL_GAS_LIMIT,
             "On Amsterdam `tx.gas` is bounded by the total limit regardless of the transaction gas cap option"
         );
@@ -671,7 +667,9 @@ mod tests {
             .expect("Failed to convert TestRunnerConfig to SolidityTestRunnerConfig");
 
         assert_eq!(
-            solidity_config.evm_opts.transaction_execution_gas_bound,
+            solidity_config
+                .evm_opts
+                .transaction_execution_gas_bound(solidity_config.evm_opts.spec),
             Some(TRANSACTION_GAS_CAP),
             "A custom transaction gas cap should bound execution gas"
         );
@@ -691,7 +689,10 @@ mod tests {
             .expect("Failed to convert TestRunnerConfig to SolidityTestRunnerConfig");
 
         assert_eq!(
-            solidity_config.evm_opts.transaction_execution_gas_bound, None,
+            solidity_config
+                .evm_opts
+                .transaction_execution_gas_bound(solidity_config.evm_opts.spec),
+            None,
             "Disabling the transaction gas cap should lift the execution gas bound"
         );
     }
@@ -736,9 +737,12 @@ mod tests {
             .expect("Failed to convert TestRunnerConfig to SolidityTestRunnerConfig");
 
         assert_eq!(
-            solidity_config.evm_opts.env.gas_limit,
-            edr_eip8037::TX_MAX_TOTAL_GAS_LIMIT,
-            "The default gas limit should be the hardfork's total gas limit"
+            solidity_config
+                .evm_opts
+                .transaction_gas_bounds(solidity_config.evm_opts.spec)
+                .total_transaction_gas,
+            Some(edr_eip8037::TX_MAX_TOTAL_GAS_LIMIT),
+            "The hardfork's total gas limit should still bound `tx.gas`"
         );
         assert_eq!(
             solidity_config.evm_opts.gas_limit(),
@@ -831,7 +835,7 @@ mod tests {
 
         assert_eq!(
             solidity_config.evm_opts.env.gas_limit,
-            CUSTOM_GAS_LIMIT,
+            Some(CUSTOM_GAS_LIMIT),
             "EVM gas limit should be set to the custom gas limit when it is provided, even if transaction and block gas limits are also provided"
         );
     }
@@ -856,7 +860,7 @@ mod tests {
 
         assert_eq!(
             solidity_config.evm_opts.env.gas_limit,
-            CUSTOM_GAS_LIMIT,
+            Some(CUSTOM_GAS_LIMIT),
             "EVM gas limit should be set to the custom gas limit when it is provided, even if transaction and block gas limits are also provided"
         );
     }

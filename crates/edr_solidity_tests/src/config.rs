@@ -4,7 +4,6 @@ use std::{
 };
 
 pub use edr_coverage::reporter::SyncOnCollectedCoverageCallback;
-use edr_eip8037::TransactionGasBounds;
 use edr_primitives::{Address, B256, U256};
 use edr_solidity::config::IncludeTraces;
 use edr_solidity_parser_slang::compilation::file_id_of;
@@ -19,7 +18,7 @@ use foundry_evm::{
 use crate::{
     fork::CreateFork,
     inline_config::{ImportResolver, InlineConfigProfiles},
-    opts::{Env as EvmEnv, EvmOpts},
+    opts::{Env as EvmEnv, EvmOpts, TransactionGasCap},
 };
 
 #[derive(Debug, thiserror::Error)]
@@ -327,25 +326,14 @@ impl<HardforkT: HardforkTr> SolidityTestRunnerConfig<HardforkT> {
     }
 }
 
-/// The gas limit Solidity tests run with when the hardfork imposes no bound on
-/// `tx.gas`. Tests intentionally use a very large limit so they never run out
-/// of gas.
-pub const MAX_TEST_TRANSACTION_GAS_LIMIT: u64 = i64::MAX as u64;
-
 impl<HardforkT: HardforkTr> SolidityTestRunnerConfig<HardforkT> {
     /// The default evm options for the Solidity test runner.
     pub fn default_evm_opts() -> EvmOpts<HardforkT> {
-        let spec = HardforkT::default();
-        let transaction_gas_bounds = TransactionGasBounds::for_hardfork(spec);
-        // Solidity tests want as much gas as possible, so the default gas limit
-        // is the most a transaction may carry on the hardfork, or the maximum.
-        let gas_limit = transaction_gas_bounds
-            .total_transaction_gas
-            .unwrap_or(MAX_TEST_TRANSACTION_GAS_LIMIT);
-
         EvmOpts {
             env: EvmEnv {
-                gas_limit,
+                // Solidity tests want as much gas as possible, so the gas limit
+                // derives from the hardfork, see `EvmOpts::gas_limit()`.
+                gas_limit: None,
                 chain_id: Some(31337),
                 gas_price: Some(0),
                 block_base_fee_per_gas: 0,
@@ -358,7 +346,7 @@ impl<HardforkT: HardforkTr> SolidityTestRunnerConfig<HardforkT> {
                 block_coinbase: Address::default(),
                 code_size_limit: None,
             },
-            spec,
+            spec: HardforkT::default(),
             fork_url: None,
             fork_block_number: None,
             fork_retries: None,
@@ -371,7 +359,7 @@ impl<HardforkT: HardforkTr> SolidityTestRunnerConfig<HardforkT> {
             memory_limit: 1 << 25, // 2**25 = 32MiB
             isolate: false,
             disable_block_gas_limit: false,
-            transaction_execution_gas_bound: transaction_gas_bounds.execution_gas,
+            transaction_gas_cap: TransactionGasCap::default(),
             fork_headers: None,
         }
     }
