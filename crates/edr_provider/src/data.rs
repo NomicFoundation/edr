@@ -50,7 +50,9 @@ use edr_eth::{
 };
 use edr_evm::{set_guarantees, ExecutionResultWithMetadata};
 use edr_gas_report::{GasReport, GasReportCreationError, SyncOnCollectedGasReportCallback};
-use edr_inspection::{DebugTraceRequest, InspectedExecution, InspectionError, InspectionRequest};
+use edr_inspection::{
+    BlockEnvOverrides, DebugTraceRequest, InspectedExecution, InspectionError, InspectionRequest,
+};
 use edr_mem_pool::{account_next_nonce, MemPool, OrderedTransaction};
 use edr_precompile::PrecompileFn;
 use edr_primitives::{
@@ -92,10 +94,7 @@ use crate::{
         ConfigOption, ForkConfig, GasEstimationMode, IntervalConfig, LocalConfig, MemPoolConfig,
         MiningConfig, NetworkConfig, ProviderConfig,
     },
-    data::{
-        call::BlockEnvWithZeroBaseFee,
-        gas::{compute_rewards, EstimateGasResult},
-    },
+    data::gas::{compute_rewards, EstimateGasResult},
     debug_trace::{debug_trace_transaction, DebugTraceResultWithCallTraces},
     error::{
         CreationError, CreationErrorForChainSpec, ProviderErrorForChainSpec, TransactionFailure,
@@ -2012,11 +2011,11 @@ where
 
         let scheduled_blob_params = self.scheduled_blob_params().cloned();
         self.execute_in_block_context(Some(block_spec), move |blockchain, block, state| {
-            let block_env = BlockEnvWithZeroBaseFee::new(ChainSpecT::BlockEnv::new_block_env(
+            let block_env = ChainSpecT::BlockEnv::new_block_env(
                 block.block_header(),
                 cfg_env.spec.clone(),
                 scheduled_blob_params.as_ref(),
-            ));
+            );
 
             let mut cfg_env = cfg_env;
             set_guarantees(&mut cfg_env);
@@ -2039,6 +2038,10 @@ where
                 cfg_env,
                 transaction,
                 &block_env,
+                BlockEnvOverrides {
+                    // `eth_call` uses a base fee of zero to mimick geth's behavior
+                    base_fee: Some(0),
+                },
                 &custom_precompiles,
                 request,
             )
@@ -2829,6 +2832,7 @@ where
 
                 debug_trace_transaction::<ChainSpecT>(
                     blockchain,
+                    header.number,
                     state.clone(),
                     cfg_env,
                     tracing_options,

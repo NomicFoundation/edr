@@ -2,18 +2,20 @@
 //! chains that run on revm.
 
 use edr_blockchain_api::BlockHashByNumber;
+use edr_chain_spec::BlobExcessGasAndPrice;
 use edr_chain_spec_evm::{result::ExecutionResultAndState, BlockEnvTrait, CfgEnv, EvmChainSpec};
 use edr_database_components::{DatabaseComponents, WrapDatabaseRef};
 use edr_evm::{dry_run_with_inspector, ExecutionResultAndStateWithMetadata};
+pub use edr_evm::{run, ExecutionResultWithMetadata};
 use edr_precompile::PrecompileFn;
-use edr_primitives::{Address, HashMap};
+use edr_primitives::{Address, HashMap, B256, U256};
 use edr_runtime::inspector::DualInspector;
 use edr_state_api::State;
 use revm_inspectors::tracing::{DebugInspector, DebugInspectorError, TransactionContext};
 
 use crate::{
-    DebugTraceRequest, DebugTracerError, EvmObserver, InspectedExecution, InspectionError,
-    InspectionErrorForChainSpec, InspectionRequest,
+    BlockEnvOverrides, DebugTraceRequest, DebugTracerError, EvmObserver, InspectedExecution,
+    InspectionError, InspectionErrorForChainSpec, InspectionRequest,
 };
 
 /// Runs a transaction on revm without committing the state, observing it as
@@ -30,12 +32,18 @@ pub fn dry_run_with_inspection<
     cfg: CfgEnv<ChainSpecT::ProtocolHardfork>,
     transaction: ChainSpecT::SignedTransaction,
     block: BlockT,
+    block_overrides: BlockEnvOverrides,
     custom_precompiles: &HashMap<Address, PrecompileFn>,
     request: InspectionRequest,
 ) -> Result<
     InspectedExecution<ChainSpecT::HaltReason>,
     InspectionErrorForChainSpec<ChainSpecT, BlockchainT::Error, StateT::Error>,
 > {
+    let block = BlockEnvWithOverrides {
+        inner: block,
+        overrides: block_overrides,
+    };
+
     let InspectionRequest {
         observer: observer_config,
         debug_trace,
@@ -132,5 +140,51 @@ fn from_creation_error<DatabaseErrorT>(
         DebugInspectorError::Database(_) => {
             unreachable!("database errors do not occur while creating the debug tracer")
         }
+    }
+}
+
+/// A revm block environment with [`BlockEnvOverrides`] applied.
+pub struct BlockEnvWithOverrides<BlockT: BlockEnvTrait> {
+    inner: BlockT,
+    overrides: BlockEnvOverrides,
+}
+
+impl<BlockT: BlockEnvTrait> BlockEnvTrait for BlockEnvWithOverrides<BlockT> {
+    fn number(&self) -> U256 {
+        self.inner.number()
+    }
+
+    fn beneficiary(&self) -> Address {
+        self.inner.beneficiary()
+    }
+
+    fn timestamp(&self) -> U256 {
+        self.inner.timestamp()
+    }
+
+    fn gas_limit(&self) -> u64 {
+        self.inner.gas_limit()
+    }
+
+    fn basefee(&self) -> u64 {
+        self.overrides
+            .base_fee
+            .unwrap_or_else(|| self.inner.basefee())
+    }
+
+    fn difficulty(&self) -> U256 {
+        self.inner.difficulty()
+    }
+
+    fn prevrandao(&self) -> Option<B256> {
+        self.inner.prevrandao()
+    }
+
+    fn blob_excess_gas_and_price(&self) -> Option<BlobExcessGasAndPrice> {
+        self.inner.blob_excess_gas_and_price()
+    }
+
+    fn slot_num(&self) -> u64 {
+        self.inner.slot_num()
     }
 }

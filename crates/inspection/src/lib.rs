@@ -11,20 +11,27 @@ pub mod revm;
 
 use alloy_rpc_types_trace::geth::{GethDebugTracingOptions, GethTrace};
 use edr_blockchain_api::BlockHashByNumber;
-use edr_chain_spec::TransactionValidation;
-use edr_chain_spec_evm::{
-    BlockEnvTrait, CfgEnv, DatabaseComponentError, EvmChainSpec, TransactionError,
-};
-use edr_evm::ExecutionResultAndStateWithMetadata;
+use edr_chain_spec::{BlockEnvChainSpec, BlockEnvForHardfork, TransactionValidation};
+use edr_chain_spec_evm::{CfgEnv, DatabaseComponentError, EvmChainSpec, TransactionError};
+use edr_evm::{ExecutionResultAndStateWithMetadata, ExecutionResultWithMetadata};
 use edr_precompile::PrecompileFn;
 use edr_primitives::{Address, HashMap, B256};
-use edr_state_api::State;
+use edr_state_api::{State, StateCommit};
 
 pub use self::{
     call_override::{CallOverrideResult, Mocker, SyncCallOverride},
     console_log::ConsoleLogCollector,
     observer::{EvmObservedData, EvmObserver, EvmObserverCollectionError, EvmObserverConfig},
+    revm::BlockEnvWithOverrides,
 };
+
+/// Changes applied to a block environment before running a transaction.
+#[derive(Clone, Debug, Default)]
+pub struct BlockEnvOverrides {
+    /// Replaces the block's base fee; e.g. `Some(0)` for `eth_call`, to
+    /// match Geth.
+    pub base_fee: Option<u64>,
+}
 
 /// What to observe while running a transaction.
 pub struct InspectionRequest {
@@ -92,12 +99,13 @@ pub type InspectionErrorForChainSpec<ChainSpecT, BlockchainErrorT, StateErrorT> 
 >;
 
 /// Runs a transaction in a chain's EVM, observed as described by a request.
-pub trait InspectionChainSpec: EvmChainSpec {
+pub trait InspectionChainSpec: EvmChainSpec + BlockEnvChainSpec {
     /// Runs a transaction without committing the state, observing it as
     /// described by `request`.
     #[allow(clippy::too_many_arguments, clippy::type_complexity)]
     fn dry_run_with_inspection<
-        BlockT: BlockEnvTrait,
+        'block,
+        BlockHeaderT: 'block + BlockEnvForHardfork<Self::ProtocolHardfork>,
         BlockchainT: BlockHashByNumber<Error: 'static + std::error::Error + Send + Sync> + Clone,
         StateT: State<Error: 'static + std::error::Error + Send + Sync> + Clone,
     >(
@@ -105,11 +113,34 @@ pub trait InspectionChainSpec: EvmChainSpec {
         state: StateT,
         cfg: CfgEnv<Self::ProtocolHardfork>,
         transaction: Self::SignedTransaction,
-        block: BlockT,
+        block: &Self::BlockEnv<'block, BlockHeaderT>,
+        block_overrides: BlockEnvOverrides,
         custom_precompiles: &HashMap<Address, PrecompileFn>,
         request: InspectionRequest,
     ) -> Result<
         InspectedExecution<Self::HaltReason>,
         InspectionErrorForChainSpec<Self, BlockchainT::Error, StateT::Error>,
+    >;
+
+    /// Runs a transaction and commits the state, without inspection.
+    #[allow(clippy::type_complexity)]
+    fn run<
+        'block,
+        BlockHeaderT: 'block + BlockEnvForHardfork<Self::ProtocolHardfork>,
+        BlockchainT: BlockHashByNumber<Error: 'static + std::error::Error + Send + Sync>,
+        StateT: State<Error: 'static + std::error::Error + Send + Sync> + StateCommit,
+    >(
+        blockchain: BlockchainT,
+        state: StateT,
+        cfg: CfgEnv<Self::ProtocolHardfork>,
+        transaction: Self::SignedTransaction,
+        block: &Self::BlockEnv<'block, BlockHeaderT>,
+        custom_precompiles: &HashMap<Address, PrecompileFn>,
+    ) -> Result<
+        ExecutionResultWithMetadata<Self::HaltReason>,
+        TransactionError<
+            DatabaseComponentError<BlockchainT::Error, StateT::Error>,
+            <Self::SignedTransaction as TransactionValidation>::ValidationError,
+        >,
     >;
 }

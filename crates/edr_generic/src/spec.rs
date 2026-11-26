@@ -30,7 +30,8 @@ use edr_chain_spec_rpc::{RpcBlockChainSpec, RpcChainSpec};
 use edr_eip1559::BaseFeeParams;
 use edr_eip7892::ScheduledBlobParams;
 use edr_inspection::{
-    InspectedExecution, InspectionChainSpec, InspectionErrorForChainSpec, InspectionRequest,
+    BlockEnvOverrides, InspectedExecution, InspectionChainSpec, InspectionErrorForChainSpec,
+    InspectionRequest,
 };
 use edr_precompile::PrecompileFn;
 use edr_primitives::{Address, Bytes, HashMap, B256, U256};
@@ -272,7 +273,8 @@ impl EvmChainSpec for GenericChainSpec {
 
 impl InspectionChainSpec for GenericChainSpec {
     fn dry_run_with_inspection<
-        BlockT: BlockEnvTrait,
+        'block,
+        BlockHeaderT: 'block + BlockEnvForHardfork<Self::ProtocolHardfork>,
         BlockchainT: BlockHashByNumber<Error: 'static + std::error::Error + Send + Sync> + Clone,
         StateT: State<Error: 'static + std::error::Error + Send + Sync> + Clone,
     >(
@@ -280,7 +282,8 @@ impl InspectionChainSpec for GenericChainSpec {
         state: StateT,
         cfg: CfgEnv<Self::ProtocolHardfork>,
         transaction: Self::SignedTransaction,
-        block: BlockT,
+        block: &Self::BlockEnv<'block, BlockHeaderT>,
+        block_overrides: BlockEnvOverrides,
         custom_precompiles: &HashMap<Address, PrecompileFn>,
         request: InspectionRequest,
     ) -> Result<
@@ -293,8 +296,38 @@ impl InspectionChainSpec for GenericChainSpec {
             cfg,
             transaction,
             block,
+            block_overrides,
             custom_precompiles,
             request,
+        )
+    }
+
+    fn run<
+        'block,
+        BlockHeaderT: 'block + BlockEnvForHardfork<Self::ProtocolHardfork>,
+        BlockchainT: BlockHashByNumber<Error: 'static + std::error::Error + Send + Sync>,
+        StateT: State<Error: 'static + std::error::Error + Send + Sync> + edr_state_api::StateCommit,
+    >(
+        blockchain: BlockchainT,
+        state: StateT,
+        cfg: CfgEnv<Self::ProtocolHardfork>,
+        transaction: Self::SignedTransaction,
+        block: &Self::BlockEnv<'block, BlockHeaderT>,
+        custom_precompiles: &HashMap<Address, PrecompileFn>,
+    ) -> Result<
+        edr_inspection::revm::ExecutionResultWithMetadata<Self::HaltReason>,
+        TransactionError<
+            edr_chain_spec_evm::DatabaseComponentError<BlockchainT::Error, StateT::Error>,
+            <Self::SignedTransaction as TransactionValidation>::ValidationError,
+        >,
+    > {
+        edr_inspection::revm::run::<Self, _, _, _>(
+            blockchain,
+            state,
+            cfg,
+            transaction,
+            block,
+            custom_precompiles,
         )
     }
 }

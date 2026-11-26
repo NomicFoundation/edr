@@ -17,9 +17,9 @@ use edr_chain_spec::{
 };
 use edr_chain_spec_block::BlockChainSpec;
 use edr_chain_spec_evm::{
-    handler::EthInstructions, to_evm_cfg_env, BlockEnvTrait, Context, ContextForChainSpec,
-    Database, Evm, EvmChainSpec, ExecuteEvm as _, ExecutionResultAndState, InspectEvm as _,
-    InterpreterResult, LocalContext, PrecompileProvider, TransactionError,
+    handler::EthInstructions, to_evm_cfg_env, Context, ContextForChainSpec, Database, Evm,
+    EvmChainSpec, ExecuteEvm as _, ExecutionResultAndState, InspectEvm as _, InterpreterResult,
+    LocalContext, PrecompileProvider, TransactionError,
 };
 use edr_chain_spec_provider::ProviderChainSpec;
 use edr_chain_spec_receipt::ReceiptChainSpec;
@@ -27,7 +27,8 @@ use edr_chain_spec_rpc::{RpcBlockChainSpec, RpcChainSpec};
 use edr_eip1559::BaseFeeParams;
 use edr_eip7892::ScheduledBlobParams;
 use edr_inspection::{
-    InspectedExecution, InspectionChainSpec, InspectionErrorForChainSpec, InspectionRequest,
+    BlockEnvOverrides, InspectedExecution, InspectionChainSpec, InspectionErrorForChainSpec,
+    InspectionRequest,
 };
 use edr_napi_core::{
     napi,
@@ -223,7 +224,8 @@ impl EvmChainSpec for OpChainSpec {
 
 impl InspectionChainSpec for OpChainSpec {
     fn dry_run_with_inspection<
-        BlockT: BlockEnvTrait,
+        'block,
+        BlockHeaderT: 'block + edr_chain_spec::BlockEnvForHardfork<Self::ProtocolHardfork>,
         BlockchainT: BlockHashByNumber<Error: 'static + std::error::Error + Send + Sync> + Clone,
         StateT: State<Error: 'static + std::error::Error + Send + Sync> + Clone,
     >(
@@ -231,7 +233,8 @@ impl InspectionChainSpec for OpChainSpec {
         state: StateT,
         cfg: CfgEnv<Self::ProtocolHardfork>,
         transaction: Self::SignedTransaction,
-        block: BlockT,
+        block: &Self::BlockEnv<'block, BlockHeaderT>,
+        block_overrides: BlockEnvOverrides,
         custom_precompiles: &HashMap<Address, PrecompileFn>,
         request: InspectionRequest,
     ) -> Result<
@@ -244,8 +247,38 @@ impl InspectionChainSpec for OpChainSpec {
             cfg,
             transaction,
             block,
+            block_overrides,
             custom_precompiles,
             request,
+        )
+    }
+
+    fn run<
+        'block,
+        BlockHeaderT: 'block + edr_chain_spec::BlockEnvForHardfork<Self::ProtocolHardfork>,
+        BlockchainT: BlockHashByNumber<Error: 'static + std::error::Error + Send + Sync>,
+        StateT: State<Error: 'static + std::error::Error + Send + Sync> + edr_state_api::StateCommit,
+    >(
+        blockchain: BlockchainT,
+        state: StateT,
+        cfg: CfgEnv<Self::ProtocolHardfork>,
+        transaction: Self::SignedTransaction,
+        block: &Self::BlockEnv<'block, BlockHeaderT>,
+        custom_precompiles: &HashMap<Address, PrecompileFn>,
+    ) -> Result<
+        edr_inspection::revm::ExecutionResultWithMetadata<Self::HaltReason>,
+        TransactionError<
+            edr_chain_spec_evm::DatabaseComponentError<BlockchainT::Error, StateT::Error>,
+            <Self::SignedTransaction as TransactionValidation>::ValidationError,
+        >,
+    > {
+        edr_inspection::revm::run::<Self, _, _, _>(
+            blockchain,
+            state,
+            cfg,
+            transaction,
+            block,
+            custom_precompiles,
         )
     }
 }
@@ -459,6 +492,7 @@ mod tests {
 
     use edr_block_header::BlobGas;
     use edr_chain_spec::BlockEnvConstructor as _;
+    use edr_chain_spec_evm::BlockEnvTrait as _;
     use edr_primitives::{Address, Bloom, Bytes, B256, B64, U256};
 
     use super::*;

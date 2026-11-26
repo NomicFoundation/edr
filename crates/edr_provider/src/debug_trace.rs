@@ -4,12 +4,11 @@ use alloy_rpc_types_trace::geth::{GethDebugTracingOptions, GethTrace};
 use edr_block_header::BlockHeader;
 use edr_blockchain_api::{r#dyn::DynBlockchainError, BlockHashByNumber};
 use edr_chain_spec::{ChainSpec, EvmSpecId, ExecutableTransaction as _, TransactionValidation};
-use edr_chain_spec_evm::{BlockEnvTrait as _, CfgEnv, DatabaseComponentError, TransactionError};
+use edr_chain_spec_evm::{CfgEnv, DatabaseComponentError, TransactionError};
 use edr_chain_spec_provider::ProviderChainSpec;
-use edr_evm::run;
 use edr_inspection::{
-    DebugTraceContext, DebugTraceRequest, DebugTracerError, InspectedExecution, InspectionError,
-    InspectionRequest,
+    BlockEnvOverrides, DebugTraceContext, DebugTraceRequest, DebugTracerError, InspectedExecution,
+    InspectionError, InspectionRequest,
 };
 use edr_primitives::{HashMap, B256, U256};
 use edr_solidity::recorded_trace_arena::RecordedTraceArena;
@@ -25,6 +24,7 @@ use crate::{
 #[allow(clippy::too_many_arguments)]
 pub fn debug_trace_transaction<'header, ChainSpecT: ProviderChainSpec<SignedTransaction: Clone>>(
     blockchain: &dyn BlockHashByNumber<Error = DynBlockchainError>,
+    block_number: u64,
     // Take ownership of the state so that we can apply throw-away modifications on it
     mut state: Box<dyn DynState>,
     evm_config: CfgEnv<ChainSpecT::ProtocolHardfork>,
@@ -42,9 +42,8 @@ pub fn debug_trace_transaction<'header, ChainSpecT: ProviderChainSpec<SignedTran
         });
     }
 
-    let block_number = block.number();
     let block_hash = blockchain
-        .block_hash_by_number(block_number.try_into().expect("block number too large"))
+        .block_hash_by_number(block_number)
         .map_err(DebugTraceError::Blockchain)?;
 
     for (transaction_index, transaction) in transactions.into_iter().enumerate() {
@@ -72,6 +71,7 @@ pub fn debug_trace_transaction<'header, ChainSpecT: ProviderChainSpec<SignedTran
                 evm_config,
                 transaction,
                 &block,
+                BlockEnvOverrides::default(),
                 &HashMap::default(),
                 request,
             )
@@ -85,7 +85,7 @@ pub fn debug_trace_transaction<'header, ChainSpecT: ProviderChainSpec<SignedTran
                 result: geth_trace.expect("a debug trace was requested"),
             });
         } else {
-            run::<ChainSpecT, _, _, _>(
+            ChainSpecT::run(
                 blockchain,
                 state.as_mut(),
                 evm_config.clone(),
@@ -98,7 +98,7 @@ pub fn debug_trace_transaction<'header, ChainSpecT: ProviderChainSpec<SignedTran
 
     Err(DebugTraceError::InvalidTransactionHash {
         transaction_hash: *transaction_hash,
-        block_number,
+        block_number: U256::from(block_number),
     })
 }
 

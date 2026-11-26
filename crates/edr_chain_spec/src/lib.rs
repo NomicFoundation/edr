@@ -28,8 +28,11 @@ pub type EvmTransactionValidationError = revm_context_interface::result::Invalid
 pub trait BlockEnvChainSpec: ProtocolHardforkChainSpec {
     /// Type representing a block environment; i.e. the header of the block
     /// (being mined) and its hardfork.
-    type BlockEnv<'env, BlockHeaderT>: BlockEnvConstructor<'env, Self::ProtocolHardfork, &'env BlockHeaderT>
-        + BlockEnvTrait
+    type BlockEnv<'env, BlockHeaderT>: BlockEnvConstructor<
+        'env,
+        Self::ProtocolHardfork,
+        &'env BlockHeaderT,
+    >
     where
         BlockHeaderT: 'env + BlockEnvForHardfork<Self::ProtocolHardfork>;
 }
@@ -136,7 +139,5 @@ pub trait ChainSpec {
     /// The chain's halt reason type.
     type HaltReason: HaltReasonTrait + 'static;
     /// The chain's signed transaction type.
-    type SignedTransaction: ExecutableTransaction
-        + revm_context_interface::Transaction
-        + TransactionValidation;
+    type SignedTransaction: ExecutableTransaction + TransactionValidation;
 }

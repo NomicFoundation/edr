@@ -1,12 +1,11 @@
 use edr_block_header::BlockHeader;
 use edr_blockchain_api::{r#dyn::DynBlockchainError, BlockHashByNumber};
-use edr_chain_spec::BlobExcessGasAndPrice;
-use edr_chain_spec_evm::{BlockEnvTrait, CfgEnv};
+use edr_chain_spec_evm::CfgEnv;
 use edr_chain_spec_provider::ProviderChainSpec;
 use edr_evm::{set_guarantees, ExecutionResultWithMetadata};
-use edr_inspection::{InspectedExecution, InspectionError, InspectionRequest};
+use edr_inspection::{BlockEnvOverrides, InspectedExecution, InspectionError, InspectionRequest};
 use edr_precompile::PrecompileFn;
-use edr_primitives::{Address, HashMap, B256, U256};
+use edr_primitives::{Address, HashMap};
 use edr_state_api::{State, StateError};
 
 use crate::{
@@ -14,60 +13,6 @@ use crate::{
     observability::{EvmObserverConfig, ObservedExecution},
     ProviderError,
 };
-
-/// A wrapper around a block environment that forces the base fee to be zero.
-///
-/// This is required to mimick Geth's behaviour, as its call requests use a base
-/// fee of zero.
-pub(super) struct BlockEnvWithZeroBaseFee<BlockEnvT: BlockEnvTrait> {
-    inner: BlockEnvT,
-}
-
-impl<BlockEnvT: BlockEnvTrait> BlockEnvWithZeroBaseFee<BlockEnvT> {
-    /// Creates a new instance wrapping the provided block environment.
-    pub fn new(inner: BlockEnvT) -> Self {
-        Self { inner }
-    }
-}
-
-impl<BlockEnvT: BlockEnvTrait> BlockEnvTrait for BlockEnvWithZeroBaseFee<BlockEnvT> {
-    fn number(&self) -> U256 {
-        self.inner.number()
-    }
-
-    fn beneficiary(&self) -> Address {
-        self.inner.beneficiary()
-    }
-
-    fn timestamp(&self) -> U256 {
-        self.inner.timestamp()
-    }
-
-    fn gas_limit(&self) -> u64 {
-        self.inner.gas_limit()
-    }
-
-    fn basefee(&self) -> u64 {
-        // `eth_call` uses a base fee of zero to mimick geth's behavior
-        0
-    }
-
-    fn difficulty(&self) -> U256 {
-        self.inner.difficulty()
-    }
-
-    fn prevrandao(&self) -> Option<B256> {
-        self.inner.prevrandao()
-    }
-
-    fn blob_excess_gas_and_price(&self) -> Option<BlobExcessGasAndPrice> {
-        self.inner.blob_excess_gas_and_price()
-    }
-
-    fn slot_num(&self) -> u64 {
-        self.inner.slot_num()
-    }
-}
 
 /// Executes a transaction as a call, observed as described by
 /// `observer_config`.
@@ -104,7 +49,11 @@ where
         &state,
         cfg_env,
         transaction,
-        BlockEnvWithZeroBaseFee { inner: block_env },
+        &block_env,
+        BlockEnvOverrides {
+            // `eth_call` uses a base fee of zero to mimick geth's behavior
+            base_fee: Some(0),
+        },
         custom_precompiles,
         request,
     )

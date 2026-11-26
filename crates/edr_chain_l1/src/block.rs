@@ -26,7 +26,8 @@ use edr_chain_spec_evm::{
 use edr_chain_spec_receipt::ReceiptConstructor;
 use edr_evm::dry_run;
 use edr_inspection::{
-    EvmObservedData, InspectedExecution, InspectionChainSpec, InspectionError, InspectionRequest,
+    BlockEnvOverrides, EvmObservedData, InspectedExecution, InspectionChainSpec, InspectionError,
+    InspectionRequest,
 };
 use edr_precompile::OverriddenPrecompileProvider;
 use edr_primitives::{
@@ -497,7 +498,8 @@ impl<
             self.state.as_ref(),
             self.cfg.clone(),
             transaction.clone(),
-            block_env,
+            &block_env,
+            BlockEnvOverrides::default(),
             self.custom_precompiles,
             request,
         )
@@ -508,6 +510,8 @@ impl<
                 unreachable!("only the debug tracer fails with these, and none was requested")
             }
         })?;
+        // The block env borrows the header that `add_transaction_result` mutates.
+        drop(block_env);
 
         self.add_transaction_result(
             receipt_builder,

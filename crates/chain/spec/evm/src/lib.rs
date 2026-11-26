@@ -45,7 +45,8 @@ pub fn to_evm_cfg_env<ChainSpecT: ProtocolHardforkChainSpec>(
 /// associated EVM.
 pub trait EvmChainSpec:
     ChainSpec<
-        SignedTransaction: TransactionValidation<
+        SignedTransaction: revm_context::Transaction
+                               + TransactionValidation<
             ValidationError: From<EvmTransactionValidationError>,
         >,
     > + ContextChainSpec
