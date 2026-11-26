@@ -372,7 +372,7 @@ mimalloc-safe = { version = "0.1.68", default-features = false, features = [
     "no_opt_arch",
     "v3",
 ] }
-parking_lot = { version = "0.12.1", default-features = false }
+parking_lot = { version = "0.13.0", default-features = false }
 pastey = { version = "0.2.3", default-features = false }
 proptest = "1.7.0"
 # `unicode-perl` provides the Unicode word boundary (`\b`) used by edr_rpc_client's URL_REGEX.
