@@ -16,7 +16,7 @@ use edr_chain_spec_evm::{
 use edr_chain_spec_provider::ProviderChainSpec;
 use edr_eip7892::ScheduledBlobParams;
 use edr_eth::reward_percentile::RewardPercentile;
-use edr_evm::ExecutionResultWithMetadata;
+use edr_inspection::ObservedExecution;
 use edr_precompile::PrecompileFn;
 use edr_primitives::{Address, HashMap, U256};
 use edr_receipt::ReceiptTrait as _;
@@ -30,7 +30,7 @@ use crate::{
     config::GasEstimationMode,
     data::call,
     error::{EstimateGasFailure, ProviderErrorForChainSpec, TransactionFailure},
-    observability::{EvmObservedData, EvmObserverConfig, ObservedExecution},
+    observability::{EvmObservedData, EvmObserverConfig},
     time::TimeSinceEpoch,
     ProviderError, ProviderSpec, TransactionFailureReason,
 };
@@ -133,10 +133,7 @@ fn run_with_gas_limit<ChainSpecT: ProviderChainSpec<SignedTransaction: Transacti
     context: &GasCallContext<'_, ChainSpecT>,
     gas_limit: u64,
     observer_config: &EvmObserverConfig,
-) -> Result<
-    ObservedExecution<ExecutionResultWithMetadata<ChainSpecT::HaltReason>>,
-    ProviderErrorForChainSpec<ChainSpecT>,
-> {
+) -> Result<ObservedExecution<ChainSpecT::HaltReason>, ProviderErrorForChainSpec<ChainSpecT>> {
     let mut transaction = context.transaction.clone();
     transaction.set_gas_limit(gas_limit);
     call::run_call::<ChainSpecT, _, _>(
@@ -294,8 +291,9 @@ fn measure_gas_with_full_limit<
     contract_decoder: &RwLock<ContractDecoder>,
 ) -> Result<GasMeasurement, ProviderErrorForChainSpec<ChainSpecT>> {
     let ObservedExecution {
-        evm_observed_data,
-        execution_result,
+        observed: evm_observed_data,
+        execution: execution_result,
+        geth_trace: _,
     } = call::run_call::<ChainSpecT, _, _>(
         context.blockchain,
         context.new_block_env(),
@@ -359,14 +357,14 @@ fn probe_gas_limit<ChainSpecT: ProviderChainSpec<SignedTransaction: TransactionM
 
     let accepted = estimation_mode.accepts(
         observed_limited_execution.result(),
-        &observed_limited_execution.evm_observed_data.execution_trace,
+        &observed_limited_execution.observed.execution_trace,
     );
     let should_include_traces = observer_config
         .include_call_traces
         .should_include(|| !accepted);
 
-    let call_trace = should_include_traces
-        .then_some(observed_limited_execution.evm_observed_data.execution_trace);
+    let call_trace =
+        should_include_traces.then_some(observed_limited_execution.observed.execution_trace);
 
     Ok(GasProbe {
         accepted,

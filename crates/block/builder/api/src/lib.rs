@@ -11,7 +11,7 @@ use edr_chain_spec::{
 use edr_chain_spec_evm::{config::EvmConfig, EvmChainSpec};
 pub use edr_chain_spec_evm::{result::ExecutionResult, Cfg, CfgEnv, TransactionError};
 pub use edr_database_components::{DatabaseComponentError, DatabaseComponents, WrapDatabaseRef};
-use edr_inspection::{EvmObservedData, EvmObserverCollectionError, InspectionRequest};
+use edr_inspection::{EvmObservedData, EvmObserverCollectionError, ObservedExecutionRequest};
 use edr_primitives::{Address, HashMap, HashSet};
 use edr_state_api::{DynState, StateDiff, StateError};
 pub use revm_precompile::PrecompileFn;
@@ -97,7 +97,7 @@ pub enum BlockTransactionError<DatabaseErrorT, TransactionValidationErrorT> {
     ExceedsBlockBlobGasLimit,
     /// Error while collecting the observed data of the transaction.
     #[error(transparent)]
-    Inspection(EvmObserverCollectionError),
+    Collection(EvmObserverCollectionError),
     /// Transaction error
     #[error(transparent)]
     Transaction(#[from] TransactionError<DatabaseErrorT, TransactionValidationErrorT>),
@@ -189,10 +189,10 @@ pub trait BlockBuilder<
 
     /// Adds a transaction to the block, observing its execution as described
     /// by `request`.
-    fn add_transaction_with_inspection(
+    fn add_transaction_observed(
         &mut self,
         transaction: ChainSpecT::SignedTransaction,
-        request: InspectionRequest,
+        request: ObservedExecutionRequest,
     ) -> Result<
         EvmObservedData,
         BlockTransactionErrorForChainSpec<

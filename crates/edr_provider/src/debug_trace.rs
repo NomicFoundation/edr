@@ -8,8 +8,8 @@ use edr_chain_spec_evm::{BlockEnvTrait as _, CfgEnv, DatabaseComponentError, Tra
 use edr_chain_spec_provider::ProviderChainSpec;
 use edr_evm::run;
 use edr_inspection::{
-    DebugTraceContext, DebugTraceRequest, DebugTracerError, InspectedExecution, InspectionError,
-    InspectionRequest,
+    DebugTraceContext, DebugTraceRequest, DebugTracerError, ObservedExecution,
+    ObservedExecutionError, ObservedExecutionRequest,
 };
 use edr_primitives::{HashMap, B256, U256};
 use edr_solidity::recorded_trace_arena::RecordedTraceArena;
@@ -50,7 +50,7 @@ pub fn debug_trace_transaction<'header, ChainSpecT: ProviderChainSpec<SignedTran
     for (transaction_index, transaction) in transactions.into_iter().enumerate() {
         if transaction.transaction_hash() == transaction_hash {
             let include_call_traces = observer_config.include_call_traces;
-            let request = InspectionRequest {
+            let request = ObservedExecutionRequest {
                 observer_config,
                 debug_trace: Some(DebugTraceRequest {
                     options: tracing_options,
@@ -62,11 +62,11 @@ pub fn debug_trace_transaction<'header, ChainSpecT: ProviderChainSpec<SignedTran
                 }),
             };
 
-            let InspectedExecution {
+            let ObservedExecution {
                 execution,
                 observed,
                 geth_trace,
-            } = ChainSpecT::dry_run_with_inspection(
+            } = ChainSpecT::dry_run_observed(
                 blockchain,
                 state.as_ref(),
                 evm_config,
@@ -75,7 +75,7 @@ pub fn debug_trace_transaction<'header, ChainSpecT: ProviderChainSpec<SignedTran
                 &HashMap::default(),
                 request,
             )
-            .map_err(DebugTraceError::from_inspection_error)?;
+            .map_err(DebugTraceError::from_observed_execution_error)?;
 
             let execution_trace =
                 observed.into_call_traces(include_call_traces, execution.result.is_success());
@@ -164,28 +164,28 @@ pub enum DebugTraceError<TransactionValidationErrorT> {
 }
 
 impl<TransactionValidationErrorT> DebugTraceError<TransactionValidationErrorT> {
-    /// Converts from the error of an inspected execution.
-    pub fn from_inspection_error(
-        error: InspectionError<
+    /// Converts from the error of an observed execution.
+    pub fn from_observed_execution_error(
+        error: ObservedExecutionError<
             DatabaseComponentError<DynBlockchainError, StateError>,
             TransactionValidationErrorT,
         >,
     ) -> Self {
         match error {
-            InspectionError::Collection(error) => error.into(),
-            InspectionError::Database(DatabaseComponentError::Blockchain(error)) => {
+            ObservedExecutionError::Collection(error) => error.into(),
+            ObservedExecutionError::Database(DatabaseComponentError::Blockchain(error)) => {
                 DebugTraceError::Blockchain(error)
             }
-            InspectionError::Database(DatabaseComponentError::State(error)) => {
+            ObservedExecutionError::Database(DatabaseComponentError::State(error)) => {
                 DebugTraceError::State(error)
             }
-            InspectionError::DebugTracer(error) => match error {
+            ObservedExecutionError::DebugTracer(error) => match error {
                 DebugTracerError::InvalidTracerConfig => DebugTraceError::InvalidTracerConfig,
                 DebugTracerError::JsTracerNotEnabled => DebugTraceError::JsTracerNotEnabled,
                 DebugTracerError::MuxInspector(error) => DebugTraceError::MuxInspector(error),
                 DebugTracerError::UnsupportedTracer => DebugTraceError::UnsupportedTracer,
             },
-            InspectionError::Transaction(error) => DebugTraceError::TransactionError(error),
+            ObservedExecutionError::Transaction(error) => DebugTraceError::TransactionError(error),
         }
     }
 }

@@ -2,12 +2,10 @@ use core::fmt::Debug;
 use std::sync::Arc;
 
 use edr_coverage::reporter::SyncOnCollectedCoverageCallback;
-use edr_evm::ExecutionResultWithMetadata;
 use edr_gas_report::SyncOnCollectedGasReportCallback;
 pub use edr_inspection::{
     EvmObservedData, EvmObserver, EvmObserverCollectionError, EvmObserverConfig,
 };
-use edr_receipt::ExecutionResult;
 use edr_solidity::{config::IncludeTraces, contract_decoder::ContractDecoder};
 use parking_lot::RwLock;
 pub use revm_inspectors::tracing::StackSnapshotType;
@@ -106,17 +104,5 @@ impl JsonRpcError for EvmObserverCollectionError {
             EvmObserverCollectionError::AbiDecoding(_)
             | EvmObserverCollectionError::OnCollectedCoverageCallback(_) => INTERNAL_ERROR,
         }
-    }
-}
-
-/// The result of an execution, along with what the observer collected.
-pub(crate) struct ObservedExecution<ExecutionResultT> {
-    pub evm_observed_data: EvmObservedData,
-    pub execution_result: ExecutionResultT,
-}
-
-impl<HaltReasonT> ObservedExecution<ExecutionResultWithMetadata<HaltReasonT>> {
-    pub fn result(&self) -> &ExecutionResult<HaltReasonT> {
-        &self.execution_result.result
     }
 }

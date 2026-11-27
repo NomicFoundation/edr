@@ -26,7 +26,8 @@ use edr_chain_spec_evm::{
 use edr_chain_spec_receipt::ReceiptConstructor;
 use edr_evm::dry_run;
 use edr_inspection::{
-    EvmObservedData, InspectedExecution, InspectionChainSpec, InspectionError, InspectionRequest,
+    EvmObservedData, ObservableChainSpec, ObservedExecution, ObservedExecutionError,
+    ObservedExecutionRequest,
 };
 use edr_precompile::OverriddenPrecompileProvider;
 use edr_primitives::{
@@ -457,10 +458,10 @@ impl<
     /// Tries to add a transaction to the block, observing its execution as
     /// described by `request`.
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
-    pub fn add_transaction_with_inspection(
+    pub fn add_transaction_observed(
         &mut self,
         transaction: ChainSpecT::SignedTransaction,
-        request: InspectionRequest,
+        request: ObservedExecutionRequest,
     ) -> Result<
         EvmObservedData,
         BlockTransactionErrorForChainSpec<
@@ -469,7 +470,7 @@ impl<
         >,
     >
     where
-        ChainSpecT: InspectionChainSpec,
+        ChainSpecT: ObservableChainSpec,
     {
         self.validate_transaction(&transaction)?;
 
@@ -488,11 +489,11 @@ impl<
                 },
             )?;
 
-        let InspectedExecution {
+        let ObservedExecution {
             execution,
             observed,
             geth_trace: _,
-        } = ChainSpecT::dry_run_with_inspection(
+        } = ChainSpecT::dry_run_observed(
             self.blockchain,
             self.state.as_ref(),
             self.cfg.clone(),
@@ -502,9 +503,9 @@ impl<
             request,
         )
         .map_err(|error| match error {
-            InspectionError::Transaction(error) => BlockTransactionError::from(error),
-            InspectionError::Collection(error) => BlockTransactionError::Inspection(error),
-            InspectionError::Database(_) | InspectionError::DebugTracer(_) => {
+            ObservedExecutionError::Transaction(error) => BlockTransactionError::from(error),
+            ObservedExecutionError::Collection(error) => BlockTransactionError::Collection(error),
+            ObservedExecutionError::Database(_) | ObservedExecutionError::DebugTracer(_) => {
                 unreachable!("only the debug tracer fails with these, and none was requested")
             }
         })?;
@@ -808,7 +809,7 @@ impl<
         // type. `GenericChainSpec` shares it, as it reuses `L1Hardfork`.
         ChainSpecT: BlockChainSpec<ProtocolHardfork = Hardfork>
             + BlockEnvChainSpec
-            + InspectionChainSpec
+            + ObservableChainSpec
             + EvmChainSpec<
                 Context: Default,
                 SignedTransaction: Clone + ExecutableTransaction + alloy_rlp::Encodable,
@@ -906,10 +907,10 @@ impl<
         self.eth.add_transaction(transaction)
     }
 
-    fn add_transaction_with_inspection(
+    fn add_transaction_observed(
         &mut self,
         transaction: ChainSpecT::SignedTransaction,
-        request: InspectionRequest,
+        request: ObservedExecutionRequest,
     ) -> Result<
         EvmObservedData,
         BlockTransactionError<
@@ -917,8 +918,7 @@ impl<
             <ChainSpecT::SignedTransaction as TransactionValidation>::ValidationError,
         >,
     > {
-        self.eth
-            .add_transaction_with_inspection(transaction, request)
+        self.eth.add_transaction_observed(transaction, request)
     }
 
     fn finalize_block(

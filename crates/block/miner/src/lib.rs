@@ -14,7 +14,7 @@ use edr_chain_spec::{
 use edr_chain_spec_block::BlockChainSpec;
 use edr_chain_spec_evm::{config::EvmConfig, DatabaseComponentError, TransactionError};
 use edr_inspection::{
-    EvmObservedData, EvmObserverCollectionError, EvmObserverConfig, InspectionRequest,
+    EvmObservedData, EvmObserverCollectionError, EvmObserverConfig, ObservedExecutionRequest,
 };
 use edr_mem_pool::{MemPool, OrderedTransaction};
 use edr_primitives::{Address, HashMap, HashSet, B256};
@@ -269,9 +269,9 @@ where
         {
             let result = if let Some(config) = observer_config {
                 block_builder
-                    .add_transaction_with_inspection(
+                    .add_transaction_observed(
                         transaction,
-                        InspectionRequest {
+                        ObservedExecutionRequest {
                             observer_config: config.clone(),
                             debug_trace: None,
                         },
@@ -293,7 +293,7 @@ where
                     {
                         pending_transactions.remove_caller(&caller);
                     }
-                    BlockTransactionError::Inspection(error) => {
+                    BlockTransactionError::Collection(error) => {
                         return Err(MineBlockError::CollectInspectorDataError(error));
                     }
                     remainder => return Err(MineBlockError::BlockTransaction(remainder)),
@@ -533,9 +533,9 @@ pub fn mine_block_with_single_transaction<
     )?;
 
     let transaction_inspector_data = if let Some(observer) = observer_config {
-        let observed_data = block_builder.add_transaction_with_inspection(
+        let observed_data = block_builder.add_transaction_observed(
             transaction,
-            InspectionRequest {
+            ObservedExecutionRequest {
                 observer_config: observer.clone(),
                 debug_trace: None,
             },

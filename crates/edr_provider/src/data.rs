@@ -48,9 +48,11 @@ use edr_eth::{
     reward_percentile::RewardPercentile,
     BlockSpec, BlockTag, Eip1898BlockSpec,
 };
-use edr_evm::{set_guarantees, ExecutionResultWithMetadata};
+use edr_evm::set_guarantees;
 use edr_gas_report::{GasReport, GasReportCreationError, SyncOnCollectedGasReportCallback};
-use edr_inspection::{DebugTraceRequest, InspectedExecution, InspectionError, InspectionRequest};
+use edr_inspection::{
+    DebugTraceRequest, ObservedExecution, ObservedExecutionError, ObservedExecutionRequest,
+};
 use edr_mem_pool::{account_next_nonce, MemPool, OrderedTransaction};
 use edr_precompile::PrecompileFn;
 use edr_primitives::{
@@ -104,10 +106,7 @@ use crate::{
     filter::{bloom_contains_log_filter, filter_logs, Filter, FilterData, LogFilter},
     logger::SyncLogger,
     mock::SyncCallOverride,
-    observability::{
-        evm_observer_config, EvmObservedData, EvmObserverConfig, ObservabilityConfig,
-        ObservedExecution,
-    },
+    observability::{evm_observer_config, EvmObservedData, EvmObserverConfig, ObservabilityConfig},
     pending::BlockchainWithPending,
     requests::hardhat::rpc_types::ForkMetadata,
     snapshot::Snapshot,
@@ -163,16 +162,16 @@ impl<HaltReasonT: HaltReasonTrait> CallResultWithMetadata<HaltReasonT> {
     }
 }
 
-impl<HaltReasonT: HaltReasonTrait> From<ObservedExecution<ExecutionResultWithMetadata<HaltReasonT>>>
+impl<HaltReasonT: HaltReasonTrait> From<ObservedExecution<HaltReasonT>>
     for CallResultWithMetadata<HaltReasonT>
 {
-    fn from(value: ObservedExecution<ExecutionResultWithMetadata<HaltReasonT>>) -> Self {
+    fn from(value: ObservedExecution<HaltReasonT>) -> Self {
         Self {
-            address_to_executed_code: value.evm_observed_data.address_to_executed_code,
-            execution_trace: value.evm_observed_data.execution_trace,
-            console_log_inputs: value.evm_observed_data.encoded_console_logs,
-            execution_result: value.execution_result.result,
-            precompile_addresses: value.execution_result.precompile_addresses,
+            address_to_executed_code: value.observed.address_to_executed_code,
+            execution_trace: value.observed.execution_trace,
+            console_log_inputs: value.observed.encoded_console_logs,
+            execution_result: value.execution.result,
+            precompile_addresses: value.execution.precompile_addresses,
         }
     }
 }
@@ -2021,7 +2020,7 @@ where
             let mut cfg_env = cfg_env;
             set_guarantees(&mut cfg_env);
 
-            let request = InspectionRequest {
+            let request = ObservedExecutionRequest {
                 observer_config,
                 debug_trace: Some(DebugTraceRequest {
                     options: tracing_options,
@@ -2029,11 +2028,11 @@ where
                 }),
             };
 
-            let InspectedExecution {
+            let ObservedExecution {
                 execution,
                 observed,
                 geth_trace,
-            } = ChainSpecT::dry_run_with_inspection(
+            } = ChainSpecT::dry_run_observed(
                 blockchain,
                 state.as_ref(),
                 cfg_env,
@@ -2043,9 +2042,11 @@ where
                 request,
             )
             .map_err(|error| match error {
-                InspectionError::Transaction(error) => ProviderError::RunTransaction(error),
-                InspectionError::Collection(error) => ProviderError::from(error),
-                error => ProviderError::DebugTrace(DebugTraceError::from_inspection_error(error)),
+                ObservedExecutionError::Transaction(error) => ProviderError::RunTransaction(error),
+                ObservedExecutionError::Collection(error) => ProviderError::from(error),
+                error => {
+                    ProviderError::DebugTrace(DebugTraceError::from_observed_execution_error(error))
+                }
             })?;
 
             let execution_trace =
@@ -2537,10 +2538,10 @@ where
                     kind,
                     input.clone(),
                     observed_execution
-                        .evm_observed_data
+                        .observed
                         .execution_trace
                         .as_call_trace_arena(),
-                    &observed_execution.evm_observed_data.address_to_executed_code,
+                    &observed_execution.observed.address_to_executed_code,
                 ) {
                     Ok(report) => report,
                     Err(GasReportCreationError::MissingCode { address }) => unreachable!(
@@ -2650,7 +2651,7 @@ where
             &self.precompile_overrides,
         )
         .map_err(|error| match error {
-            MineTransactionError::BlockTransaction(BlockTransactionError::Inspection(error)) => {
+            MineTransactionError::BlockTransaction(BlockTransactionError::Collection(error)) => {
                 ProviderError::from(error)
             }
             error => error.into(),
@@ -3668,7 +3669,7 @@ mod tests {
         use edr_state_api::{account::AccountInfo, State, StateError};
 
         use super::*;
-        use crate::{observability::ObservedExecution, requests::eth::resolve_call_request};
+        use crate::requests::eth::resolve_call_request;
 
         /// The action named by the injected storage error.
         const FAILING_READ_ACTION: &str = "read the failing storage slot";
@@ -3730,8 +3731,7 @@ mod tests {
             }
         }
 
-        type ObservedCall =
-            ObservedExecution<ExecutionResultWithMetadata<edr_chain_l1::HaltReason>>;
+        type ObservedCall = ObservedExecution<edr_chain_l1::HaltReason>;
 
         /// Returns the observed `eth_call` of `OUTER_CONTRACT`, or the error
         /// that failed it. Replays the path of `run_call_impl` with a state
@@ -3827,7 +3827,7 @@ mod tests {
             );
 
             let has_nested_inner_frame = observed
-                .evm_observed_data
+                .observed
                 .execution_trace
                 .as_call_trace_arena()
                 .nodes()

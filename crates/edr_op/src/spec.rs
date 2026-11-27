@@ -27,7 +27,8 @@ use edr_chain_spec_rpc::{RpcBlockChainSpec, RpcChainSpec};
 use edr_eip1559::BaseFeeParams;
 use edr_eip7892::ScheduledBlobParams;
 use edr_inspection::{
-    InspectedExecution, InspectionChainSpec, InspectionErrorForChainSpec, InspectionRequest,
+    ObservableChainSpec, ObservedExecution, ObservedExecutionErrorForChainSpec,
+    ObservedExecutionRequest,
 };
 use edr_napi_core::{
     napi,
@@ -221,8 +222,8 @@ impl EvmChainSpec for OpChainSpec {
     }
 }
 
-impl InspectionChainSpec for OpChainSpec {
-    fn dry_run_with_inspection<
+impl ObservableChainSpec for OpChainSpec {
+    fn dry_run_observed<
         BlockT: BlockEnvTrait,
         BlockchainT: BlockHashByNumber<Error: 'static + std::error::Error + Send + Sync> + Clone,
         StateT: State<Error: 'static + std::error::Error + Send + Sync> + Clone,
@@ -233,12 +234,12 @@ impl InspectionChainSpec for OpChainSpec {
         transaction: Self::SignedTransaction,
         block: BlockT,
         custom_precompiles: &HashMap<Address, PrecompileFn>,
-        request: InspectionRequest,
+        request: ObservedExecutionRequest,
     ) -> Result<
-        InspectedExecution<Self::HaltReason>,
-        InspectionErrorForChainSpec<Self, BlockchainT::Error, StateT::Error>,
+        ObservedExecution<Self::HaltReason>,
+        ObservedExecutionErrorForChainSpec<Self, BlockchainT::Error, StateT::Error>,
     > {
-        edr_inspection::revm::dry_run_with_inspection::<Self, _, _, _>(
+        edr_inspection::revm::dry_run_observed::<Self, _, _, _>(
             blockchain,
             state,
             cfg,

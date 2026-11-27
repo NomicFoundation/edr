@@ -1,4 +1,4 @@
-//! [`InspectionChainSpec`](crate::InspectionChainSpec) implementation shared by
+//! [`ObservableChainSpec`](crate::ObservableChainSpec) implementation shared by
 //! chains that run on revm.
 
 use edr_blockchain_api::BlockHashByNumber;
@@ -12,14 +12,14 @@ use edr_state_api::State;
 use revm_inspectors::tracing::{DebugInspector, DebugInspectorError, TransactionContext};
 
 use crate::{
-    DebugTraceRequest, DebugTracerError, EvmObserver, InspectedExecution, InspectionError,
-    InspectionErrorForChainSpec, InspectionRequest,
+    DebugTraceRequest, DebugTracerError, EvmObserver, ObservedExecution, ObservedExecutionError,
+    ObservedExecutionErrorForChainSpec, ObservedExecutionRequest,
 };
 
 /// Runs a transaction on revm without committing the state, observing it as
 /// described by `request`.
 #[allow(clippy::too_many_arguments, clippy::type_complexity)]
-pub fn dry_run_with_inspection<
+pub fn dry_run_observed<
     ChainSpecT: EvmChainSpec<SignedTransaction: Clone>,
     BlockT: BlockEnvTrait,
     BlockchainT: BlockHashByNumber<Error: 'static + std::error::Error + Send + Sync> + Clone,
@@ -31,12 +31,12 @@ pub fn dry_run_with_inspection<
     transaction: ChainSpecT::SignedTransaction,
     block: BlockT,
     custom_precompiles: &HashMap<Address, PrecompileFn>,
-    request: InspectionRequest,
+    request: ObservedExecutionRequest,
 ) -> Result<
-    InspectedExecution<ChainSpecT::HaltReason>,
-    InspectionErrorForChainSpec<ChainSpecT, BlockchainT::Error, StateT::Error>,
+    ObservedExecution<ChainSpecT::HaltReason>,
+    ObservedExecutionErrorForChainSpec<ChainSpecT, BlockchainT::Error, StateT::Error>,
 > {
-    let InspectionRequest {
+    let ObservedExecutionRequest {
         observer_config,
         debug_trace,
     } = request;
@@ -53,11 +53,11 @@ pub fn dry_run_with_inspection<
             custom_precompiles,
             &mut observer,
         )
-        .map_err(InspectionError::Transaction)?;
+        .map_err(ObservedExecutionError::Transaction)?;
 
         let observed = observer.collect_and_report(&execution.precompile_addresses)?;
 
-        return Ok(InspectedExecution {
+        return Ok(ObservedExecution {
             execution,
             observed,
             geth_trace: None,
@@ -75,7 +75,7 @@ pub fn dry_run_with_inspection<
         custom_precompiles,
         &mut DualInspector::new(&mut debug_inspector, &mut observer),
     )
-    .map_err(InspectionError::Transaction)?;
+    .map_err(ObservedExecutionError::Transaction)?;
 
     let observed = observer.collect_and_report(&execution.precompile_addresses)?;
 
@@ -103,7 +103,7 @@ pub fn dry_run_with_inspection<
             &mut database,
         )
         .map_err(|error| match error {
-            DebugInspectorError::Database(error) => InspectionError::Database(error),
+            DebugInspectorError::Database(error) => ObservedExecutionError::Database(error),
             DebugInspectorError::InvalidTracerConfig
             | DebugInspectorError::JsTracerNotEnabled
             | DebugInspectorError::MuxInspector(_)
@@ -112,7 +112,7 @@ pub fn dry_run_with_inspection<
             }
         })?;
 
-    Ok(InspectedExecution {
+    Ok(ObservedExecution {
         execution: ExecutionResultAndStateWithMetadata::new(result_and_state, precompile_addresses),
         observed,
         geth_trace: Some(geth_trace),
