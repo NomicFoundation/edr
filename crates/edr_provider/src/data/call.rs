@@ -99,7 +99,7 @@ where
     )
     .map_err(|error| match error {
         ObservedExecutionError::Transaction(error) => ProviderError::RunTransaction(error),
-        ObservedExecutionError::Collection(error) => ProviderError::from(error),
+        ObservedExecutionError::ObservedDataCollection(error) => ProviderError::from(error),
         ObservedExecutionError::Database(_) | ObservedExecutionError::DebugTracer(_) => {
             unreachable!("only the debug tracer fails with these, and none was requested")
         }

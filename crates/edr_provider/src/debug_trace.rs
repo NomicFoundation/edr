@@ -172,7 +172,7 @@ impl<TransactionValidationErrorT> DebugTraceError<TransactionValidationErrorT> {
         >,
     ) -> Self {
         match error {
-            ObservedExecutionError::Collection(error) => error.into(),
+            ObservedExecutionError::ObservedDataCollection(error) => error.into(),
             ObservedExecutionError::Database(DatabaseComponentError::Blockchain(error)) => {
                 DebugTraceError::Blockchain(error)
             }

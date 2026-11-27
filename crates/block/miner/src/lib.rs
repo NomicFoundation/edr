@@ -13,9 +13,7 @@ use edr_chain_spec::{
 };
 use edr_chain_spec_block::BlockChainSpec;
 use edr_chain_spec_evm::{config::EvmConfig, DatabaseComponentError, TransactionError};
-use edr_inspection::{
-    EvmObservedData, EvmObserverCollectionError, EvmObserverConfig, ObservedExecutionRequest,
-};
+use edr_inspection::{EvmObservedData, EvmObserverCollectionError, EvmObserverConfig};
 use edr_mem_pool::{MemPool, OrderedTransaction};
 use edr_primitives::{Address, HashMap, HashSet, B256};
 use edr_signer::SignatureError;
@@ -152,32 +150,28 @@ impl<
 }
 
 #[derive(Debug)]
-pub struct MineBlockResultAndStateWithMetadata<
-    BlockT,
-    HaltReasonT: HaltReasonTrait,
-    InspectorDataT = (),
-> {
+pub struct MineBlockResultAndStateWithMetadata<BlockT, HaltReasonT: HaltReasonTrait> {
     /// Mined block and state
     pub block_and_state: BuiltBlockAndState<BlockT, HaltReasonT>,
     /// The set of precompile addresses that were available during execution.
     pub precompile_addresses: HashSet<Address>,
-    /// Data collected from inspectors during mining, indexed by transaction
-    /// number in the block.
-    pub transaction_inspector_data: Vec<InspectorDataT>,
+    /// What was observed for each transaction, in block order.
+    pub transaction_observed_data: Vec<EvmObservedData>,
 }
 
-impl<BlockT, HaltReasonT: HaltReasonTrait, InspectorDataT>
-    MineBlockResultAndStateWithMetadata<BlockT, HaltReasonT, InspectorDataT>
+impl<BlockT, HaltReasonT: HaltReasonTrait>
+    MineBlockResultAndStateWithMetadata<BlockT, HaltReasonT>
 {
-    /// Constructs a new instance.
-    pub fn new(
+    /// Constructs a new instance from a block built with an observer.
+    fn from_observed_block(
         block_and_state: BuiltBlockAndStateWithMetadata<BlockT, HaltReasonT>,
-        transaction_inspector_data: Vec<InspectorDataT>,
     ) -> Self {
         Self {
             block_and_state: block_and_state.block_and_state,
             precompile_addresses: block_and_state.precompile_addresses,
-            transaction_inspector_data,
+            transaction_observed_data: block_and_state
+                .transaction_observed_data
+                .expect("the block builder was created with an observer"),
         }
     }
 }
@@ -203,14 +197,10 @@ pub fn mine_block<ChainSpecT, BlockchainErrorT>(
     overrides: HeaderOverrides<ChainSpecT::ProtocolHardfork>,
     min_gas_price: u128,
     mine_ordering: MineOrdering,
-    observer_config: Option<&EvmObserverConfig>,
+    observer_config: &EvmObserverConfig,
     custom_precompiles: &HashMap<Address, PrecompileFn>,
 ) -> Result<
-    MineBlockResultAndStateWithMetadata<
-        ChainSpecT::LocalBlock,
-        ChainSpecT::HaltReason,
-        EvmObservedData,
-    >,
+    MineBlockResultAndStateWithMetadata<ChainSpecT::LocalBlock, ChainSpecT::HaltReason>,
     MineBlockErrorForChainSpec<
         BlockchainErrorT,
         ChainSpecT,
@@ -236,6 +226,7 @@ where
         block_inputs,
         overrides,
         custom_precompiles,
+        Some(observer_config.clone()),
     )?;
 
     let mut pending_transactions = {
@@ -257,7 +248,6 @@ where
         mem_pool.iter(comparator)
     };
 
-    let mut transactions_observed_data = Vec::new();
     while let Some(transaction) = pending_transactions.next() {
         if *transaction.gas_price() < min_gas_price {
             pending_transactions.remove_caller(transaction.caller());
@@ -267,21 +257,7 @@ where
         let caller = *transaction.caller();
 
         {
-            let result = if let Some(config) = observer_config {
-                block_builder
-                    .add_transaction_observed(
-                        transaction,
-                        ObservedExecutionRequest {
-                            observer_config: config.clone(),
-                            debug_trace: None,
-                        },
-                    )
-                    .map(|observed_data| transactions_observed_data.push(observed_data))
-            } else {
-                block_builder.add_transaction(transaction)
-            };
-
-            if let Err(error) = result {
+            if let Err(error) = block_builder.add_transaction(transaction) {
                 match error {
                     BlockTransactionError::ExceedsBlockGasLimit => {
                         pending_transactions.remove_caller(&caller);
@@ -293,7 +269,7 @@ where
                     {
                         pending_transactions.remove_caller(&caller);
                     }
-                    BlockTransactionError::Collection(error) => {
+                    BlockTransactionError::ObservedDataCollection(error) => {
                         return Err(MineBlockError::CollectInspectorDataError(error));
                     }
                     remainder => return Err(MineBlockError::BlockTransaction(remainder)),
@@ -306,9 +282,8 @@ where
         .finalize_block()
         .map_err(MineBlockError::BlockFinalize)?;
 
-    Ok(MineBlockResultAndStateWithMetadata::new(
+    Ok(MineBlockResultAndStateWithMetadata::from_observed_block(
         block_and_state,
-        transactions_observed_data,
     ))
 }
 
@@ -440,14 +415,10 @@ pub fn mine_block_with_single_transaction<
     evm_config: &EvmConfig,
     overrides: HeaderOverrides<ChainSpecT::ProtocolHardfork>,
     min_gas_price: u128,
-    observer_config: Option<&EvmObserverConfig>,
+    observer_config: &EvmObserverConfig,
     custom_precompiles: &HashMap<Address, PrecompileFn>,
 ) -> Result<
-    MineBlockResultAndStateWithMetadata<
-        ChainSpecT::LocalBlock,
-        ChainSpecT::HaltReason,
-        EvmObservedData,
-    >,
+    MineBlockResultAndStateWithMetadata<ChainSpecT::LocalBlock, ChainSpecT::HaltReason>,
     MineTransactionErrorForChainSpec<ChainSpecT, BlockchainErrorT>,
 > {
     let max_priority_fee_per_gas = transaction
@@ -530,29 +501,17 @@ pub fn mine_block_with_single_transaction<
         BlockInputs::empty(hardfork),
         overrides,
         custom_precompiles,
+        Some(observer_config.clone()),
     )?;
 
-    let transaction_inspector_data = if let Some(observer) = observer_config {
-        let observed_data = block_builder.add_transaction_observed(
-            transaction,
-            ObservedExecutionRequest {
-                observer_config: observer.clone(),
-                debug_trace: None,
-            },
-        )?;
-        vec![observed_data]
-    } else {
-        block_builder.add_transaction(transaction)?;
-        Vec::new()
-    };
+    block_builder.add_transaction(transaction)?;
 
     let block_and_state = block_builder
         .finalize_block()
         .map_err(MineTransactionError::Finalize)?;
 
-    Ok(MineBlockResultAndStateWithMetadata::new(
+    Ok(MineBlockResultAndStateWithMetadata::from_observed_block(
         block_and_state,
-        transaction_inspector_data,
     ))
 }
 

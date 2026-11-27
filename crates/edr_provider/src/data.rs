@@ -1588,7 +1588,6 @@ where
             MineBlockResultAndStateWithMetadata<
                 <ChainSpecT as GenesisBlockFactory>::LocalBlock,
                 ChainSpecT::HaltReason,
-                EvmObservedData,
             >,
             ProviderErrorForChainSpec<ChainSpecT>,
         >,
@@ -1637,7 +1636,7 @@ where
         Ok(MineBlockResultWithMetadata::new(
             block_and_total_difficulty.block,
             result.precompile_addresses,
-            result.transaction_inspector_data,
+            result.transaction_observed_data,
             result.block_and_state.transaction_results,
         ))
     }
@@ -1655,7 +1654,6 @@ where
             MineBlockResultAndStateWithMetadata<
                 <ChainSpecT as GenesisBlockFactory>::LocalBlock,
                 ChainSpecT::HaltReason,
-                EvmObservedData,
             >,
             ProviderErrorForChainSpec<ChainSpecT>,
         >,
@@ -1664,7 +1662,6 @@ where
         MineBlockResultAndStateWithMetadata<
             <ChainSpecT as GenesisBlockFactory>::LocalBlock,
             ChainSpecT::HaltReason,
-            EvmObservedData,
         >,
         ProviderErrorForChainSpec<ChainSpecT>,
     > {
@@ -1702,7 +1699,7 @@ where
             for (transaction, execution_result, inspector_data) in izip!(
                 result.block_and_state.block.transactions().iter(),
                 result.block_and_state.transaction_results.iter(),
-                result.transaction_inspector_data.iter()
+                result.transaction_observed_data.iter()
             ) {
                 match report.add(
                     &mut contract_decoder,
@@ -2043,7 +2040,7 @@ where
             )
             .map_err(|error| match error {
                 ObservedExecutionError::Transaction(error) => ProviderError::RunTransaction(error),
-                ObservedExecutionError::Collection(error) => ProviderError::from(error),
+                ObservedExecutionError::ObservedDataCollection(error) => ProviderError::from(error),
                 error => {
                     ProviderError::DebugTrace(DebugTraceError::from_observed_execution_error(error))
                 }
@@ -2398,7 +2395,6 @@ where
         MineBlockResultAndStateWithMetadata<
             <ChainSpecT as GenesisBlockFactory>::LocalBlock,
             ChainSpecT::HaltReason,
-            EvmObservedData,
         >,
         ProviderErrorForChainSpec<ChainSpecT>,
     > {
@@ -2600,7 +2596,6 @@ where
         MineBlockResultAndStateWithMetadata<
             <ChainSpecT as GenesisBlockFactory>::LocalBlock,
             ChainSpecT::HaltReason,
-            EvmObservedData,
         >,
         ProviderErrorForChainSpec<ChainSpecT>,
     > {
@@ -2615,7 +2610,7 @@ where
             options,
             self.min_gas_price,
             self.mining_order,
-            Some(observer_config),
+            observer_config,
             &self.precompile_overrides,
         )?;
 
@@ -2633,7 +2628,6 @@ where
         MineBlockResultAndStateWithMetadata<
             <ChainSpecT as GenesisBlockFactory>::LocalBlock,
             ChainSpecT::HaltReason,
-            EvmObservedData,
         >,
         ProviderErrorForChainSpec<ChainSpecT>,
     > {
@@ -2647,13 +2641,13 @@ where
             evm_config,
             options,
             self.min_gas_price,
-            Some(observer_config),
+            observer_config,
             &self.precompile_overrides,
         )
         .map_err(|error| match error {
-            MineTransactionError::BlockTransaction(BlockTransactionError::Collection(error)) => {
-                ProviderError::from(error)
-            }
+            MineTransactionError::BlockTransaction(
+                BlockTransactionError::ObservedDataCollection(error),
+            ) => ProviderError::from(error),
             error => error.into(),
         })?;
 
@@ -3646,9 +3640,9 @@ mod tests {
             },
         )?;
 
-        assert_eq!(result.transaction_inspector_data.len(), 1);
+        assert_eq!(result.transaction_observed_data.len(), 1);
         let console_log_inputs = result
-            .transaction_inspector_data
+            .transaction_observed_data
             .into_iter()
             .next()
             .expect("There should be a transaction")

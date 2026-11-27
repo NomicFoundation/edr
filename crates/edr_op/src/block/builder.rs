@@ -11,7 +11,7 @@ use edr_chain_spec::TransactionValidation;
 use edr_chain_spec_block::BlockChainSpec;
 use edr_chain_spec_evm::{config::EvmConfig, DatabaseComponentError};
 use edr_eip1559::ConstantBaseFeeParams;
-use edr_inspection::{EvmObservedData, ObservedExecutionRequest};
+use edr_inspection::EvmObserverConfig;
 use edr_primitives::{Address, Bytes, HashMap, B256, KECCAK_NULL_RLP, U256};
 use edr_state_api::{DynState, StateError};
 
@@ -65,6 +65,7 @@ impl<'builder, BlockchainErrorT: 'static + std::error::Error + Send + Sync>
         mut inputs: BlockInputs,
         mut overrides: HeaderOverrides<Hardfork>,
         custom_precompiles: &'builder HashMap<Address, PrecompileFn>,
+        observer_config: Option<EvmObserverConfig>,
     ) -> Result<
         Self,
         BlockBuilderCreationError<
@@ -170,6 +171,7 @@ impl<'builder, BlockchainErrorT: 'static + std::error::Error + Send + Sync>
             inputs,
             overrides,
             custom_precompiles,
+            observer_config,
         )?;
 
         Ok(Self { eth })
@@ -194,20 +196,6 @@ impl<'builder, BlockchainErrorT: 'static + std::error::Error + Send + Sync>
         >,
     > {
         self.eth.add_transaction(transaction)
-    }
-
-    fn add_transaction_observed(
-        &mut self,
-        transaction: OpSignedTransaction,
-        request: ObservedExecutionRequest,
-    ) -> Result<
-        EvmObservedData,
-        BlockTransactionError<
-            DatabaseComponentError<Self::BlockchainError, StateError>,
-            <OpSignedTransaction as TransactionValidation>::ValidationError,
-        >,
-    > {
-        self.eth.add_transaction_observed(transaction, request)
     }
 
     fn finalize_block(

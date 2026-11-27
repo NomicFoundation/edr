@@ -11,7 +11,7 @@ use edr_chain_spec::{
 use edr_chain_spec_evm::{config::EvmConfig, EvmChainSpec};
 pub use edr_chain_spec_evm::{result::ExecutionResult, Cfg, CfgEnv, TransactionError};
 pub use edr_database_components::{DatabaseComponentError, DatabaseComponents, WrapDatabaseRef};
-use edr_inspection::{EvmObservedData, EvmObserverCollectionError, ObservedExecutionRequest};
+use edr_inspection::{EvmObservedData, EvmObserverCollectionError, EvmObserverConfig};
 use edr_primitives::{Address, HashMap, HashSet};
 use edr_state_api::{DynState, StateDiff, StateError};
 pub use revm_precompile::PrecompileFn;
@@ -97,7 +97,7 @@ pub enum BlockTransactionError<DatabaseErrorT, TransactionValidationErrorT> {
     ExceedsBlockBlobGasLimit,
     /// Error while collecting the observed data of the transaction.
     #[error(transparent)]
-    Collection(EvmObserverCollectionError),
+    ObservedDataCollection(EvmObserverCollectionError),
     /// Transaction error
     #[error(transparent)]
     Transaction(#[from] TransactionError<DatabaseErrorT, TransactionValidationErrorT>),
@@ -122,6 +122,9 @@ pub struct BuiltBlockAndStateWithMetadata<BlockT, HaltReasonT: HaltReasonTrait> 
     pub block_and_state: BuiltBlockAndState<BlockT, HaltReasonT>,
     /// The set of precompile addresses that were available during execution.
     pub precompile_addresses: HashSet<Address>,
+    /// What was observed for each transaction, in block order. `None` if the
+    /// builder was created without an observer.
+    pub transaction_observed_data: Option<Vec<EvmObservedData>>,
 }
 
 /// A trait for building blocks.
@@ -145,7 +148,9 @@ pub trait BlockBuilder<
     /// The local block type constructed by the builder.
     type LocalBlock;
 
-    /// Creates a new block builder.
+    /// Creates a new block builder. With an `observer_config`, every added
+    /// transaction is observed.
+    #[allow(clippy::too_many_arguments)]
     fn new_block_builder(
         blockchain: &'builder dyn Blockchain<
             BlockReceiptT,
@@ -161,6 +166,7 @@ pub trait BlockBuilder<
         inputs: BlockInputs,
         overrides: HeaderOverrides<ChainSpecT::ProtocolHardfork>,
         custom_precompiles: &'builder HashMap<Address, PrecompileFn>,
+        observer_config: Option<EvmObserverConfig>,
     ) -> Result<
         Self,
         BlockBuilderCreationErrorForChainSpec<
@@ -175,26 +181,13 @@ pub trait BlockBuilder<
     /// Returns the set of precompile addresses available during execution.
     fn precompile_addresses(&self) -> &HashSet<Address>;
 
-    /// Adds a transaction to the block.
+    /// Adds a transaction to the block, observing its execution if the builder
+    /// was created with an observer.
     fn add_transaction(
         &mut self,
         transaction: ChainSpecT::SignedTransaction,
     ) -> Result<
         (),
-        BlockTransactionErrorForChainSpec<
-            ChainSpecT,
-            DatabaseComponentError<Self::BlockchainError, StateError>,
-        >,
-    >;
-
-    /// Adds a transaction to the block, observing its execution as described
-    /// by `request`.
-    fn add_transaction_observed(
-        &mut self,
-        transaction: ChainSpecT::SignedTransaction,
-        request: ObservedExecutionRequest,
-    ) -> Result<
-        EvmObservedData,
         BlockTransactionErrorForChainSpec<
             ChainSpecT,
             DatabaseComponentError<Self::BlockchainError, StateError>,

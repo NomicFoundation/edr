@@ -26,8 +26,8 @@ use edr_chain_spec_evm::{
 use edr_chain_spec_receipt::ReceiptConstructor;
 use edr_evm::dry_run;
 use edr_inspection::{
-    EvmObservedData, ObservableChainSpec, ObservedExecution, ObservedExecutionError,
-    ObservedExecutionRequest,
+    EvmObservedData, EvmObserverConfig, ObservableChainSpec, ObservedExecution,
+    ObservedExecutionError, ObservedExecutionRequest,
 };
 use edr_precompile::OverriddenPrecompileProvider;
 use edr_primitives::{
@@ -90,6 +90,8 @@ pub struct EthBlockBuilder<
     // Set of all unique precompile addresses. We collect this once during construction as their
     // creation should be deterministic.
     precompile_addresses: HashSet<Address>,
+    observer_config: Option<EvmObserverConfig>,
+    transaction_observed_data: Option<Vec<EvmObservedData>>,
     _phantom: PhantomData<fn() -> (EvmChainSpecT, ExecutionReceiptBuilderT)>,
     // Net cumulative gas used (after refunds), tracked separately because from Amsterdam
     // (EIP-7778) the header's `gas_used` is gross (before refunds).
@@ -266,9 +268,9 @@ impl<
         BlockT: ?Sized + Block<ChainSpecT::SignedTransaction>,
         BlockchainErrorT: Debug + 'static + std::error::Error + Send + Sync,
         ChainSpecT: BlockChainSpec<
-            ProtocolHardfork: PartialOrd,
-            SignedTransaction: Clone + ExecutableTransaction,
-        >,
+                ProtocolHardfork: PartialOrd,
+                SignedTransaction: Clone + ExecutableTransaction,
+            > + ObservableChainSpec,
         ExecutionReceiptBuilderT: ExecutionReceiptBuilder<
             ChainSpecT::HaltReason,
             ChainSpecT::ProtocolHardfork,
@@ -321,6 +323,7 @@ impl<
         inputs: BlockInputs,
         mut overrides: HeaderOverrides<ChainSpecT::ProtocolHardfork>,
         custom_precompiles: &'builder HashMap<Address, PrecompileFn>,
+        observer_config: Option<EvmObserverConfig>,
     ) -> Result<
         Self,
         BlockBuilderCreationError<
@@ -404,12 +407,15 @@ impl<
             withdrawals: inputs.withdrawals,
             custom_precompiles,
             precompile_addresses,
+            transaction_observed_data: observer_config.as_ref().map(|_| Vec::new()),
+            observer_config,
             _phantom: PhantomData,
             cumulative_gas_used: 0,
         })
     }
 
-    /// Tries to add a transaction to the block.
+    /// Tries to add a transaction to the block, observing its execution if the
+    /// builder was created with an observer.
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     pub fn add_transaction(
         &mut self,
@@ -438,77 +444,48 @@ impl<
                 },
             )?;
 
-        let transaction_result = dry_run::<ChainSpecT, _, _, _>(
-            self.blockchain,
-            &self.state,
-            self.cfg.clone(),
-            transaction.clone(),
-            block_env,
-            self.custom_precompiles,
-        )?;
+        let (execution, observed) = if let Some(observer_config) = &self.observer_config {
+            let request = ObservedExecutionRequest {
+                observer_config: observer_config.clone(),
+                debug_trace: None,
+            };
 
-        self.add_transaction_result(
-            receipt_builder,
-            transaction,
-            transaction_result.into_result_and_state(),
-        );
+            let ObservedExecution {
+                execution,
+                observed,
+                geth_trace: _,
+            } = ChainSpecT::dry_run_observed(
+                self.blockchain,
+                self.state.as_ref(),
+                self.cfg.clone(),
+                transaction.clone(),
+                block_env,
+                self.custom_precompiles,
+                request,
+            )
+            .map_err(|error| match error {
+                ObservedExecutionError::Transaction(error) => BlockTransactionError::from(error),
+                ObservedExecutionError::ObservedDataCollection(error) => {
+                    BlockTransactionError::ObservedDataCollection(error)
+                }
+                ObservedExecutionError::Database(_) | ObservedExecutionError::DebugTracer(_) => {
+                    unreachable!("only the debug tracer fails with these, and none was requested")
+                }
+            })?;
 
-        Ok(())
-    }
-    /// Tries to add a transaction to the block, observing its execution as
-    /// described by `request`.
-    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
-    pub fn add_transaction_observed(
-        &mut self,
-        transaction: ChainSpecT::SignedTransaction,
-        request: ObservedExecutionRequest,
-    ) -> Result<
-        EvmObservedData,
-        BlockTransactionErrorForChainSpec<
-            ChainSpecT,
-            DatabaseComponentError<BlockchainErrorT, StateError>,
-        >,
-    >
-    where
-        ChainSpecT: ObservableChainSpec,
-    {
-        self.validate_transaction(&transaction)?;
-
-        let block_env = ChainSpecT::BlockEnv::new_block_env(
-            &self.header,
-            self.cfg.spec.clone(),
-            self.block_config.scheduled_blob_params.as_ref(),
-        );
-
-        let receipt_builder =
-            ExecutionReceiptBuilderT::new_receipt_builder(&self.state, &transaction).map_err(
-                |error| {
-                    BlockTransactionError::Transaction(TransactionError::Database(
-                        DatabaseComponentError::State(error),
-                    ))
-                },
+            (execution, Some(observed))
+        } else {
+            let execution = dry_run::<ChainSpecT, _, _, _>(
+                self.blockchain,
+                &self.state,
+                self.cfg.clone(),
+                transaction.clone(),
+                block_env,
+                self.custom_precompiles,
             )?;
 
-        let ObservedExecution {
-            execution,
-            observed,
-            geth_trace: _,
-        } = ChainSpecT::dry_run_observed(
-            self.blockchain,
-            self.state.as_ref(),
-            self.cfg.clone(),
-            transaction.clone(),
-            block_env,
-            self.custom_precompiles,
-            request,
-        )
-        .map_err(|error| match error {
-            ObservedExecutionError::Transaction(error) => BlockTransactionError::from(error),
-            ObservedExecutionError::Collection(error) => BlockTransactionError::Collection(error),
-            ObservedExecutionError::Database(_) | ObservedExecutionError::DebugTracer(_) => {
-                unreachable!("only the debug tracer fails with these, and none was requested")
-            }
-        })?;
+            (execution, None)
+        };
 
         self.add_transaction_result(
             receipt_builder,
@@ -516,8 +493,15 @@ impl<
             execution.into_result_and_state(),
         );
 
-        Ok(observed)
+        if let (Some(observed_data), Some(observed)) =
+            (self.transaction_observed_data.as_mut(), observed)
+        {
+            observed_data.push(observed);
+        }
+
+        Ok(())
     }
+
     fn add_transaction_result(
         &mut self,
         receipt_builder: ExecutionReceiptBuilderT,
@@ -759,6 +743,7 @@ impl<
                 transaction_results: self.transaction_results,
             },
             precompile_addresses: self.precompile_addresses,
+            transaction_observed_data: self.transaction_observed_data,
         })
     }
 }
@@ -866,6 +851,7 @@ impl<
         inputs: BlockInputs,
         overrides: HeaderOverrides<ChainSpecT::ProtocolHardfork>,
         custom_precompiles: &'builder HashMap<Address, PrecompileFn>,
+        observer_config: Option<EvmObserverConfig>,
     ) -> Result<
         Self,
         BlockBuilderCreationError<
@@ -882,6 +868,7 @@ impl<
             inputs,
             overrides,
             custom_precompiles,
+            observer_config,
         )
         .map(|eth| Self { eth })
     }
@@ -905,20 +892,6 @@ impl<
         >,
     > {
         self.eth.add_transaction(transaction)
-    }
-
-    fn add_transaction_observed(
-        &mut self,
-        transaction: ChainSpecT::SignedTransaction,
-        request: ObservedExecutionRequest,
-    ) -> Result<
-        EvmObservedData,
-        BlockTransactionError<
-            DatabaseComponentError<Self::BlockchainError, StateError>,
-            <ChainSpecT::SignedTransaction as TransactionValidation>::ValidationError,
-        >,
-    > {
-        self.eth.add_transaction_observed(transaction, request)
     }
 
     fn finalize_block(

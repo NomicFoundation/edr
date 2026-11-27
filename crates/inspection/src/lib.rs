@@ -82,7 +82,7 @@ pub enum DebugTracerError {
 #[derive(Debug, thiserror::Error)]
 pub enum ObservedExecutionError<DatabaseErrorT, TransactionValidationErrorT> {
     #[error(transparent)]
-    Collection(#[from] EvmObserverCollectionError),
+    ObservedDataCollection(#[from] EvmObserverCollectionError),
     /// Database error while building the debug trace.
     #[error(transparent)]
     Database(DatabaseErrorT),
