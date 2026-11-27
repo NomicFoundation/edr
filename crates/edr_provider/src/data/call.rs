@@ -91,7 +91,7 @@ where
     set_guarantees(&mut cfg_env);
 
     let request = InspectionRequest {
-        observer: observer_config.clone(),
+        observer_config: observer_config.clone(),
         debug_trace: None,
     };
 

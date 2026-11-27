@@ -51,7 +51,7 @@ pub fn debug_trace_transaction<'header, ChainSpecT: ProviderChainSpec<SignedTran
         if transaction.transaction_hash() == transaction_hash {
             let include_call_traces = observer_config.include_call_traces;
             let request = InspectionRequest {
-                observer: observer_config,
+                observer_config,
                 debug_trace: Some(DebugTraceRequest {
                     options: tracing_options,
                     context: Some(DebugTraceContext {

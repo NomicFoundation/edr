@@ -203,7 +203,7 @@ pub fn mine_block<ChainSpecT, BlockchainErrorT>(
     overrides: HeaderOverrides<ChainSpecT::ProtocolHardfork>,
     min_gas_price: u128,
     mine_ordering: MineOrdering,
-    observer: Option<&EvmObserverConfig>,
+    observer_config: Option<&EvmObserverConfig>,
     custom_precompiles: &HashMap<Address, PrecompileFn>,
 ) -> Result<
     MineBlockResultAndStateWithMetadata<
@@ -257,7 +257,7 @@ where
         mem_pool.iter(comparator)
     };
 
-    let mut transaction_inspector_data = Vec::new();
+    let mut transactions_observed_data = Vec::new();
     while let Some(transaction) = pending_transactions.next() {
         if *transaction.gas_price() < min_gas_price {
             pending_transactions.remove_caller(transaction.caller());
@@ -267,16 +267,16 @@ where
         let caller = *transaction.caller();
 
         {
-            let result = if let Some(observer) = observer {
+            let result = if let Some(config) = observer_config {
                 block_builder
                     .add_transaction_with_inspection(
                         transaction,
                         InspectionRequest {
-                            observer: observer.clone(),
+                            observer_config: config.clone(),
                             debug_trace: None,
                         },
                     )
-                    .map(|inspector_data| transaction_inspector_data.push(inspector_data))
+                    .map(|observed_data| transactions_observed_data.push(observed_data))
             } else {
                 block_builder.add_transaction(transaction)
             };
@@ -308,7 +308,7 @@ where
 
     Ok(MineBlockResultAndStateWithMetadata::new(
         block_and_state,
-        transaction_inspector_data,
+        transactions_observed_data,
     ))
 }
 
@@ -440,7 +440,7 @@ pub fn mine_block_with_single_transaction<
     evm_config: &EvmConfig,
     overrides: HeaderOverrides<ChainSpecT::ProtocolHardfork>,
     min_gas_price: u128,
-    observer: Option<&EvmObserverConfig>,
+    observer_config: Option<&EvmObserverConfig>,
     custom_precompiles: &HashMap<Address, PrecompileFn>,
 ) -> Result<
     MineBlockResultAndStateWithMetadata<
@@ -532,15 +532,15 @@ pub fn mine_block_with_single_transaction<
         custom_precompiles,
     )?;
 
-    let transaction_inspector_data = if let Some(observer) = observer {
-        let inspector_data = block_builder.add_transaction_with_inspection(
+    let transaction_inspector_data = if let Some(observer) = observer_config {
+        let observed_data = block_builder.add_transaction_with_inspection(
             transaction,
             InspectionRequest {
-                observer: observer.clone(),
+                observer_config: observer.clone(),
                 debug_trace: None,
             },
         )?;
-        vec![inspector_data]
+        vec![observed_data]
     } else {
         block_builder.add_transaction(transaction)?;
         Vec::new()

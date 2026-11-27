@@ -37,7 +37,7 @@ pub fn dry_run_with_inspection<
     InspectionErrorForChainSpec<ChainSpecT, BlockchainT::Error, StateT::Error>,
 > {
     let InspectionRequest {
-        observer: observer_config,
+        observer_config,
         debug_trace,
     } = request;
 

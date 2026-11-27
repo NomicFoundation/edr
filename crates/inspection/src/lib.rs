@@ -30,7 +30,7 @@ pub use self::{
 pub struct InspectionRequest {
     /// The observer that collects traces, console logs, executed code and
     /// coverage, and applies call overrides.
-    pub observer: EvmObserverConfig,
+    pub observer_config: EvmObserverConfig,
     /// A Geth debug tracer to run alongside the observer.
     pub debug_trace: Option<DebugTraceRequest>,
 }

@@ -2022,7 +2022,7 @@ where
             set_guarantees(&mut cfg_env);
 
             let request = InspectionRequest {
-                observer: observer_config,
+                observer_config,
                 debug_trace: Some(DebugTraceRequest {
                     options: tracing_options,
                     context: None,
