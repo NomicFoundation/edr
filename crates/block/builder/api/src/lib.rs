@@ -9,9 +9,7 @@ use edr_chain_spec::{
     TransactionValidation,
 };
 use edr_chain_spec_evm::{config::EvmConfig, EvmChainSpec};
-pub use edr_chain_spec_evm::{
-    result::ExecutionResult, Cfg, CfgEnv, Context, Inspector, Journal, TransactionError,
-};
+pub use edr_chain_spec_evm::{result::ExecutionResult, Cfg, CfgEnv, TransactionError};
 pub use edr_database_components::{DatabaseComponentError, DatabaseComponents, WrapDatabaseRef};
 use edr_inspection::{EvmObservedData, EvmObserverCollectionError, InspectionRequest};
 use edr_primitives::{Address, HashMap, HashSet};
