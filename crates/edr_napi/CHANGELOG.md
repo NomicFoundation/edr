@@ -1,5 +1,11 @@
 # @nomicfoundation/edr
 
+## 0.27.1
+
+### Patch Changes
+
+- 4743e20: Added the Amsterdam hardfork activation on Hoodi, so EDR infers it from the block timestamp when forking
+
 ## 0.27.0
 
 ### Minor Changes
