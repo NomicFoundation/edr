@@ -46,6 +46,7 @@ use foundry_evm::{
         invariant::{CallDetails, InvariantContract},
         CounterExample, FuzzFixtures,
     },
+    opts::EvmOpts,
     traces::{
         load_contracts, CallTraceArena, SetupTraceKind, SetupTraces, SparsedTraceArena, TracingMode,
     },
@@ -116,6 +117,9 @@ pub struct ContractRunner<
     generate_gas_report: bool,
     /// Which trace arenas to retain once a test has finished.
     trace_retention: TraceRetentionPolicy,
+    /// The EVM options, to derive the gas limit and transaction gas bounds
+    /// for an `evm_version` override.
+    evm_opts: &'a EvmOpts<HardforkT>,
 
     #[allow(clippy::type_complexity)]
     _phantom: PhantomData<fn() -> (EvmBuilderT, HaltReasonT, TransactionErrorT)>,
@@ -123,7 +127,7 @@ pub struct ContractRunner<
 
 /// Options for [`ContractRunner`].
 #[derive(Clone, Debug)]
-pub struct ContractRunnerOptions<'a> {
+pub struct ContractRunnerOptions<'a, HardforkT> {
     /// The initial balance of the test contract
     pub initial_balance: U256,
     /// The address which will be used as the `from` field in all EVM calls
@@ -143,6 +147,9 @@ pub struct ContractRunnerOptions<'a> {
     pub generate_gas_report: bool,
     /// Which test results carry call traces to the caller.
     pub include_traces: IncludeTraces,
+    /// The EVM options, to derive the gas limit and transaction gas bounds
+    /// for an `evm_version` override.
+    pub evm_opts: &'a EvmOpts<HardforkT>,
 }
 
 /// Contract artifact related arguments to the contract runner.
@@ -187,7 +194,7 @@ impl<
         executor_builder: ExecutorBuilder<BlockT, TxT, HardforkT, ChainContextT>,
         contract: &'a TestContract,
         artifacts: ContractRunnerArtifacts<'a, HaltReasonT, NestedTraceDecoderT>,
-        options: ContractRunnerOptions<'a>,
+        options: ContractRunnerOptions<'a, HardforkT>,
         span: Span,
     ) -> Self {
         let ContractRunnerArtifacts {
@@ -207,6 +214,7 @@ impl<
             test_function_overrides,
             generate_gas_report,
             include_traces,
+            evm_opts,
         } = options;
 
         Self {
@@ -228,6 +236,7 @@ impl<
             test_function_overrides,
             generate_gas_report,
             trace_retention: TraceRetentionPolicy::new(include_traces, generate_gas_report),
+            evm_opts,
             _phantom: PhantomData,
         }
     }
@@ -287,7 +296,15 @@ impl<
             }
             if let Some(evm_version) = overrides.evm_version.as_deref() {
                 match evm_version.parse() {
-                    Ok(spec) => executor.set_spec_id(spec),
+                    Ok(spec) => {
+                        executor.set_spec_id(spec);
+                        // The gas limit, unless configured, and the EIP-7825
+                        // cap derive from the hardfork.
+                        executor.set_gas_limit(self.evm_opts.gas_limit_for_hardfork(spec));
+                        executor.set_transaction_execution_gas_bound(
+                            self.evm_opts.transaction_execution_gas_bound(spec),
+                        );
+                    }
                     Err(_) => {
                         return Err(format!("unknown EVM version: '{evm_version}'"));
                     }

@@ -3782,7 +3782,6 @@ dependencies = [
  "edr_coverage",
  "edr_decoder_revert",
  "edr_defaults",
- "edr_eip8037",
  "edr_gas_report",
  "edr_primitives",
  "edr_solidity",

@@ -5,7 +5,6 @@ mod tracing;
 
 pub use config::{assert_multiple, TestConfig};
 use edr_decoder_revert::RevertDecoder;
-use edr_eip8037::TransactionGasBounds;
 use parking_lot::RwLock;
 mod integration_test_config;
 mod solidity_error_code;
@@ -37,7 +36,7 @@ use edr_solidity_tests::{
     multi_runner::{TestContract, TestContracts},
     revm::context::{BlockEnv, TxEnv},
     CollectStackTraces, MultiContractRunner, SolidityTestRunnerConfig,
-    SolidityTestRunnerConfigError, TestSourcePaths, MAX_TEST_TRANSACTION_GAS_LIMIT,
+    SolidityTestRunnerConfigError, TestSourcePaths,
 };
 use edr_test_utils::{env::json_rpc_url_provider, new_fd_lock};
 use foundry_cheatcodes::{ExecutionContextConfig, FsPermissions, RpcEndpointUrl, RpcEndpoints};
@@ -147,15 +146,11 @@ impl ForgeTestProfile {
     }
 
     fn evm_opts<HardforkT: HardforkTr>(hardfork: HardforkT) -> EvmOpts<HardforkT> {
-        let transaction_gas_bounds = TransactionGasBounds::for_hardfork(hardfork);
         EvmOpts {
             env: Env {
-                // Solidity tests want as much gas as possible, so the default gas
-                // limit is the most a transaction may carry on the hardfork, or the
-                // maximum.
-                gas_limit: transaction_gas_bounds
-                    .total_transaction_gas
-                    .unwrap_or(MAX_TEST_TRANSACTION_GAS_LIMIT),
+                // Solidity tests want as much gas as possible, so the gas limit
+                // derives from the hardfork, see `EvmOpts::gas_limit()`.
+                gas_limit: None,
                 chain_id: None,
                 tx_origin: CALLER,
                 block_number: U256::from(1),
@@ -167,7 +162,6 @@ impl ForgeTestProfile {
             ffi: true,
             memory_limit: 1 << 26,
             spec: hardfork,
-            transaction_execution_gas_bound: transaction_gas_bounds.execution_gas,
             ..EvmOpts::default()
         }
     }

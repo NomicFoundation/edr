@@ -20,6 +20,18 @@ pub fn set_cfg_spec_id<HardforkT: Into<SpecId> + Clone>(
     cfg.enable_amsterdam_eip2780 = is_amsterdam;
 }
 
+/// Sets the [EIP-7825] cap of `cfg` to the given bound on the gas a
+/// transaction may spend on execution. `None` disables the cap.
+///
+/// [EIP-7825]: https://eips.ethereum.org/EIPS/eip-7825
+pub fn set_cfg_tx_gas_limit_cap<HardforkT>(
+    cfg: &mut CfgEnv<HardforkT>,
+    transaction_execution_gas_bound: Option<u64>,
+) {
+    // revm falls back to the spec's cap when `None`; `u64::MAX` disables it.
+    cfg.tx_gas_limit_cap = Some(transaction_execution_gas_bound.unwrap_or(u64::MAX));
+}
+
 /// Helper container type for `block`, `cfg`, and `tx`.
 #[derive(Clone, Debug)]
 pub struct Env<BlockT, TxT, HardforkT> {

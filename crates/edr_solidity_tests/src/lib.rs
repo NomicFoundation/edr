@@ -14,8 +14,8 @@ pub use config::{
     CollectStackTraces, FuzzConfigOverride, InvalidExclusionGlob, InvariantConfigOverride,
     SolidityTestRunnerConfig, SolidityTestRunnerConfigError, SyncOnCollectedCoverageCallback,
     TestFunctionConfigOverride, TestSourceFile, TestSourcePaths, TimeoutConfig,
-    MAX_TEST_TRANSACTION_GAS_LIMIT,
 };
+pub use foundry_evm::opts::MAX_TEST_TRANSACTION_GAS_LIMIT;
 
 pub mod inline_config;
 pub mod test_source_error;

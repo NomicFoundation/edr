@@ -232,6 +232,14 @@ impl<
         foundry_evm_core::set_cfg_spec_id(&mut self.env.cfg, spec_id);
     }
 
+    /// Sets the bound on the gas a transaction may spend on execution,
+    /// introduced in [EIP-7825]. `None` disables it.
+    ///
+    /// [EIP-7825]: https://eips.ethereum.org/EIPS/eip-7825
+    pub fn set_transaction_execution_gas_bound(&mut self, bound: Option<u64>) {
+        foundry_evm_core::set_cfg_tx_gas_limit_cap(&mut self.env.cfg, bound);
+    }
+
     /// Returns the gas limit for calls and deployments.
     ///
     /// This is different from the gas limit imposed by the passed in

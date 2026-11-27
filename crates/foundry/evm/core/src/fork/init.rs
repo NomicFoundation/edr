@@ -124,7 +124,6 @@ where
     cfg.disable_eip3607 = true;
     cfg.disable_block_gas_limit = disable_block_gas_limit;
     cfg.disable_nonce_check = true;
-    // revm falls back to the spec's cap when `None`; `u64::MAX` disables it.
-    cfg.tx_gas_limit_cap = Some(transaction_execution_gas_bound.unwrap_or(u64::MAX));
+    crate::set_cfg_tx_gas_limit_cap(&mut cfg, transaction_execution_gas_bound);
     cfg
 }
