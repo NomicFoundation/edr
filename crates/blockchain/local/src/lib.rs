@@ -429,6 +429,98 @@ mod tests {
 
     use super::*;
 
+    /// A genesis block that funds an account, its state diff, and the config
+    /// of its blocks.
+    fn funded_genesis(
+        address: Address,
+    ) -> anyhow::Result<(
+        <L1ChainSpec as edr_block_api::GenesisBlockFactory>::LocalBlock,
+        StateDiff,
+        BlockConfig<edr_chain_l1::Hardfork>,
+    )> {
+        let mut account = Account::from(AccountInfo {
+            balance: U256::from(1_000_000_000u64),
+            ..AccountInfo::default()
+        });
+        account.status = AccountStatus::Created | AccountStatus::Touched;
+        let genesis_diff: StateDiff = EvmState::from_iter([(address, account)]).into();
+
+        let chain_config = l1_chain_config(edr_chain_l1::chains::L1_MAINNET_CHAIN_ID)
+            .expect("L1 Mainnet chain config exists");
+        let block_config = BlockConfig {
+            base_fee_params: chain_config.base_fee_params.clone(),
+            default_difficulty_fn: L1ChainSpec::default_block_difficulty,
+            hardfork: edr_chain_l1::Hardfork::Shanghai,
+            scheduled_blob_params: chain_config.bpo_hardfork_schedule.clone(),
+        };
+
+        let genesis_block = L1ChainSpec::genesis_block(
+            genesis_diff.clone(),
+            &block_config,
+            GenesisBlockOptions {
+                gas_limit: Some(6_000_000),
+                mix_hash: Some(B256::random()),
+                ..GenesisBlockOptions::default()
+            },
+        )?;
+
+        Ok((genesis_block, genesis_diff, block_config))
+    }
+
+    #[test]
+    fn compute_state_of_reserved_block_after_it_was_read() -> anyhow::Result<()> {
+        let address = Address::random();
+        let (genesis_block, genesis_diff, block_config) = funded_genesis(address)?;
+        let mut blockchain =
+            LocalBlockchain::new(genesis_block, genesis_diff, 123, block_config.hardfork)?;
+        blockchain.reserve_blocks(&block_config, 10, 1)?;
+
+        let irregular_state = IrregularState::default();
+        let expected = blockchain.state_at_block_number(0, irregular_state.state_overrides())?;
+
+        // Reading a reserved block creates it.
+        assert!(blockchain.storage.block_by_number(5)?.is_some());
+
+        for block_number in [4, 5, 6] {
+            let actual = blockchain
+                .state_at_block_number(block_number, irregular_state.state_overrides())?;
+            assert_eq!(
+                actual.state_root()?,
+                expected.state_root()?,
+                "block {block_number}"
+            );
+            assert_eq!(
+                actual.basic(address)?.map(|account| account.balance),
+                Some(U256::from(1_000_000_000u64)),
+                "block {block_number}"
+            );
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn revert_to_reserved_block_after_it_was_read() -> anyhow::Result<()> {
+        let address = Address::random();
+        let (genesis_block, genesis_diff, block_config) = funded_genesis(address)?;
+        let mut blockchain =
+            LocalBlockchain::new(genesis_block, genesis_diff, 123, block_config.hardfork)?;
+        blockchain.reserve_blocks(&block_config, 10, 1)?;
+        assert!(blockchain.storage.block_by_number(5)?.is_some());
+
+        blockchain.revert_to_block(5)?;
+
+        assert_eq!(blockchain.last_block_number(), 5);
+        let state =
+            blockchain.state_at_block_number(5, IrregularState::default().state_overrides())?;
+        assert_eq!(
+            state.basic(address)?.map(|account| account.balance),
+            Some(U256::from(1_000_000_000u64))
+        );
+
+        Ok(())
+    }
+
     #[test]
     fn compute_state_after_reserve() -> anyhow::Result<()> {
         let address1 = Address::random();
